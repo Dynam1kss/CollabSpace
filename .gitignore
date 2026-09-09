@@ -1,0 +1,19 @@
+node_modules
+dist
+.env
+*.local
+
+# pnpm
+.pnpm-store
+
+# prisma
+apps/server/prisma/generated
+
+# editors / os
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
