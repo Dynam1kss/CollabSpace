@@ -1,4 +1,5 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import { config } from "./core/config";
 import { apiRouter } from "./core/router";
 import { errorMiddleware } from "./core/error-middleware";
@@ -6,6 +7,7 @@ import { errorMiddleware } from "./core/error-middleware";
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
