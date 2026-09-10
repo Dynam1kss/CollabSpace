@@ -1,19 +1,20 @@
-node_modules
-dist
+node_modules/
+dist/
+build/
 .env
-*.local
-
-# pnpm
-.pnpm-store
-
-# prisma
-apps/server/prisma/generated
-
-# editors / os
-.vscode/*
-!.vscode/extensions.json
+.env.local
+*.log
+npm-debug.log*
 .DS_Store
 Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+coverage/
+bench/results/*.raw
+server/prisma/dev.db
 
-# logs
-*.log
+# робочі файли, які не входять до складу роботи
+docs/ТЗ.md
+docs/briefs/
+docs/defense.md

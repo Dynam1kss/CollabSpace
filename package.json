@@ -1,25 +1,23 @@
 {
-  "name": "master-project",
+  "name": "collabspace",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
   "scripts": {
-    "dev": "pnpm --parallel --filter web --filter server run dev",
-    "typecheck": "pnpm -r run typecheck",
-    "lint": "eslint .",
-    "test": "pnpm -r run test",
-    "test:e2e": "pnpm --filter web run test:e2e"
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\""
   },
   "devDependencies": {
-    "@eslint/js": "^9.13.0",
-    "eslint": "^9.13.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.13",
-    "prettier": "^3.3.3",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.10.0"
+    "concurrently": "^9.1.0"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "prisma@5.22.0": true,
+    "argon2@0.41.1": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true
   }
 }

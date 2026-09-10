@@ -1,0 +1,33 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 480px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.server-status {
+  color: gray;
+  font-size: 0.85rem;
+}
+
+.form-error {
+  color: crimson;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

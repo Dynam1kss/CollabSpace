@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BoardRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime @default(now())
+
+  ownedBoards  Board[]       @relation("BoardOwner")
+  memberships  BoardMember[]
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  title     String
+  ownerId   String
+  owner     User     @relation("BoardOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   BoardMember[]
+  snapshot  BoardSnapshot?
+}
+
+model BoardMember {
+  id      String    @id @default(cuid())
+  boardId String
+  board   Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    BoardRole
+
+  @@unique([boardId, userId])
+}
+
+model BoardSnapshot {
+  id        String   @id @default(cuid())
+  boardId   String   @unique
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  state     Bytes
+  updatedAt DateTime @updatedAt
+}
