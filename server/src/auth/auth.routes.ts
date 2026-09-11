@@ -1,11 +1,12 @@
 import type { Response } from 'express';
 import { Router } from 'express';
 import type { AuthResponse, LoginRequest, RegisterRequest } from 'shared';
-import { AUTH_COOKIE, AUTH_COOKIE_MAX_AGE_MS } from '../cookies';
+import { AUTH_COOKIE, AUTH_COOKIE_MAX_AGE_MS, authCookieOptions } from '../cookies';
 import { env } from '../env';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
-import { hashPassword, signAuthToken, toAuthUser, verifyPassword } from './auth.service';
+import { authRateLimiter } from './auth.rate-limit';
+import { DUMMY_PASSWORD_HASH, hashPassword, signAuthToken, toAuthUser, verifyPassword } from './auth.service';
 import { loginSchema, registerSchema } from './auth.schema';
 import { requireAuth } from './auth.middleware';
 
@@ -13,14 +14,12 @@ export const authRouter = Router();
 
 function setAuthCookie(res: Response, token: string) {
   res.cookie(AUTH_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: env.isProduction,
+    ...authCookieOptions(env.isProduction),
     maxAge: AUTH_COOKIE_MAX_AGE_MS,
   });
 }
 
-authRouter.post('/register', async (req, res, next) => {
+authRouter.post('/register', authRateLimiter(), async (req, res, next) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -45,7 +44,7 @@ authRouter.post('/register', async (req, res, next) => {
   }
 });
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', authRateLimiter(), async (req, res, next) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -54,7 +53,9 @@ authRouter.post('/login', async (req, res, next) => {
     const { email, password }: LoginRequest = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await verifyPassword(user.passwordHash, password))) {
+    // verify виконуємо завжди, навіть для неіснуючої пошти — інакше час відповіді видає її наявність
+    const passwordValid = await verifyPassword(user?.passwordHash ?? DUMMY_PASSWORD_HASH, password);
+    if (!user || !passwordValid) {
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Невірна пошта або пароль');
     }
 
@@ -80,6 +81,6 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
 });
 
 authRouter.post('/logout', (_req, res) => {
-  res.clearCookie(AUTH_COOKIE);
+  res.clearCookie(AUTH_COOKIE, authCookieOptions(env.isProduction));
   res.status(204).end();
 });

@@ -38,7 +38,10 @@ export function LoginPage({ onSwitchToRegister }: Props) {
       {error && <p className="form-error">{error}</p>}
       <button type="submit">Увійти</button>
       <p>
-        Немає акаунту? <button type="button" onClick={onSwitchToRegister}>Зареєструватись</button>
+        Немає акаунту?{' '}
+        <button type="button" onClick={onSwitchToRegister}>
+          Зареєструватись
+        </button>
       </p>
     </form>
   );

@@ -12,6 +12,10 @@ export function verifyPassword(passwordHash: string, password: string) {
   return verify(passwordHash, password);
 }
 
+// фіктивний хеш для юзера, якого не існує — щоб verify виконувався завжди
+// і час відповіді логіна не видавав, чи є така пошта в базі
+export const DUMMY_PASSWORD_HASH = await hash('dummy-password-for-constant-time-login');
+
 export function signAuthToken(userId: string) {
   return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: '7d' });
 }

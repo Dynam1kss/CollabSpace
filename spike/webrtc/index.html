@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebRTC spike</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 480px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      .meter {
+        width: 100%;
+        height: 12px;
+        background: #eee;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+      }
+      .meter-fill {
+        height: 100%;
+        width: 0%;
+        background: #3a9;
+        transition: width 60ms linear;
+      }
+      #status {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>WebRTC spike — голос</h1>
+    <button id="connect-btn" type="button">Підключитись</button>
+    <p>Стан ICE: <span id="status">не підключено</span></p>
+
+    <p>Я</p>
+    <div class="meter"><div class="meter-fill" id="local-meter"></div></div>
+
+    <p>Співрозмовник</p>
+    <div class="meter"><div class="meter-fill" id="remote-meter"></div></div>
+
+    <audio id="remote-audio" autoplay playsinline></audio>
+
+    <script type="module" src="client.js"></script>
+  </body>
+</html>
