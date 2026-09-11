@@ -1,5 +1,9 @@
 body {
   font-family: system-ui, sans-serif;
+  margin: 0;
+}
+
+.app-shell {
   max-width: 480px;
   margin: 2rem auto;
   padding: 0 1rem;
@@ -59,4 +63,51 @@ header {
 .board-role {
   color: gray;
   font-size: 0.85rem;
+}
+
+/* сторінка дошки — на всю площу вікна, полотно під шапкою */
+.board-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #ddd;
+  flex: 0 0 auto;
+}
+
+.board-title {
+  font-weight: bold;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.zoom-percent {
+  min-width: 3.5rem;
+  text-align: center;
+  color: #555;
+}
+
+.board-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.board-page-message {
+  max-width: 480px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  text-align: center;
 }

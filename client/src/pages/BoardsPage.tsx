@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import type { BoardSummary } from 'shared';
 import { logout } from '../api/auth';
 import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/boards';
@@ -102,7 +103,7 @@ export function BoardsPage() {
               </>
             ) : (
               <>
-                <span>{board.title}</span>
+                <Link to={`/boards/${board.id}`}>{board.title}</Link>
                 {!board.isOwner && <span className="board-role"> (учасник)</span>}
                 {board.isOwner && (
                   <>

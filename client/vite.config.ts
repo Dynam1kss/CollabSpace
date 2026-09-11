@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // тільки для розробки — щоб відкривати з телефону через тунель
+    host: true,
+    allowedHosts: true,
     proxy: {
       '/api': 'http://localhost:3000',
       '/ws': {

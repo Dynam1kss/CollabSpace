@@ -7,8 +7,11 @@
     "dev": "vite"
   },
   "dependencies": {
+    "konva": "^9.3.22",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-konva": "^18.2.16",
+    "react-router-dom": "^7.18.3",
     "shared": "*",
     "zustand": "^4.5.5"
   },
