@@ -12,6 +12,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
 
+interface SpikeIceServerConfig {
+  urls: string[];
+  username?: string;
+  credential?: string;
+}
+
 export const app = express();
 app.use(express.json());
 
@@ -29,6 +35,18 @@ app.use('/api/boards', boardsRouter);
 
 // спайки — тільки для розробки, в проді їх не буде на диску
 if (!env.isProduction) {
+  app.get('/spike/webrtc-ice-config', (_req, res) => {
+    const iceServers: SpikeIceServerConfig[] = [{ urls: env.iceStunUrls }];
+    if (env.iceTurnUrl) {
+      iceServers.push({
+        urls: [env.iceTurnUrl],
+        username: env.iceTurnUsername,
+        credential: env.iceTurnCredential,
+      });
+    }
+    res.json({ iceServers, iceTransportPolicy: env.iceTransportPolicy });
+  });
+
   app.use('/spike/webrtc', express.static(resolve(__dirname, '../../spike/webrtc')));
 }
 
