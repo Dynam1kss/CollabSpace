@@ -33,12 +33,17 @@ const WHEEL_PINCH_MAX_FACTOR = 1.65;
 // покриває повільний рух, лишаючись явно коротшим за паузу після відриву пальців
 const WHEEL_GESTURE_GAP_MS = 500;
 
-// ціла дельта, менша за це, — не вважаємо клацом миші (той завжди відчутно
-// більший — дивись калібрування WHEEL_ZOOM_K вище), а вважаємо початком
-// повільного руху трекпадом: на малій швидкості дельта інколи випадково
-// виходить цілим числом, і без цього порогу такий кадр міг хибно "замкнути"
-// щойно розпочатий pan-жест як zoom-mouse
+// дельта, менша за це, — точно не клац миші (нотч навіть при зумі сторінки
+// 500% дає 100/5 = 20), а початок повільного руху трекпадом
 const MOUSE_CLICK_MIN_DELTA = 20;
+
+// перша подія жесту, схожа на клац миші, чекає стільки на "другу думку":
+// трекпад шле події кожні 8–16мс, тож за цей час він себе видасть потоком з
+// плаваючою дельтою; миша або мовчить, або повторює ту саму дельту (швидке
+// прокручування). 60мс — запас на 2–3 кадри навіть коли головний потік
+// підгальмовує на перемальовуванні; для першого нотча миші це затримка
+// менша за поріг "миттєво" (~100мс), далі жест уже класифікований
+const WHEEL_CLASSIFY_DELAY_MS = 60;
 
 const LINE_HEIGHT_PX = 16;
 
@@ -64,15 +69,19 @@ function normalizeWheelDelta(evt: WheelEvent) {
 
 type WheelGestureType = 'pan' | 'zoom-mouse' | 'zoom-pinch';
 
-// ctrlKey — щипок трекпадом (браузер виставляє сам). Інакше — клац миші лише
-// якщо дельта ціла І достатньо велика (справжній нотч завжди помітний); усе
-// інше без ctrlKey — трекпадне панорамування, навіть якщо перша дрібна подія
-// на старті повільного руху випадково вийшла цілим числом
-function classifyWheelEvent(ctrlKey: boolean, deltaX: number, deltaY: number): WheelGestureType {
-  if (ctrlKey) return 'zoom-pinch';
-  const looksLikeMouseClick =
-    Number.isInteger(deltaX) && Number.isInteger(deltaY) && Math.abs(deltaY) >= MOUSE_CLICK_MIN_DELTA;
-  return looksLikeMouseClick ? 'zoom-mouse' : 'pan';
+// кандидат на клац миші: строго вертикальна й достатньо велика дельта.
+// цілість дельти навмисно не перевіряємо — chromium ділить deltaY на зум
+// сторінки (110% → 90.909, 150% → 66.667), hi-res миші дають 33.33, і всі
+// вони хибно ставали "паном". остаточно вирішує handleWheel, дочекавшись
+// WHEEL_CLASSIFY_DELAY_MS
+function looksLikeMouseClick(deltaX: number, deltaY: number) {
+  return deltaX === 0 && Math.abs(deltaY) >= MOUSE_CLICK_MIN_DELTA;
+}
+
+// друга подія одразу за першою: миша повторює рівно ту саму дельту (той самий
+// нотч), трекпад — ні (дельта пливе з рухом пальців або має deltaX)
+function isSameMouseNotch(first: { deltaX: number; deltaY: number }, deltaX: number, deltaY: number) {
+  return deltaX === 0 && Math.abs(Math.abs(deltaY) - Math.abs(first.deltaY)) < 1e-6;
 }
 
 function distance(a: Point2, b: Point2) {
@@ -99,6 +108,11 @@ export function useCanvasViewport(initial: Viewport) {
   const panRef = useRef<{ active: boolean; lastX: number; lastY: number } | null>(null);
   const pinchRef = useRef<{ distance: number; midpoint: Point2 } | null>(null);
   const wheelGestureRef = useRef<{ type: WheelGestureType; lastTime: number } | null>(null);
+  // перша подія нового жесту, яка схожа на клац миші, але ще не підтверджена —
+  // лежить тут до другої події або до таймера
+  const pendingWheelRef = useRef<{ deltaX: number; deltaY: number; pointer: Point2; timerId: number } | null>(
+    null,
+  );
 
   // дзеркало стану у ref — щоб пакетна обробка wheel нижче завжди бачила
   // свіже значення, а не застигле в замиканні useCallback з порожнім deps
@@ -116,6 +130,7 @@ export function useCanvasViewport(initial: Viewport) {
   useEffect(() => {
     return () => {
       if (wheelRafIdRef.current !== null) cancelAnimationFrame(wheelRafIdRef.current);
+      if (pendingWheelRef.current) clearTimeout(pendingWheelRef.current.timerId);
     };
   }, []);
 
@@ -187,28 +202,9 @@ export function useCanvasViewport(initial: Viewport) {
     e.evt.preventDefault();
   }, []);
 
-  const handleWheel = useCallback(
-    (e: KonvaEventObject<WheelEvent>) => {
-      e.evt.preventDefault();
-      const stage = e.target.getStage();
-      const pointer = stage?.getPointerPosition();
-      if (!stage || !pointer) return;
-
-      const { deltaX, deltaY } = normalizeWheelDelta(e.evt);
-
-      // за паузу довшу за WHEEL_GESTURE_GAP_MS вважаємо це новим жестом і
-      // класифікуємо наново; інакше тримаємось типу, визначеного на самому
-      // початку жесту — щоб трекпад не перемикав пан/зум усередині одного
-      // безперервного руху пальців (навіть якщо один окремий кадр вийшов
-      // прикордонним за дробовістю дельти чи ctrlKey ненадовго змигнув)
-      const now = performance.now();
-      const activeGesture = wheelGestureRef.current;
-      const type: WheelGestureType =
-        activeGesture && now - activeGesture.lastTime < WHEEL_GESTURE_GAP_MS
-          ? activeGesture.type
-          : classifyWheelEvent(e.evt.ctrlKey, deltaX, deltaY);
-      wheelGestureRef.current = { type, lastTime: now };
-
+  // застосувати одну подію wheel уже відомого типу до pending-viewport
+  const applyWheel = useCallback(
+    (type: WheelGestureType, deltaX: number, deltaY: number, pointer: Point2) => {
       // база для цієї події — те, що вже накопичено в цьому кадрі (якщо
       // кілька wheel-подій прийшли до flush), інакше свіжий committed стан
       const base = pendingViewportRef.current ?? viewportRef.current;
@@ -235,6 +231,69 @@ export function useCanvasViewport(initial: Viewport) {
       scheduleWheelFlush();
     },
     [scheduleWheelFlush],
+  );
+
+  // відкладена перша подія отримала вердикт — застосовуємо її і фіксуємо тип жесту
+  const resolvePendingWheel = useCallback(
+    (type: WheelGestureType) => {
+      const pending = pendingWheelRef.current;
+      if (!pending) return;
+      clearTimeout(pending.timerId);
+      pendingWheelRef.current = null;
+      wheelGestureRef.current = { type, lastTime: performance.now() };
+      applyWheel(type, pending.deltaX, pending.deltaY, pending.pointer);
+    },
+    [applyWheel],
+  );
+
+  const handleWheel = useCallback(
+    (e: KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      const pointer = stage?.getPointerPosition();
+      if (!stage || !pointer) return;
+
+      const { deltaX, deltaY } = normalizeWheelDelta(e.evt);
+
+      // друга подія слідом за відкладеною першою — вона й вирішує, миша це чи трекпад
+      if (pendingWheelRef.current) {
+        const first = pendingWheelRef.current;
+        resolvePendingWheel(!e.evt.ctrlKey && isSameMouseNotch(first, deltaX, deltaY) ? 'zoom-mouse' : 'pan');
+      }
+
+      // за паузу довшу за WHEEL_GESTURE_GAP_MS вважаємо це новим жестом і
+      // класифікуємо наново; інакше тримаємось типу, визначеного на самому
+      // початку жесту — щоб трекпад не перемикав пан/зум усередині одного
+      // безперервного руху пальців (навіть якщо один окремий кадр вийшов
+      // прикордонним за дельтою чи ctrlKey ненадовго змигнув)
+      const now = performance.now();
+      const activeGesture = wheelGestureRef.current;
+      if (activeGesture && now - activeGesture.lastTime < WHEEL_GESTURE_GAP_MS) {
+        activeGesture.lastTime = now;
+        applyWheel(activeGesture.type, deltaX, deltaY, pointer);
+        return;
+      }
+
+      // ctrlKey — щипок трекпадом (браузер виставляє сам), вирішуємо одразу
+      if (e.evt.ctrlKey) {
+        wheelGestureRef.current = { type: 'zoom-pinch', lastTime: now };
+        applyWheel('zoom-pinch', deltaX, deltaY, pointer);
+        return;
+      }
+
+      // схоже на клац миші — але по одній події не відрізнити від різкого
+      // вертикального свайпу трекпадом. відкладаємо: якщо за
+      // WHEEL_CLASSIFY_DELAY_MS ніхто не прийшов — миша (зум)
+      if (looksLikeMouseClick(deltaX, deltaY)) {
+        const timerId = window.setTimeout(() => resolvePendingWheel('zoom-mouse'), WHEEL_CLASSIFY_DELAY_MS);
+        pendingWheelRef.current = { deltaX, deltaY, pointer, timerId };
+        return;
+      }
+
+      wheelGestureRef.current = { type: 'pan', lastTime: now };
+      applyWheel('pan', deltaX, deltaY, pointer);
+    },
+    [applyWheel, resolvePendingWheel],
   );
 
   const handleTouchStart = useCallback((e: KonvaEventObject<TouchEvent>) => {
@@ -320,6 +379,10 @@ export function useCanvasViewport(initial: Viewport) {
     zoomIn,
     zoomOut,
     resetView,
+    // прямий доступ до сетера viewport — для "показати все" (вписати обʼєкти),
+    // де потрібен довільний масштаб/позиція, не "скинути на 100% і центр",
+    // як робить resetView. Нової логіки тут нема, просто віддаємо вже наявний setState
+    setViewport,
     stageHandlers: {
       onWheel: handleWheel,
       onMouseDown: handleMouseDown,

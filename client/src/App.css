@@ -65,11 +65,42 @@ header {
   font-size: 0.85rem;
 }
 
-/* сторінка дошки — на всю площу вікна, полотно під шапкою */
+/* сторінка дошки — на всю площу вікна, полотно під шапкою. Палітра одна на
+всі елементи дошки: білі панелі, тонкі сірі межі, синій акцент */
 .board-page {
+  --panel-bg: #ffffff;
+  --panel-border: #e3e6ea;
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  --accent: #4262ff;
+  --accent-soft: #e8ecff;
+  --hover: #f1f3f6;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  color: var(--text);
+}
+
+.board-page button {
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.board-page button:hover {
+  background: var(--hover);
+}
+
+.board-page button:active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .board-toolbar {
@@ -78,29 +109,50 @@ header {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid #ddd;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-border);
   flex: 0 0 auto;
 }
 
 .board-title {
-  font-weight: bold;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .zoom-controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.icon-button {
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .zoom-percent {
-  min-width: 3.5rem;
+  min-width: 3.2rem;
   text-align: center;
-  color: #555;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  background: #f7f8fa;
 }
 
 .board-canvas {
-  flex: 1 1 auto;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   touch-action: none;
   overscroll-behavior: none;
 }
@@ -110,4 +162,174 @@ header {
   margin: 2rem auto;
   padding: 0 1rem;
   text-align: center;
+}
+
+/* панелі — плаваючі "острівці" поверх полотна, а не колонки впритул до
+країв: заокруглена картка з тінню й відступом від краю, полотно під ними
+займає весь простір. Над панелями браузер не має зумити сторінку —
+touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom */
+.board-island {
+  position: absolute;
+  z-index: 1; /* полотно в DOM після панелі інструментів — без цього перекриває її */
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+  touch-action: pan-x pan-y;
+}
+
+.tool-island {
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+
+.tool-button {
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--text);
+}
+
+.tool-button:hover {
+  background: var(--hover) !important;
+}
+
+.tool-button.active {
+  background: var(--accent-soft) !important;
+  color: var(--accent);
+}
+
+/* контекстна панель — компактний рядок дій біля виділення; left/top
+виставляє сам компонент, бо рахує їх від рамки виділення */
+.ctx-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  max-width: calc(100% - 16px);
+}
+
+/* селектор навмисно з .board-page, щоб перебити його ж стилі кнопок без
+!important — інакше inline-колір зразка кольору не пробʼється */
+.board-page .ctx-panel button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+.board-page .ctx-panel button:hover {
+  background: var(--hover);
+}
+
+.ctx-danger:hover {
+  color: #d93025;
+}
+
+.ctx-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: var(--panel-border);
+}
+
+.ctx-color {
+  position: relative;
+}
+
+.board-page .ctx-panel .ctx-swatch {
+  width: 22px;
+  height: 22px;
+  margin: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+}
+
+.board-page .ctx-panel .ctx-swatch:hover {
+  border-color: var(--accent);
+}
+
+/* палітра відкривається від обʼєкта: панель над ним — палітра над панеллю,
+панель під ним — палітра знизу; інакше наїжджає на сам обʼєкт */
+.ctx-popover {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.ctx-panel.below .ctx-popover {
+  bottom: auto;
+  top: calc(100% + 4px);
+}
+
+.board-page .ctx-popover .ctx-swatch {
+  margin: 0;
+}
+
+.ctx-number {
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding-left: 4px;
+  color: var(--text-muted);
+}
+
+.ctx-number input {
+  width: 42px;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+
+.ctx-number input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* оверлей редагування тексту прямо на полотні (double-click по стікеру/тексту) */
+.board-text-editor {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed #4262ff;
+  outline: none;
+  resize: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.board-text-editor[wrap='off'] {
+  white-space: pre;
 }
