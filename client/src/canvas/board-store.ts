@@ -1,16 +1,25 @@
+import * as Y from 'yjs';
 import { create } from 'zustand';
-import type { BoardObject, ConnectorObject, ShapeObject, StickyObject, TextObject } from 'shared';
+import type {
+  BoardObject,
+  ConnectorObject,
+  ImageObject,
+  ShapeObject,
+  StickyObject,
+  TextObject,
+} from 'shared';
 
 // патч без id/type — не можна підмінити, чим є обʼєкт, лише його властивості
 type BoardObjectPatch =
   | Partial<Omit<StickyObject, 'id' | 'type'>>
   | Partial<Omit<TextObject, 'id' | 'type'>>
   | Partial<Omit<ShapeObject, 'id' | 'type'>>
-  | Partial<Omit<ConnectorObject, 'id' | 'type'>>;
+  | Partial<Omit<ConnectorObject, 'id' | 'type'>>
+  | Partial<Omit<ImageObject, 'id' | 'type'>>;
 
 interface BoardObjectsState {
-  // внутрішнє представлення. Решта коду працює тільки через методи нижче —
-  // наступного тижня це поле піде під CRDT (Yjs Y.Map), інтерфейс лишиться той самий
+  // дзеркало Y.Map нижче, лише для читання: React підписується на нього як на
+  // звичайний zustand-стан; пишуть усі тільки через методи, а ті — в Y.Map
   objects: Record<string, BoardObject>;
   add: (object: BoardObject) => void;
   update: (id: string, patch: BoardObjectPatch) => void;
@@ -20,38 +29,46 @@ interface BoardObjectsState {
   getById: (id: string) => BoardObject | undefined;
 }
 
+// джерело правди — CRDT-документ; поки без мережі, але вже в тій формі, яку
+// потім синхронізуватиме провайдер. ключ — id обʼєкта, значення — цілий обʼєкт
+export const boardDoc = new Y.Doc();
+const yObjects = boardDoc.getMap<BoardObject>('objects');
+
 export const useBoardStore = create<BoardObjectsState>((set, get) => ({
   objects: {},
 
-  add: (object) =>
-    set((state) => ({
-      objects: { ...state.objects, [object.id]: object },
-    })),
+  add: (object) => yObjects.set(object.id, object),
 
-  update: (id, patch) =>
-    set((state) => {
-      const existing = state.objects[id];
-      if (!existing) return state;
-      return {
-        objects: { ...state.objects, [id]: { ...existing, ...patch } as BoardObject },
-      };
-    }),
+  // злиття цілого обʼєкта: у Y.Map лягає новий обʼєкт, а не окремі поля —
+  // одночасна правка одного обʼєкта двома людьми зведеться до «останній виграв»
+  update: (id, patch) => {
+    const existing = yObjects.get(id);
+    if (!existing) return;
+    yObjects.set(id, { ...existing, ...patch } as BoardObject);
+  },
 
-  remove: (id) =>
-    set((state) => {
-      if (!(id in state.objects)) return state;
-      const objects = { ...state.objects };
-      delete objects[id];
-      return { objects };
-    }),
+  remove: (id) => yObjects.delete(id),
 
+  // одна транзакція — один observe і одне оновлення для мережі, а не N
   removeMany: (ids) =>
-    set((state) => {
-      const objects = { ...state.objects };
-      for (const id of ids) delete objects[id];
-      return { objects };
+    boardDoc.transact(() => {
+      for (const id of ids) yObjects.delete(id);
     }),
 
   getAll: () => Object.values(get().objects),
   getById: (id) => get().objects[id],
 }));
+
+// будь-яка зміна мапи (своя чи згодом чужа з мережі) → перезбираємо дзеркало
+// лише по зачеплених ключах; нове посилання objects — React перемальовує як і раніше
+yObjects.observe((event) => {
+  useBoardStore.setState((state) => {
+    const objects = { ...state.objects };
+    for (const key of event.keysChanged) {
+      const value = yObjects.get(key);
+      if (value === undefined) delete objects[key];
+      else objects[key] = value;
+    }
+    return { objects };
+  });
+});
