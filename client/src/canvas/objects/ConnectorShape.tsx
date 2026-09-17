@@ -28,8 +28,9 @@ interface Props {
 // SelectionOverlay — тому лінія має name, щоб він її знайшов
 export function ConnectorShape({ object, isSelected, draggable, viewportScale, registerRef }: Props) {
   const updateObject = useBoardStore((s) => s.update);
-  // ручки точок — лише коли конектор виділений сам; у групі він у трансформері
-  const showHandles = useEditorStore((s) => isSelected && s.selectedIds.length === 1);
+  // ручки точок — лише коли конектор виділений сам; у групі він у трансформері.
+  // глядачу ручок не даємо — ними міняють точки
+  const showHandles = useEditorStore((s) => s.canEdit && isSelected && s.selectedIds.length === 1);
   const handlePointerDown = useSelectOnPointerDown(object.id);
   const { onDragStart, onDragMove, onDragEnd } = useMultiDragDelta(object.id);
   // зняти window-слухачі тягання щойно вставленої точки — і при pointerup,

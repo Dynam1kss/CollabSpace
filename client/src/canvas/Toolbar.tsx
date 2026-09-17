@@ -22,6 +22,9 @@ function isTypingTarget(target: EventTarget | null) {
 export function Toolbar() {
   const activeTool = useEditorStore((s) => s.activeTool);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
+  const canEdit = useEditorStore((s) => s.canEdit);
+  // глядачу — лише «вибір», інструментів створення не показуємо
+  const tools = canEdit ? TOOLS : TOOLS.filter((t) => t.id === 'select');
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -29,18 +32,18 @@ export function Toolbar() {
       if (e.code === 'Space') return; // пробіл лишається за тимчасовим паном (useCanvasViewport)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const tool = HOTKEY_MAP[e.key.toUpperCase()];
-      if (tool) {
+      if (tool && (canEdit || tool === 'select')) {
         e.preventDefault();
         setActiveTool(tool);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setActiveTool]);
+  }, [canEdit, setActiveTool]);
 
   return (
     <aside className="board-island tool-island">
-      {TOOLS.map((tool) => (
+      {tools.map((tool) => (
         <button
           key={tool.id}
           type="button"

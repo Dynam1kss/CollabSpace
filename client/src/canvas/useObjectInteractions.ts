@@ -248,20 +248,22 @@ export function useObjectInteractions(
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (isTypingTarget(e.target)) return;
+      const { canEdit, selectedIds } = useEditorStore.getState();
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (useEditorStore.getState().selectedIds.length === 0) return;
+        if (!canEdit || selectedIds.length === 0) return;
         e.preventDefault();
         deleteSelected();
         return;
       }
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-      // по коду клавіші, а не по e.key — в українській розкладці ctrl+c дає 'с'
+      // по коду клавіші, а не по e.key — в українській розкладці ctrl+c дає 'с'.
+      // глядачу — лише виділити все й скопіювати, решта міняє вміст
       const action = {
         KeyA: selectAll,
         KeyC: copySelected,
-        KeyX: cutSelected,
-        KeyV: () => pasteClipboard(currentUserId),
-        KeyD: () => duplicateSelected(currentUserId),
+        KeyX: canEdit ? cutSelected : undefined,
+        KeyV: canEdit ? () => pasteClipboard(currentUserId) : undefined,
+        KeyD: canEdit ? () => duplicateSelected(currentUserId) : undefined,
       }[e.code];
       if (!action) return;
       // без цього браузер виділить текст сторінки / полізе в системний буфер

@@ -5,6 +5,7 @@ import { ApiError, fetchBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
 import { BoardCanvas } from '../canvas/BoardCanvas';
 import { useBoardStore } from '../canvas/board-store';
+import { useEditorStore } from '../canvas/editor-store';
 import { useBoardPersistence } from '../canvas/useBoardPersistence';
 import type { SaveStatus } from '../canvas/useBoardPersistence';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
@@ -23,7 +24,7 @@ const SAVE_STATUS_TEXT: Record<SaveStatus, string> = {
   readonly: 'лише перегляд',
 };
 
-// глядач нічого не зберігає — сервер і так відхилить, але й пробувати не варто
+// глядач нічого не зберігає і не змінює — сервер і так відхилить, але й пробувати не варто
 function canEdit(board: BoardDetail, userId: string) {
   return board.isOwner || board.members.some((m) => m.userId === userId && m.role === 'EDITOR');
 }
@@ -35,12 +36,16 @@ export function BoardPage() {
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const currentUserId = useAuthStore((s) => s.user?.id) ?? '';
   const objects = useBoardStore((s) => s.objects);
+  const setCanEdit = useEditorStore((s) => s.setCanEdit);
+  const editable = !!board && canEdit(board, currentUserId);
 
   usePreventBrowserZoom();
-  const saveStatus = useBoardPersistence(
-    state === 'ready' && board ? board.id : null,
-    !!board && canEdit(board, currentUserId),
-  );
+  const saveStatus = useBoardPersistence(state === 'ready' && board ? board.id : null, editable);
+
+  useEffect(() => {
+    setCanEdit(editable);
+    return () => setCanEdit(false);
+  }, [editable, setCanEdit]);
 
   const { viewport, spaceHeld, zoomIn, zoomOut, resetView, setViewport, stageHandlers } = useCanvasViewport({
     x: 0,
@@ -125,7 +130,8 @@ export function BoardPage() {
           onSizeChange={setCanvasSize}
           currentUserId={currentUserId}
         />
-        <ContextPanel viewport={viewport} canvasSize={canvasSize} />
+        {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
+        {editable && <ContextPanel viewport={viewport} canvasSize={canvasSize} />}
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>
     </div>

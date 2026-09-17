@@ -60,6 +60,7 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
   }
 
   const activeTool = useEditorStore((s) => s.activeTool);
+  const canEdit = useEditorStore((s) => s.canEdit);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const editingTextId = useEditorStore((s) => s.editingTextId);
   const objectsMap = useBoardStore((s) => s.objects);
@@ -99,7 +100,8 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
     }
   }, [objectsMap]);
 
-  const draggableObjects = activeTool === 'select';
+  // глядачу тягати не можна ніколи, незалежно від інструмента
+  const draggableObjects = canEdit && activeTool === 'select';
 
   function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
     stageHandlers.onMouseDown(e);
@@ -152,14 +154,18 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
             {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}
           </Layer>
 
-          <Layer listening={draggableObjects}>
-            <SelectionOverlay
-              nodesByIdRef={nodesById}
-              nodesVersion={nodesVersion}
-              objects={objectsMap}
-              selectedIds={selectedIds}
-            />
-          </Layer>
+          {/* трансформер глядачу не малюємо — ручки без дії лише плутали б;
+          виділення йому показує сама фігура своїм обведенням */}
+          {canEdit && (
+            <Layer listening={draggableObjects}>
+              <SelectionOverlay
+                nodesByIdRef={nodesById}
+                nodesVersion={nodesVersion}
+                objects={objectsMap}
+                selectedIds={selectedIds}
+              />
+            </Layer>
+          )}
         </Stage>
       )}
       {editingObject && <TextEditOverlay object={editingObject} viewport={viewport} />}
