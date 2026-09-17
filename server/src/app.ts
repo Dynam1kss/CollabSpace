@@ -5,6 +5,7 @@ import express from 'express';
 import type { HealthResponse } from 'shared';
 import { authRouter } from './auth/auth.routes';
 import { boardsRouter } from './boards/boards.routes';
+import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
 import { snapshotsRouter } from './boards/snapshots.routes';
 import { env } from './env';
 import { errorHandler } from './errors';
@@ -35,6 +36,9 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/boards', boardsRouter);
 app.use('/api/boards/:id/snapshot', snapshotsRouter);
+app.use('/api/boards/:id/images', imagesRouter);
+// завантажені картинки — статикою, без перевірки прав: імена — uuid, не вгадати
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // спайки — тільки для розробки, в проді їх не буде на диску
 if (!env.isProduction) {

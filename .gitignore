@@ -13,6 +13,7 @@ Thumbs.db
 coverage/
 bench/results/*.raw
 server/prisma/dev.db
+server/uploads/
 
 # робочі файли, які не входять до складу роботи
 docs/ТЗ.md
