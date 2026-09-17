@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000',
       '/uploads': 'http://localhost:3000',
+      // збіг за префіксом — покриває і /ws/boards/:id
       '/ws': {
         target: 'ws://localhost:3000',
         ws: true,

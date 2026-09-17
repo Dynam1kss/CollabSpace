@@ -375,13 +375,36 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   border-color: var(--accent);
 }
 
-/* статус збереження — маленький напис у кутку, без анімацій */
-.save-status {
-  right: 12px;
+/* статуси збереження й живого звʼязку — маленькі написи в кутку, без анімацій */
+.save-status,
+.sync-status {
   bottom: 12px;
   padding: 4px 10px;
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.save-status {
+  right: 12px;
+}
+
+.sync-status {
+  right: 112px;
+}
+
+.sync-status.live::before,
+.sync-status.offline::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+.sync-status.offline::before {
+  background: #d93025;
 }
 
 /* оверлей редагування тексту прямо на полотні (double-click по стікеру/тексту) */

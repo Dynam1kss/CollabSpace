@@ -43,7 +43,7 @@ describe('board-store поверх Y.Map', () => {
   it('add/update/remove проходять через Y.Map і видно в дзеркалі', () => {
     const store = useBoardStore.getState();
     store.add(sticky('a'));
-    expect(useBoardStore.getState().getById('a')?.text).toBe('');
+    expect((useBoardStore.getState().getById('a') as StickyObject).text).toBe('');
     expect(boardDoc.getMap('objects').has('a')).toBe(true);
 
     store.update('a', { text: 'привіт', x: 10 });
@@ -119,6 +119,6 @@ describe('board-store поверх Y.Map', () => {
     const remote = client();
     remote.objects.set('r1', sticky('r1', { text: 'з мережі' }));
     Y.applyUpdate(boardDoc, Y.encodeStateAsUpdate(remote.doc));
-    expect(useBoardStore.getState().getById('r1')?.text).toBe('з мережі');
+    expect((useBoardStore.getState().getById('r1') as StickyObject).text).toBe('з мережі');
   });
 });

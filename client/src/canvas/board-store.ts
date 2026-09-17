@@ -29,10 +29,13 @@ interface BoardObjectsState {
   getById: (id: string) => BoardObject | undefined;
 }
 
-// джерело правди — CRDT-документ; поки без мережі, але вже в тій формі, яку
-// потім синхронізуватиме провайдер. ключ — id обʼєкта, значення — цілий обʼєкт
-export const boardDoc = new Y.Doc();
-const yObjects = boardDoc.getMap<BoardObject>('objects');
+// джерело правди — CRDT-документ, який useBoardSync ганяє між клієнтами.
+// ключ — id обʼєкта, значення — цілий обʼєкт. документ — один на відкриту
+// дошку: resetBoardDoc нижче дає свіжий, бо історія й clientID попередньої
+// дошки не мають потрапити в кімнату іншої (yjs тримає клоки без пропусків
+// на кожного клієнта, чужа історія ламала б це)
+export let boardDoc = new Y.Doc();
+let yObjects = boardDoc.getMap<BoardObject>('objects');
 
 export const useBoardStore = create<BoardObjectsState>((set, get) => ({
   objects: {},
@@ -59,9 +62,9 @@ export const useBoardStore = create<BoardObjectsState>((set, get) => ({
   getById: (id) => get().objects[id],
 }));
 
-// будь-яка зміна мапи (своя чи згодом чужа з мережі) → перезбираємо дзеркало
-// лише по зачеплених ключах; нове посилання objects — React перемальовує як і раніше
-yObjects.observe((event) => {
+// будь-яка зміна мапи (своя чи чужа з мережі) → перезбираємо дзеркало лише
+// по зачеплених ключах; нове посилання objects — React перемальовує як і раніше
+function mirror(event: Y.YMapEvent<BoardObject>) {
   useBoardStore.setState((state) => {
     const objects = { ...state.objects };
     for (const key of event.keysChanged) {
@@ -71,4 +74,14 @@ yObjects.observe((event) => {
     }
     return { objects };
   });
-});
+}
+yObjects.observe(mirror);
+
+export function resetBoardDoc() {
+  boardDoc.destroy();
+  boardDoc = new Y.Doc();
+  yObjects = boardDoc.getMap<BoardObject>('objects');
+  yObjects.observe(mirror);
+  useBoardStore.setState({ objects: {} });
+  return boardDoc;
+}

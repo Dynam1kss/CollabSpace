@@ -8,6 +8,8 @@ import { useBoardStore } from '../canvas/board-store';
 import { useEditorStore } from '../canvas/editor-store';
 import { useBoardPersistence } from '../canvas/useBoardPersistence';
 import type { SaveStatus } from '../canvas/useBoardPersistence';
+import { useBoardSync } from '../canvas/useBoardSync';
+import type { SyncStatus } from '../canvas/useBoardSync';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
 import { screenToBoard } from '../canvas/coordinates';
 import { fitToObjects } from '../canvas/fit-to-objects';
@@ -29,6 +31,12 @@ const SAVE_STATUS_TEXT: Record<SaveStatus, string> = {
   readonly: 'лише перегляд',
 };
 
+const SYNC_STATUS_TEXT: Record<SyncStatus, string> = {
+  connecting: 'підключення…',
+  live: 'наживо',
+  offline: 'офлайн',
+};
+
 // глядач нічого не зберігає і не змінює — сервер і так відхилить, але й пробувати не варто
 function canEdit(board: BoardDetail, userId: string) {
   return board.isOwner || board.members.some((m) => m.userId === userId && m.role === 'EDITOR');
@@ -46,7 +54,11 @@ export function BoardPage() {
   const editable = !!board && canEdit(board, currentUserId);
 
   usePreventBrowserZoom();
-  const saveStatus = useBoardPersistence(state === 'ready' && board ? board.id : null, editable);
+  // sync — перед persistence: його ефект дає свіжий документ, у який persistence
+  // потім вантажить снепшот; порядок ефектів у react — порядок оголошення
+  const openBoardId = state === 'ready' && board ? board.id : null;
+  const syncStatus = useBoardSync(openBoardId, editable);
+  const saveStatus = useBoardPersistence(openBoardId, editable);
 
   useEffect(() => {
     setCanEdit(editable);
@@ -167,6 +179,7 @@ export function BoardPage() {
         ) : (
           <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} />
         )}
+        <div className={`board-island sync-status ${syncStatus}`}>{SYNC_STATUS_TEXT[syncStatus]}</div>
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>
     </div>
