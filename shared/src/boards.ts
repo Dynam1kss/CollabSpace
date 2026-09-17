@@ -1,3 +1,5 @@
+import type { BoardObject } from './board-objects';
+
 export type BoardRole = 'EDITOR' | 'VIEWER';
 
 export interface BoardMemberInfo {
@@ -35,4 +37,15 @@ export interface UpdateBoardRequest {
 export interface AddBoardMemberRequest {
   email: string;
   role: BoardRole;
+}
+
+// снепшот — увесь вміст дошки одним масивом; тимчасово, до CRDT
+export interface SnapshotResponse {
+  objects: BoardObject[];
+  // null — дошку ще жодного разу не зберігали
+  updatedAt: string | null;
+}
+
+export interface SaveSnapshotRequest {
+  objects: BoardObject[];
 }

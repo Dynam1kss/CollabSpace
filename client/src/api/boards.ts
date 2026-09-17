@@ -2,8 +2,11 @@ import type {
   ApiErrorBody,
   BoardDetail,
   BoardListResponse,
+  BoardObject,
   BoardSummary,
   CreateBoardRequest,
+  SaveSnapshotRequest,
+  SnapshotResponse,
   UpdateBoardRequest,
 } from 'shared';
 
@@ -54,5 +57,25 @@ export async function deleteBoard(id: string) {
   if (!res.ok) {
     const data = await res.json();
     throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
+  }
+}
+
+export function fetchBoardSnapshot(id: string) {
+  return fetch(`/api/boards/${id}/snapshot`).then((res) => parseResponse<SnapshotResponse>(res));
+}
+
+// keepalive — щоб запит дожив до кінця, коли вкладку закривають (beforeunload);
+// браузер тоді обмежує тіло ~64кб, для звичайного збереження прапорець не потрібен
+export async function saveBoardSnapshot(id: string, objects: BoardObject[], keepalive = false) {
+  const payload: SaveSnapshotRequest = { objects };
+  const res = await fetch(`/api/boards/${id}/snapshot`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive,
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');
   }
 }

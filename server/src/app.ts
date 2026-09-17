@@ -5,6 +5,7 @@ import express from 'express';
 import type { HealthResponse } from 'shared';
 import { authRouter } from './auth/auth.routes';
 import { boardsRouter } from './boards/boards.routes';
+import { snapshotsRouter } from './boards/snapshots.routes';
 import { env } from './env';
 import { errorHandler } from './errors';
 
@@ -19,7 +20,8 @@ interface SpikeIceServerConfig {
 }
 
 export const app = express();
-app.use(express.json());
+// дефолтних 100kb снепшоту дошки замало
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/api/health', (_req, res) => {
   const body: HealthResponse = {
@@ -32,6 +34,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/boards', boardsRouter);
+app.use('/api/boards/:id/snapshot', snapshotsRouter);
 
 // спайки — тільки для розробки, в проді їх не буде на диску
 if (!env.isProduction) {

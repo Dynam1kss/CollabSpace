@@ -5,6 +5,8 @@ import { ApiError, fetchBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
 import { BoardCanvas } from '../canvas/BoardCanvas';
 import { useBoardStore } from '../canvas/board-store';
+import { useBoardPersistence } from '../canvas/useBoardPersistence';
+import type { SaveStatus } from '../canvas/useBoardPersistence';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
@@ -12,6 +14,19 @@ import { Toolbar } from '../canvas/Toolbar';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
 
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
+
+const SAVE_STATUS_TEXT: Record<SaveStatus, string> = {
+  loading: 'завантажую…',
+  saving: 'зберігаю…',
+  saved: 'збережено',
+  error: 'не збереглось',
+  readonly: 'лише перегляд',
+};
+
+// глядач нічого не зберігає — сервер і так відхилить, але й пробувати не варто
+function canEdit(board: BoardDetail, userId: string) {
+  return board.isOwner || board.members.some((m) => m.userId === userId && m.role === 'EDITOR');
+}
 
 export function BoardPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +37,10 @@ export function BoardPage() {
   const objects = useBoardStore((s) => s.objects);
 
   usePreventBrowserZoom();
+  const saveStatus = useBoardPersistence(
+    state === 'ready' && board ? board.id : null,
+    !!board && canEdit(board, currentUserId),
+  );
 
   const { viewport, spaceHeld, zoomIn, zoomOut, resetView, setViewport, stageHandlers } = useCanvasViewport({
     x: 0,
@@ -107,6 +126,7 @@ export function BoardPage() {
           currentUserId={currentUserId}
         />
         <ContextPanel viewport={viewport} canvasSize={canvasSize} />
+        <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>
     </div>
   );

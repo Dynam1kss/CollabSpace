@@ -39,6 +39,15 @@ export function requireBoardOwner(access: BoardAccess | null): BoardAccess {
   return resolved;
 }
 
+// глядачеві можна дивитись, але не міняти вміст
+export function requireBoardEditor(access: BoardAccess | null): BoardAccess {
+  const resolved = requireBoardAccess(access);
+  if (resolved.role === 'VIEWER') {
+    throw new AppError(403, 'FORBIDDEN', 'Лише перегляд: змінювати дошку не можна');
+  }
+  return resolved;
+}
+
 export function toBoardSummary(board: Board, userId: string): BoardSummary {
   return {
     id: board.id,

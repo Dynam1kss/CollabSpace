@@ -316,6 +316,15 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   border-color: var(--accent);
 }
 
+/* статус збереження — маленький напис у кутку, без анімацій */
+.save-status {
+  right: 12px;
+  bottom: 12px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* оверлей редагування тексту прямо на полотні (double-click по стікеру/тексту) */
 .board-text-editor {
   position: absolute;
