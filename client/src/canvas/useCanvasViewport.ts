@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type Konva from 'konva';
+import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { pinchViewport, zoomViewportAtPoint } from './coordinates';
 import type { Viewport } from './coordinates';
+import { useEditorStore } from './editor-store';
 
 const BUTTON_ZOOM_STEP = 1.2;
 
@@ -96,6 +97,24 @@ interface Point2 {
 function touchStagePoint(stage: Konva.Stage, touch: Touch): Point2 {
   const rect = stage.container().getBoundingClientRect();
   return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+// другий палець ліг — це щипок/пан, навіть якщо перший уже тягне обʼєкт.
+// поки хоч один вузол у konva в стані dragging, Stage не отримує touchmove
+// взагалі, тому драг треба загасити саме тут і зараз. konva не дає публічного
+// «скасувати все» — беремо її внутрішній список drag-елементів: ті, що вже
+// їдуть, повертаємо на стартову позицію і зупиняємо (stopDrag кине dragend,
+// але з початковими координатами), ті, що лише «готові», просто викидаємо —
+// інакше рух першого пальця ще стартував би їм драг посеред щипка
+function cancelObjectDrags() {
+  const elements = Array.from(Konva.DD._dragElements.values());
+  for (const { node, dragStatus, startPointerPos, offset } of elements) {
+    if (dragStatus !== 'dragging') continue;
+    node.setAbsolutePosition({ x: startPointerPos.x - offset.x, y: startPointerPos.y - offset.y });
+    node.stopDrag();
+  }
+  Konva.DD._dragElements.clear();
+  return elements.length > 0;
 }
 
 // пан і зум полотна — мишею (колесо/середня кнопка/пробіл), тачем (один
@@ -306,6 +325,9 @@ export function useCanvasViewport(initial: Viewport) {
       pinchRef.current = null;
     } else if (touches.length === 2) {
       panRef.current = null;
+      // якийсь із пальців ліг на обʼєкт — його виділення теж відкочуємо,
+      // жест по полотну не має лишати по собі виділений обʼєкт
+      if (cancelObjectDrags()) useEditorStore.getState().clearSelection();
       const p1 = touchStagePoint(stage, touches[0]);
       const p2 = touchStagePoint(stage, touches[1]);
       pinchRef.current = {

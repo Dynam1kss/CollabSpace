@@ -12,6 +12,10 @@ export function useSelectOnPointerDown(objectId: string) {
       // права/середня кнопка — не виділення, а пан: пускаємо подію далі до Stage,
       // де useCanvasViewport її й підхопить (konva сама не тягне обʼєкт не лівою)
       if ('button' in evt && evt.button !== 0) return;
+      // другий палець — це вже щипок/пан по полотну, а не тап по обʼєкту: не
+      // виділяємо і не глушимо подію, щоб Stage побачив старт другого пальця
+      // і сам загасив драг, який перший палець встиг підхопити
+      if ('touches' in evt && evt.touches.length > 1) return;
 
       e.cancelBubble = true;
       const shiftKey = 'shiftKey' in evt && evt.shiftKey;
