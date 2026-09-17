@@ -8,8 +8,12 @@ import { useEditorStore } from '../editor-store';
 export function useSelectOnPointerDown(objectId: string) {
   return useCallback(
     (e: KonvaEventObject<MouseEvent> | KonvaEventObject<TouchEvent>) => {
+      const evt = e.evt;
+      // права/середня кнопка — не виділення, а пан: пускаємо подію далі до Stage,
+      // де useCanvasViewport її й підхопить (konva сама не тягне обʼєкт не лівою)
+      if ('button' in evt && evt.button !== 0) return;
+
       e.cancelBubble = true;
-      const evt = e.evt as MouseEvent;
       const shiftKey = 'shiftKey' in evt && evt.shiftKey;
       const { selectedIds, select, toggleSelect } = useEditorStore.getState();
       if (shiftKey) {
