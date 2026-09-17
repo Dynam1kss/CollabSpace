@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { RefObject } from 'react';
-import type { BoardObject, BoardPoint, ShapeObject, StickyObject, TextObject } from 'shared';
+import type { BoardObject, BoardPoint, ImageObject, ShapeObject, StickyObject, TextObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from '../object-defaults';
@@ -123,6 +123,8 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
       ? (selectedObjects[0] as TextObject)
       : null;
   const soleConnector = selectedObjects.length === 1 && selectedObjects[0].type === 'connector';
+  // картинку саму по собі тягнемо лише пропорційно, інакше вона сплющується
+  const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
 
   useEffect(() => {
     const nodesById = nodesByIdRef.current ?? {};
@@ -150,7 +152,7 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
     for (const node of tr.nodes()) {
       const obj = objects[node.id()];
       if (!obj) continue;
-      if (obj.type === 'shape' || obj.type === 'sticky') {
+      if (obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image') {
         const size = bakeScale(node, obj);
         if (obj.type === 'shape') node.setAttrs({ strokeWidth: scaledStrokeWidth(obj, size) });
       } else if (obj.type === 'text' && soleText && isEdgeAnchor(anchor)) {
@@ -220,7 +222,7 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
       ref={transformerRef}
       enabledAnchors={soleText ? TEXT_ANCHORS : ALL_ANCHORS}
       anchorStyleFunc={soleText ? styleTextAnchor : undefined}
-      keepRatio={soleText ? true : shiftHeld}
+      keepRatio={soleText || soleImage ? true : shiftHeld}
       rotateEnabled
       onTransformStart={() => setInteracting(true)}
       onTransform={handleTransform}
@@ -297,7 +299,7 @@ function bakeConnectorTransform(node: Konva.Group): BoardPoint[] {
 
 // переносить scale вузла в його справжній розмір (width/height, радіуси,
 // діти групи стікера) і повертає новий розмір у координатах дошки
-function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject) {
+function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObject) {
   const sx = node.scaleX();
   const sy = node.scaleY();
   node.scale({ x: 1, y: 1 });
@@ -308,7 +310,7 @@ function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject) {
     ellipse.setAttrs({ radiusX, radiusY });
     return { width: radiusX * 2, height: radiusY * 2 };
   }
-  if (obj.type === 'shape') {
+  if (obj.type === 'shape' || obj.type === 'image') {
     const width = Math.max(MIN_SIZE, node.width() * sx);
     const height = Math.max(MIN_SIZE, node.height() * sy);
     node.setAttrs({ width, height });

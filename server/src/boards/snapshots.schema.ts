@@ -52,6 +52,11 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     strokeWidth: z.number(),
     arrowEnd: z.boolean(),
   }),
+  z.object({
+    ...base,
+    type: z.literal('image'),
+    url: z.string().min(1),
+  }),
 ]);
 
 export const saveSnapshotSchema = z.object({

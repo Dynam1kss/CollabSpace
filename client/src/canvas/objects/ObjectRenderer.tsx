@@ -1,6 +1,7 @@
 import type Konva from 'konva';
 import type { BoardObject } from 'shared';
 import { ConnectorShape } from './ConnectorShape';
+import { ImageShape } from './ImageShape';
 import { ShapeNode } from './ShapeNode';
 import { StickyNoteShape } from './StickyNoteShape';
 import { TextShape } from './TextShape';
@@ -58,6 +59,10 @@ export function ObjectRenderer({
           viewportScale={viewportScale}
           registerRef={registerRef}
         />
+      );
+    case 'image':
+      return (
+        <ImageShape object={object} isSelected={isSelected} draggable={draggable} registerRef={registerRef} />
       );
   }
 }

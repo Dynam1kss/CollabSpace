@@ -53,3 +53,7 @@ export interface SnapshotResponse {
 export interface SaveSnapshotRequest {
   objects: BoardObject[];
 }
+
+export interface UploadImageResponse {
+  url: string;
+}

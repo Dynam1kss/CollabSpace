@@ -62,5 +62,11 @@ export interface ConnectorObject extends BoardObjectBase {
   arrowEnd: boolean;
 }
 
-export type BoardObject = StickyObject | TextObject | ShapeObject | ConnectorObject;
+// url — відносний шлях /uploads/..., сам файл лежить на диску сервера
+export interface ImageObject extends BoardObjectBase {
+  type: 'image';
+  url: string;
+}
+
+export type BoardObject = StickyObject | TextObject | ShapeObject | ConnectorObject | ImageObject;
 export type BoardObjectType = BoardObject['type'];
