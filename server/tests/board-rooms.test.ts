@@ -1,0 +1,165 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import request from 'supertest';
+import { WebSocket } from 'ws';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { app } from '../src/app';
+import { roomSize, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
+import { prisma } from '../src/prisma';
+
+// той самий роутинг апгрейду, що в index.ts, лише на випадковому порту
+const httpServer = createServer(app);
+httpServer.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url ?? '', 'http://localhost');
+  if (!tryUpgradeBoardRoom(req, socket, head, pathname)) socket.destroy();
+});
+let port = 0;
+const sockets: WebSocket[] = [];
+
+beforeAll(async () => {
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  port = (httpServer.address() as AddressInfo).port;
+});
+
+afterAll(() => new Promise<void>((resolve) => httpServer.close(() => resolve())));
+
+afterEach(async () => {
+  for (const s of sockets.splice(0)) s.close();
+  await prisma.user.deleteMany();
+});
+
+let counter = 0;
+async function user() {
+  counter += 1;
+  const res = await request(app)
+    .post('/api/auth/register')
+    .send({ email: `room${counter}@test.local`, password: 'password123', displayName: 'Тест' });
+  const cookie = (res.headers['set-cookie'] as unknown as string[])[0].split(';')[0];
+  return { cookie, email: `room${counter}@test.local`, agent: request.agent(app).set('Cookie', cookie) };
+}
+
+function connect(boardId: string, cookie?: string) {
+  const ws = new WebSocket(`ws://localhost:${port}/ws/boards/${boardId}`, {
+    headers: cookie ? { cookie } : {},
+  });
+  sockets.push(ws);
+  return ws;
+}
+
+function opened(ws: WebSocket) {
+  return new Promise<void>((resolve, reject) => {
+    ws.once('open', resolve);
+    ws.once('error', reject);
+  });
+}
+
+// відмова на апгрейді приходить як unexpected-response з http-статусом
+function rejected(ws: WebSocket) {
+  return new Promise<number>((resolve) => {
+    ws.once('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
+    ws.once('error', () => resolve(-1));
+  });
+}
+
+function nextMessage(ws: WebSocket, timeoutMs = 300) {
+  return new Promise<Buffer | null>((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+    ws.once('message', (data) => {
+      clearTimeout(timer);
+      resolve(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer));
+    });
+  });
+}
+
+async function boardWithMembers() {
+  const owner = await user();
+  const editor = await user();
+  const viewer = await user();
+  const board = await owner.agent.post('/api/boards').send({ title: 'Кімната' });
+  const boardId = board.body.id as string;
+  await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: editor.email, role: 'EDITOR' });
+  await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: viewer.email, role: 'VIEWER' });
+  return { boardId, owner, editor, viewer };
+}
+
+describe('кімнати дошок поверх ws', () => {
+  it('без куки — 401, чужому — 404, учаснику — open', async () => {
+    const { boardId, editor } = await boardWithMembers();
+    const stranger = await user();
+    expect(await rejected(connect(boardId))).toBe(401);
+    expect(await rejected(connect(boardId, stranger.cookie))).toBe(404);
+    expect(await rejected(connect('no-such-board', editor.cookie))).toBe(404);
+    await opened(connect(boardId, editor.cookie));
+    expect(roomSize(boardId)).toBe(1);
+  });
+
+  it('update редактора летить усім іншим як є, собі — ні; глядача — нікому', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, editor.cookie);
+    const v = connect(boardId, viewer.cookie);
+    await Promise.all([opened(a), opened(b), opened(v)]);
+    expect(roomSize(boardId)).toBe(3);
+
+    const bytes = Buffer.from([0, 7, 8, 9]);
+    a.send(bytes);
+    const [gotB, gotV, gotA] = await Promise.all([nextMessage(b), nextMessage(v), nextMessage(a)]);
+    expect(gotB && Buffer.compare(gotB, bytes)).toBe(0);
+    expect(gotV && Buffer.compare(gotV, bytes)).toBe(0);
+    expect(gotA).toBeNull();
+
+    v.send(Buffer.from([0, 1, 2]));
+    expect(await Promise.all([nextMessage(a), nextMessage(b)])).toEqual([null, null]);
+    // і підроблена «відповідь» від глядача теж
+    v.send(Buffer.from([2, 0, 0, 0, 1, 5]));
+    expect(await Promise.all([nextMessage(a), nextMessage(b)])).toEqual([null, null]);
+  });
+
+  it('sync-запит іде найстаршому редактору з id новачка, відповідь — лише новачкові', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const v = connect(boardId, viewer.cookie); // найстарший, але глядач — відповідати не може
+    await opened(v);
+    const a = connect(boardId, owner.cookie);
+    await opened(a);
+    const b = connect(boardId, editor.cookie);
+    await opened(b);
+
+    b.send(Buffer.from([1, 42, 43]));
+    const [toA, toV] = await Promise.all([nextMessage(a), nextMessage(v)]);
+    expect(toV).toBeNull();
+    expect(toA).not.toBeNull();
+    expect(toA![0]).toBe(1);
+    expect(toA!.length).toBe(1 + 4 + 2);
+    expect([...toA!.subarray(5)]).toEqual([42, 43]);
+
+    const reply = Buffer.concat([Buffer.from([2]), toA!.subarray(1, 5), Buffer.from([9, 9, 9])]);
+    a.send(reply);
+    const [toB, toV2, toA2] = await Promise.all([nextMessage(b), nextMessage(v), nextMessage(a)]);
+    expect(toB && [...toB]).toEqual([2, 9, 9, 9]);
+    expect(toV2).toBeNull();
+    expect(toA2).toBeNull();
+
+    // запит, коли редакторів нема — просто тиша
+    const v2 = connect(boardId, viewer.cookie);
+    await opened(v2);
+    a.close();
+    b.close();
+    await new Promise((r) => setTimeout(r, 100));
+    v2.send(Buffer.from([1, 1]));
+    expect(await nextMessage(v)).toBeNull();
+  });
+
+  it('close прибирає сокет, порожня кімната зникає', async () => {
+    const { boardId, owner, editor } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, editor.cookie);
+    await Promise.all([opened(a), opened(b)]);
+    expect(roomSize(boardId)).toBe(2);
+    a.close();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(roomSize(boardId)).toBe(1);
+    b.close();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(roomSize(boardId)).toBe(0);
+  });
+});

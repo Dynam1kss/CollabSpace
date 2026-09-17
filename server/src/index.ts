@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { app } from './app';
+import { tryUpgradeBoardRoom } from './boards/board-rooms';
 import { env } from './env';
 
 const httpServer = createServer(app);
@@ -125,7 +126,7 @@ httpServer.on('upgrade', (req, socket, head) => {
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   } else if (pathname === '/spike/webrtc-signal') {
     spikeSignalWss.handleUpgrade(req, socket, head, (ws) => spikeSignalWss.emit('connection', ws, req));
-  } else {
+  } else if (!tryUpgradeBoardRoom(req, socket, head, pathname)) {
     socket.destroy();
   }
 });
