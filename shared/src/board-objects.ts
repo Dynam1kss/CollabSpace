@@ -10,11 +10,16 @@ export interface BoardObjectBase {
   createdAt: string;
 }
 
+export type StickyColumn = 'todo' | 'in-progress' | 'done';
+
+// column — колонка канбан-подання; null — стікер поза дошкою задач, на
+// полотні він нічим не відрізняється. старі снепшоти поля не мають взагалі
 export interface StickyObject extends BoardObjectBase {
   type: 'sticky';
   text: string;
   fillColor: string;
   textColor: string;
+  column: StickyColumn | null;
 }
 
 // autoWidth — ширина ще ніким не задана: блок росте вшир за текстом без

@@ -62,13 +62,14 @@ describe('снепшот дошки', () => {
     expect(put.status).toBe(204);
 
     const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
-    expect(res.body.objects).toEqual([sticky, connector]);
+    // стікер без column (як у снепшотах до канбану) проходить і повертається з null
+    expect(res.body.objects).toEqual([{ ...sticky, column: null }, connector]);
     expect(typeof res.body.updatedAt).toBe('string');
 
     const put2 = await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [sticky] });
     expect(put2.status).toBe(204);
     const res2 = await agent.get(`/api/boards/${board.body.id}/snapshot`);
-    expect(res2.body.objects).toEqual([sticky]);
+    expect(res2.body.objects).toEqual([{ ...sticky, column: null }]);
     expect(await prisma.boardSnapshot.count({ where: { boardId: board.body.id } })).toBe(1);
   });
 

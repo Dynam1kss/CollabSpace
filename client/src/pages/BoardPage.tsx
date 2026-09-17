@@ -9,12 +9,17 @@ import { useEditorStore } from '../canvas/editor-store';
 import { useBoardPersistence } from '../canvas/useBoardPersistence';
 import type { SaveStatus } from '../canvas/useBoardPersistence';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
+import { screenToBoard } from '../canvas/coordinates';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { Toolbar } from '../canvas/Toolbar';
+import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
 
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
+// що зараз показано — стан сторінки, не редактора: не персиститься, канбан
+// це лише інший погляд на ті самі обʼєкти
+type View = 'canvas' | 'kanban';
 
 const SAVE_STATUS_TEXT: Record<SaveStatus, string> = {
   loading: 'завантажую…',
@@ -34,6 +39,7 @@ export function BoardPage() {
   const [board, setBoard] = useState<BoardDetail | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [view, setView] = useState<View>('canvas');
   const currentUserId = useAuthStore((s) => s.user?.id) ?? '';
   const objects = useBoardStore((s) => s.objects);
   const setCanEdit = useEditorStore((s) => s.setCanEdit);
@@ -85,6 +91,10 @@ export function BoardPage() {
     setViewport(fitToObjects(Object.values(objects), canvasSize.width, canvasSize.height));
   }
 
+  // стікери з канбану кладемо туди, де зараз видима середина полотна — щоб
+  // після повернення на полотно вони були перед очима, а не в (0,0) десь далеко
+  const kanbanOrigin = screenToBoard({ x: center.x - 80, y: center.y - 60 }, viewport);
+
   if (state === 'loading') {
     return <p className="board-page-message">Завантаження…</p>;
   }
@@ -108,30 +118,54 @@ export function BoardPage() {
     <div className="board-page">
       <header className="board-toolbar">
         <span className="board-title">{board.title}</span>
-        <div className="zoom-controls">
-          <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
-            −
+        <div className="view-switch">
+          <button
+            type="button"
+            className={view === 'canvas' ? 'active' : ''}
+            onClick={() => setView('canvas')}
+          >
+            Полотно
           </button>
-          <span className="zoom-percent">{Math.round(viewport.scale * 100)}%</span>
-          <button type="button" className="icon-button" title="Збільшити" onClick={() => zoomIn(center)}>
-            +
-          </button>
-          <button type="button" onClick={handleFitAll}>
-            Показати все
+          <button
+            type="button"
+            className={view === 'kanban' ? 'active' : ''}
+            onClick={() => setView('kanban')}
+          >
+            Канбан
           </button>
         </div>
+        {view === 'canvas' && (
+          <div className="zoom-controls">
+            <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
+              −
+            </button>
+            <span className="zoom-percent">{Math.round(viewport.scale * 100)}%</span>
+            <button type="button" className="icon-button" title="Збільшити" onClick={() => zoomIn(center)}>
+              +
+            </button>
+            <button type="button" onClick={handleFitAll}>
+              Показати все
+            </button>
+          </div>
+        )}
       </header>
       <div className="board-workspace">
-        <Toolbar />
-        <BoardCanvas
-          viewport={viewport}
-          spaceHeld={spaceHeld}
-          stageHandlers={stageHandlers}
-          onSizeChange={setCanvasSize}
-          currentUserId={currentUserId}
-        />
-        {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
-        {editable && <ContextPanel viewport={viewport} canvasSize={canvasSize} />}
+        {view === 'canvas' ? (
+          <>
+            <Toolbar />
+            <BoardCanvas
+              viewport={viewport}
+              spaceHeld={spaceHeld}
+              stageHandlers={stageHandlers}
+              onSizeChange={setCanvasSize}
+              currentUserId={currentUserId}
+            />
+            {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
+            {editable && <ContextPanel viewport={viewport} canvasSize={canvasSize} />}
+          </>
+        ) : (
+          <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} />
+        )}
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>
     </div>

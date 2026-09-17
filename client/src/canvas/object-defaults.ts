@@ -1,5 +1,13 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { BoardObject, ConnectorObject, ShapeObject, ShapeKind, StickyObject, TextObject } from 'shared';
+import type {
+  BoardObject,
+  ConnectorObject,
+  ShapeObject,
+  ShapeKind,
+  StickyColumn,
+  StickyObject,
+  TextObject,
+} from 'shared';
 import type { Point } from './coordinates';
 import { withPoints } from './objects/connector-geometry';
 import { fitTextBox } from './text-layout';
@@ -51,7 +59,7 @@ function baseFields(meta: CreationMeta) {
 export function createAtPoint(tool: CreatableTool, point: Point, meta: CreationMeta): BoardObject {
   switch (tool) {
     case 'sticky':
-      return createSticky(point.x, point.y, STICKY_SIZE.width, STICKY_SIZE.height, meta);
+      return createSticky(point, meta);
     case 'text':
       return createText(point.x, point.y, meta);
     case 'rect':
@@ -83,17 +91,23 @@ export function createConnectorFromPoints(from: Point, to: Point, meta: Creation
   return createConnector(from, to, meta);
 }
 
-function createSticky(x: number, y: number, width: number, height: number, meta: CreationMeta): StickyObject {
+// експортована окремо, бо канбан створює стікер одразу в колонці
+export function createSticky(
+  point: Point,
+  meta: CreationMeta,
+  column: StickyColumn | null = null,
+): StickyObject {
   return {
     ...baseFields(meta),
     type: 'sticky',
-    x,
-    y,
-    width,
-    height,
+    x: point.x,
+    y: point.y,
+    width: STICKY_SIZE.width,
+    height: STICKY_SIZE.height,
     text: '',
     fillColor: PALETTE[1],
     textColor: DEFAULT_TEXT_COLOR,
+    column,
   };
 }
 
