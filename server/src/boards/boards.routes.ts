@@ -5,6 +5,7 @@ import type {
   BoardListResponse,
   BoardSummary,
   CreateBoardRequest,
+  RemoveBoardMemberRequest,
   UpdateBoardRequest,
 } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
@@ -146,7 +147,7 @@ boardsRouter.delete('/:id/members', async (req, res, next) => {
     if (!parsed.success) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Некоректні дані учасника');
     }
-    const { userId }: { userId: string } = parsed.data;
+    const { userId }: RemoveBoardMemberRequest = parsed.data;
 
     await prisma.boardMember.deleteMany({ where: { boardId: access.board.id, userId } });
     res.status(204).end();

@@ -5,6 +5,7 @@ import type { BoardSummary } from 'shared';
 import { logout } from '../api/auth';
 import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
+import { BoardMembers } from './BoardMembers';
 
 export function BoardsPage() {
   const { user, setUser } = useAuthStore();
@@ -14,6 +15,7 @@ export function BoardsPage() {
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [membersOpenId, setMembersOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBoards()
@@ -113,10 +115,17 @@ export function BoardsPage() {
                     <button type="button" onClick={() => handleDelete(board.id)}>
                       Видалити
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setMembersOpenId(membersOpenId === board.id ? null : board.id)}
+                    >
+                      Учасники
+                    </button>
                   </>
                 )}
               </>
             )}
+            {membersOpenId === board.id && <BoardMembers boardId={board.id} />}
           </li>
         ))}
       </ul>

@@ -39,6 +39,10 @@ export interface AddBoardMemberRequest {
   role: BoardRole;
 }
 
+export interface RemoveBoardMemberRequest {
+  userId: string;
+}
+
 // снепшот — увесь вміст дошки одним масивом; тимчасово, до CRDT
 export interface SnapshotResponse {
   objects: BoardObject[];

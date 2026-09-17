@@ -53,6 +53,7 @@ header {
 
 .board-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
@@ -63,6 +64,29 @@ header {
 .board-role {
   color: gray;
   font-size: 0.85rem;
+}
+
+/* секція учасників — окремим рядком на всю ширину під дошкою */
+.board-members {
+  flex-basis: 100%;
+  border-top: 1px solid #ddd;
+  padding-top: 0.5rem;
+}
+
+.member-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+
+.member-list li {
+  border: none;
+  padding: 0.25rem 0;
+}
+
+.member-add-form {
+  flex-direction: row;
+  gap: 0.5rem;
 }
 
 /* сторінка дошки — на всю площу вікна, полотно під шапкою. Палітра одна на

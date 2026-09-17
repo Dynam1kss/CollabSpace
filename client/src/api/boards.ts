@@ -1,10 +1,13 @@
 import type {
+  AddBoardMemberRequest,
   ApiErrorBody,
   BoardDetail,
   BoardListResponse,
   BoardObject,
+  BoardRole,
   BoardSummary,
   CreateBoardRequest,
+  RemoveBoardMemberRequest,
   SaveSnapshotRequest,
   SnapshotResponse,
   UpdateBoardRequest,
@@ -54,6 +57,29 @@ export function renameBoard(id: string, payload: UpdateBoardRequest) {
 
 export async function deleteBoard(id: string) {
   const res = await fetch(`/api/boards/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
+  }
+}
+
+// сервер повертає дошку з уже оновленим списком учасників
+export function addBoardMember(boardId: string, email: string, role: BoardRole) {
+  const payload: AddBoardMemberRequest = { email, role };
+  return fetch(`/api/boards/${boardId}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((res) => parseResponse<BoardDetail>(res));
+}
+
+export async function removeBoardMember(boardId: string, userId: string) {
+  const payload: RemoveBoardMemberRequest = { userId };
+  const res = await fetch(`/api/boards/${boardId}/members`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
   if (!res.ok) {
     const data = await res.json();
     throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
