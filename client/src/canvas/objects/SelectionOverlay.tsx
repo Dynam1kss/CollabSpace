@@ -36,6 +36,9 @@ const TEXT_ANCHORS = [
   'middle-right',
   'bottom-center',
 ];
+// картинка: лише кути — keepRatio у konva стримує пропорції тільки на кутових
+// ручках, бокові тягнуть одну сторону попри прапорець
+const CORNER_ANCHORS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
 
 function isEdgeAnchor(name: string | null) {
   return name === 'middle-left' || name === 'middle-right' || name === 'bottom-center';
@@ -220,7 +223,7 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
   return (
     <Transformer
       ref={transformerRef}
-      enabledAnchors={soleText ? TEXT_ANCHORS : ALL_ANCHORS}
+      enabledAnchors={soleText ? TEXT_ANCHORS : soleImage ? CORNER_ANCHORS : ALL_ANCHORS}
       anchorStyleFunc={soleText ? styleTextAnchor : undefined}
       keepRatio={soleText || soleImage ? true : shiftHeld}
       rotateEnabled
