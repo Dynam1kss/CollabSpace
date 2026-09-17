@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import type {
   BoardObject,
   ConnectorObject,
+  ImageObject,
   ShapeObject,
   ShapeKind,
   StickyColumn,
@@ -34,6 +35,8 @@ export const FONT_SIZE_MIN = 8;
 export const FONT_SIZE_MAX = 200;
 
 const STICKY_SIZE = { width: 160, height: 120 };
+// довша сторона щойно вставленої картинки — щоб фото з телефону не накрило всю дошку
+const IMAGE_MAX_SIDE = 320;
 const SHAPE_SIZE = { width: 120, height: 90 };
 const CONNECTOR_LENGTH = 140;
 const MIN_DRAWN_SIZE = 8; // менше цього — вважаємо це кліком, не протягуванням
@@ -108,6 +111,29 @@ export function createSticky(
     fillColor: PALETTE[1],
     textColor: DEFAULT_TEXT_COLOR,
     column,
+  };
+}
+
+// пропорції з файла, довша сторона не більша за IMAGE_MAX_SIDE
+export function fitImageSize(naturalWidth: number, naturalHeight: number) {
+  const k = Math.min(1, IMAGE_MAX_SIDE / Math.max(naturalWidth, naturalHeight, 1));
+  return { width: Math.round(naturalWidth * k), height: Math.round(naturalHeight * k) };
+}
+
+export function createImage(
+  point: Point,
+  size: { width: number; height: number },
+  url: string,
+  meta: CreationMeta,
+): ImageObject {
+  return {
+    ...baseFields(meta),
+    type: 'image',
+    x: point.x,
+    y: point.y,
+    width: size.width,
+    height: size.height,
+    url,
   };
 }
 

@@ -11,6 +11,7 @@ import type {
   SaveSnapshotRequest,
   SnapshotResponse,
   UpdateBoardRequest,
+  UploadImageResponse,
 } from 'shared';
 
 // несе статус відповіді — щоб відрізнити "не знайдено" (404) від решти помилок
@@ -84,6 +85,15 @@ export async function removeBoardMember(boardId: string, userId: string) {
     const data = await res.json();
     throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
   }
+}
+
+// сирі байти файла в тілі, тип — з самого File; сервер відповідає відносним url
+export function uploadBoardImage(boardId: string, file: File) {
+  return fetch(`/api/boards/${boardId}/images`, {
+    method: 'POST',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  }).then((res) => parseResponse<UploadImageResponse>(res));
 }
 
 export function fetchBoardSnapshot(id: string) {

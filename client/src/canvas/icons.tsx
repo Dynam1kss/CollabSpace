@@ -68,6 +68,16 @@ export function ConnectorIcon() {
   );
 }
 
+export function ImageIcon() {
+  return (
+    <Svg>
+      <rect x="3.5" y="4.5" width="13" height="11" rx="1" />
+      <circle cx="7.5" cy="8.5" r="1.3" />
+      <path d="M3.5 14l4-3.5 3 2.5 3-3.5 3 3" />
+    </Svg>
+  );
+}
+
 export function StrokeWidthIcon() {
   return (
     <Svg>

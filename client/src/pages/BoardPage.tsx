@@ -91,9 +91,10 @@ export function BoardPage() {
     setViewport(fitToObjects(Object.values(objects), canvasSize.width, canvasSize.height));
   }
 
-  // стікери з канбану кладемо туди, де зараз видима середина полотна — щоб
-  // після повернення на полотно вони були перед очима, а не в (0,0) десь далеко
-  const kanbanOrigin = screenToBoard({ x: center.x - 80, y: center.y - 60 }, viewport);
+  // точка дошки під серединою полотна: сюди лягають стікери з канбану і
+  // вставлені картинки — щоб були перед очима, а не в (0,0) десь далеко
+  const visibleCenter = screenToBoard(center, viewport);
+  const kanbanOrigin = { x: visibleCenter.x - 80, y: visibleCenter.y - 60 };
 
   if (state === 'loading') {
     return <p className="board-page-message">Завантаження…</p>;
@@ -152,7 +153,7 @@ export function BoardPage() {
       <div className="board-workspace">
         {view === 'canvas' ? (
           <>
-            <Toolbar />
+            <Toolbar boardId={board.id} currentUserId={currentUserId} visibleCenter={visibleCenter} />
             <BoardCanvas
               viewport={viewport}
               spaceHeld={spaceHeld}

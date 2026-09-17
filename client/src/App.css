@@ -247,6 +247,29 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   color: var(--accent);
 }
 
+/* поки картинка вантажиться — кнопка блимає, щоб було видно, що щось іде */
+.tool-button.uploading {
+  animation: tool-pulse 0.9s ease-in-out infinite;
+  cursor: progress;
+}
+
+@keyframes tool-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* помилка вставки картинки — поруч із панеллю інструментів, зникає сама */
+.tool-error {
+  left: 68px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 12px;
+  max-width: 260px;
+  font-size: 0.85rem;
+  color: #d93025;
+}
+
 /* контекстна панель — компактний рядок дій біля виділення; left/top
 виставляє сам компонент, бо рахує їх від рамки виділення */
 .ctx-panel {
