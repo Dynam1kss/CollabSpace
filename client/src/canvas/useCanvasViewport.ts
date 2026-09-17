@@ -140,29 +140,44 @@ export function useCanvasViewport(initial: Viewport) {
     viewportRef.current = viewport;
   }, [viewport]);
 
-  // кілька подій wheel за один кадр (типово для трекпада) складаються в одну
-  // pending-версію viewport і йдуть у setViewport одним викликом через rAF —
-  // інакше React перемальовує полотно на кожну дрібну подію, десятки разів на секунду
+  // кілька подій за один кадр (wheel трекпада, mousemove, touchmove) складаються
+  // в одну pending-версію viewport і йдуть у setViewport одним викликом через rAF —
+  // інакше React перемальовує полотно на кожну дрібну подію, десятки разів на
+  // секунду, і на швидких рухах полотно смикається
   const pendingViewportRef = useRef<Viewport | null>(null);
-  const wheelRafIdRef = useRef<number | null>(null);
+  const flushRafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
-      if (wheelRafIdRef.current !== null) cancelAnimationFrame(wheelRafIdRef.current);
+      if (flushRafIdRef.current !== null) cancelAnimationFrame(flushRafIdRef.current);
       if (pendingWheelRef.current) clearTimeout(pendingWheelRef.current.timerId);
     };
   }, []);
 
-  const scheduleWheelFlush = useCallback(() => {
-    if (wheelRafIdRef.current !== null) return;
-    wheelRafIdRef.current = requestAnimationFrame(() => {
-      wheelRafIdRef.current = null;
+  const scheduleViewportFlush = useCallback(() => {
+    if (flushRafIdRef.current !== null) return;
+    flushRafIdRef.current = requestAnimationFrame(() => {
+      flushRafIdRef.current = null;
       if (pendingViewportRef.current) {
+        // у ref пишемо одразу, не чекаючи ефекту після рендера — подія, що
+        // прилетить між цим кадром і комітом react, інакше стартувала б від
+        // застарілого viewport і зʼїла б уже накопичений зсув
+        viewportRef.current = pendingViewportRef.current;
         setViewport(pendingViewportRef.current);
         pendingViewportRef.current = null;
       }
     });
   }, []);
+
+  // нове значення рахуємо від того, що вже накопичено в цьому кадрі (якщо
+  // кілька подій прийшли до flush), інакше від свіжого committed стану
+  const queueViewport = useCallback(
+    (next: (base: Viewport) => Viewport) => {
+      pendingViewportRef.current = next(pendingViewportRef.current ?? viewportRef.current);
+      scheduleViewportFlush();
+    },
+    [scheduleViewportFlush],
+  );
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -190,7 +205,7 @@ export function useCanvasViewport(initial: Viewport) {
       const dy = e.clientY - pan.lastY;
       pan.lastX = e.clientX;
       pan.lastY = e.clientY;
-      setViewport((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      queueViewport((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
     }
     function handleWindowMouseUp() {
       if (panRef.current) panRef.current.active = false;
@@ -201,7 +216,7 @@ export function useCanvasViewport(initial: Viewport) {
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
-  }, []);
+  }, [queueViewport]);
 
   const handleMouseDown = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
@@ -224,13 +239,8 @@ export function useCanvasViewport(initial: Viewport) {
   // застосувати одну подію wheel уже відомого типу до pending-viewport
   const applyWheel = useCallback(
     (type: WheelGestureType, deltaX: number, deltaY: number, pointer: Point2) => {
-      // база для цієї події — те, що вже накопичено в цьому кадрі (якщо
-      // кілька wheel-подій прийшли до flush), інакше свіжий committed стан
-      const base = pendingViewportRef.current ?? viewportRef.current;
-
       if (type === 'pan') {
-        pendingViewportRef.current = { ...base, x: base.x - deltaX, y: base.y - deltaY };
-        scheduleWheelFlush();
+        queueViewport((base) => ({ ...base, x: base.x - deltaX, y: base.y - deltaY }));
         return;
       }
 
@@ -246,10 +256,9 @@ export function useCanvasViewport(initial: Viewport) {
       const maxFactor = isPinch ? WHEEL_PINCH_MAX_FACTOR : WHEEL_EVENT_MAX_FACTOR;
       const rawFactor = Math.exp(-deltaY * k);
       const factor = Math.min(maxFactor, Math.max(minFactor, rawFactor));
-      pendingViewportRef.current = zoomViewportAtPoint(base, base.scale * factor, pointer);
-      scheduleWheelFlush();
+      queueViewport((base) => zoomViewportAtPoint(base, base.scale * factor, pointer));
     },
-    [scheduleWheelFlush],
+    [queueViewport],
   );
 
   // відкладена перша подія отримала вердикт — застосовуємо її і фіксуємо тип жесту
@@ -337,35 +346,38 @@ export function useCanvasViewport(initial: Viewport) {
     }
   }, []);
 
-  const handleTouchMove = useCallback((e: KonvaEventObject<TouchEvent>) => {
-    e.evt.preventDefault();
-    const stage = e.target.getStage();
-    if (!stage) return;
-    const touches = e.evt.touches;
+  const handleTouchMove = useCallback(
+    (e: KonvaEventObject<TouchEvent>) => {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      if (!stage) return;
+      const touches = e.evt.touches;
 
-    if (touches.length === 1 && panRef.current?.active) {
-      const dx = touches[0].clientX - panRef.current.lastX;
-      const dy = touches[0].clientY - panRef.current.lastY;
-      panRef.current.lastX = touches[0].clientX;
-      panRef.current.lastY = touches[0].clientY;
-      setViewport((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
-    } else if (touches.length === 2 && pinchRef.current) {
-      const p1 = touchStagePoint(stage, touches[0]);
-      const p2 = touchStagePoint(stage, touches[1]);
-      const newDistance = distance(p1, p2);
-      const newMidpoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-      const prev = pinchRef.current;
-      pinchRef.current = { distance: newDistance, midpoint: newMidpoint };
-      if (prev.distance > 0) {
-        // масштаб і зсув однією зміною стану: відношення відстаней — множник
-        // масштабу, зміщення середньої точки — панорамування; масштаб рахуємо
-        // відносно ПОПЕРЕДНЬОЇ середньої точки (prev.midpoint), інакше зсув після
-        // подвоюється і полотно "стрибає" замість того, щоб клеїтись до пальців
-        const factor = newDistance / prev.distance;
-        setViewport((v) => pinchViewport(v, v.scale * factor, prev.midpoint, newMidpoint));
+      if (touches.length === 1 && panRef.current?.active) {
+        const dx = touches[0].clientX - panRef.current.lastX;
+        const dy = touches[0].clientY - panRef.current.lastY;
+        panRef.current.lastX = touches[0].clientX;
+        panRef.current.lastY = touches[0].clientY;
+        queueViewport((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      } else if (touches.length === 2 && pinchRef.current) {
+        const p1 = touchStagePoint(stage, touches[0]);
+        const p2 = touchStagePoint(stage, touches[1]);
+        const newDistance = distance(p1, p2);
+        const newMidpoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        const prev = pinchRef.current;
+        pinchRef.current = { distance: newDistance, midpoint: newMidpoint };
+        if (prev.distance > 0) {
+          // масштаб і зсув однією зміною стану: відношення відстаней — множник
+          // масштабу, зміщення середньої точки — панорамування; масштаб рахуємо
+          // відносно ПОПЕРЕДНЬОЇ середньої точки (prev.midpoint), інакше зсув після
+          // подвоюється і полотно "стрибає" замість того, щоб клеїтись до пальців
+          const factor = newDistance / prev.distance;
+          queueViewport((v) => pinchViewport(v, v.scale * factor, prev.midpoint, newMidpoint));
+        }
       }
-    }
-  }, []);
+    },
+    [queueViewport],
+  );
 
   const handleTouchEnd = useCallback((e: KonvaEventObject<TouchEvent>) => {
     const touches = e.evt.touches;
