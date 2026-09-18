@@ -61,9 +61,18 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
     }
 
+    // снепшот з rest вантажиться паралельно з рукостисканням сокета і часто
+    // встигає лягти в документ раніше — такі оновлення send() просто викидав,
+    // і в сусіда назавжди лишалась діра в наших клоках
+    let missedWhileConnecting = false;
+
     // глядач нічого не шле — сервер і так відкинув би, але й пробувати не варто
     function handleLocalUpdate(update: Uint8Array, origin: unknown) {
       if (origin === REMOTE_ORIGIN || !canWriteRef.current) return;
+      if (ws.readyState !== WebSocket.OPEN) {
+        missedWhileConnecting = true;
+        return;
+      }
       send(frame(SYNC_MSG.UPDATE, update));
     }
     doc.on('update', handleLocalUpdate);
@@ -75,6 +84,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     }
 
     ws.onopen = () => {
+      // віддаємо свій стан цілком — інакше сусід не зможе прийняти жодної
+      // нашої наступної дельти: yjs вимагає клоки без пропусків
+      if (missedWhileConnecting && canWriteRef.current) {
+        missedWhileConnecting = false;
+        send(frame(SYNC_MSG.UPDATE, Y.encodeStateAsUpdate(doc)));
+      }
       // що в мене вже є → у відповідь прийде все, чого бракує (див. shared/sync)
       askForHistory();
       syncRetry = window.setInterval(askForHistory, SYNC_RETRY_MS);

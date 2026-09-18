@@ -170,6 +170,57 @@ describe('board-store поверх Y.Map', () => {
     expect((b.objects.get('s1') as StickyObject).x).toBe(0);
   });
 
+  // 18.09, другий захід: снепшот з REST лягає в документ паралельно з
+  // рукостисканням сокета і часто раніше за нього — такі оновлення useBoardSync
+  // викидав, бо сокет ще CONNECTING. Порядок тут саме той, що в житті:
+  // спершу загублені адди, і лише потім sync-відповідь (вона фізично не може
+  // прийти до відкриття сокета). a — хто вже був на дошці, b — новачок.
+  // clientID a більший, тому після відповіді в мапі b виграє запис a — і
+  // правка b цілиться delete-ом саме в нього
+  function newcomerWithLostAdds(publishOnOpen: boolean) {
+    const a = client(200);
+    const b = client(100);
+    a.objects.set('s1', sticky('s1'));
+    a.objects.set('s2', sticky('s2'));
+
+    // снепшот ліг у документ, поки сокет ще відкривався — у мережу не пішов
+    const lost: Uint8Array[] = [];
+    b.doc.on('update', (u: Uint8Array) => lost.push(u));
+    b.objects.set('s1', sticky('s1'));
+    b.objects.set('s2', sticky('s2'));
+    expect(lost).toHaveLength(2);
+
+    // сокет відкрився: після фіксу віддаємо свій стан цілком замість утраченого
+    if (publishOnOpen) Y.applyUpdate(a.doc, Y.encodeStateAsUpdate(b.doc));
+    // і лише тепер приходить відповідь на sync-запит
+    Y.applyUpdate(b.doc, Y.encodeStateAsUpdate(a.doc, Y.encodeStateVector(b.doc)));
+
+    // b працює наживо: створює новий обʼєкт і рухає спільний
+    const live: Uint8Array[] = [];
+    b.doc.on('update', (u: Uint8Array) => live.push(u));
+    b.objects.set('s3', sticky('s3'));
+    b.objects.set('s1', { ...(b.objects.get('s1') as StickyObject), x: 5 });
+    for (const u of live) Y.applyUpdate(a.doc, u);
+    return { a, b };
+  }
+
+  it('загублені до коннекту адди ламають усі наступні дельти', () => {
+    const { a, b } = newcomerWithLostAdds(false);
+    expect(b.objects.has('s3')).toBe(true);
+    // нове від b не долітає — його структури осіли в pendingStructs
+    expect(a.objects.has('s3')).toBe(false);
+    // а рух спільного обʼєкта ще й зʼїв його в a: delete застосувався, заміна — ні
+    expect(a.objects.has('s1')).toBe(false);
+  });
+
+  it('публікація свого стану на відкритті сокета закриває діру', () => {
+    const { a, b } = newcomerWithLostAdds(true);
+    expect(a.objects.has('s3')).toBe(true);
+    expect(a.objects.has('s1')).toBe(true);
+    expect((a.objects.get('s1') as StickyObject).x).toBe(5);
+    expect(a.objects.toJSON()).toEqual(b.objects.toJSON());
+  });
+
   it('чуже оновлення, застосоване до документа стору, зʼявляється в дзеркалі', () => {
     const remote = client();
     remote.objects.set('r1', sticky('r1', { text: 'з мережі' }));
