@@ -3,9 +3,10 @@ import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
+import type { PresenceMember, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
-import { getBoardAccess } from './boards.service';
+import { getBoardAccess, getDisplayName } from './boards.service';
 import type { BoardAccess } from './boards.service';
 
 // кімната = дошка; сервер не тримає Y.Doc і не декодує yjs — лише
@@ -15,6 +16,8 @@ interface Client {
   id: number;
   boardId: string;
   role: BoardAccess['role'];
+  userId: string;
+  displayName: string;
 }
 
 export const boardRoomWss = new WebSocketServer({ noServer: true });
@@ -54,8 +57,9 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
     reject(socket, '404 Not Found');
     return;
   }
+  const displayName = await getDisplayName(userId);
   boardRoomWss.handleUpgrade(req, socket, head, (ws) => {
-    clients.set(ws, { id: nextClientId++, boardId, role: access.role });
+    clients.set(ws, { id: nextClientId++, boardId, role: access.role, userId, displayName });
     boardRoomWss.emit('connection', ws, req);
   });
 }
@@ -64,6 +68,22 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
 function reject(socket: Duplex, status: string) {
   socket.write(`HTTP/1.1 ${status}\r\n\r\n`);
   socket.destroy();
+}
+
+// присутність шлемо json-ом: ці кадри рідкі (вхід, вихід, список при
+// підключенні), тому читабельність тут дорожча за байти — на відміну від
+// курсорів, які підуть десятками за секунду
+function jsonFrame(type: number, payload: unknown) {
+  return Buffer.concat([Buffer.from([type]), Buffer.from(JSON.stringify(payload), 'utf8')]);
+}
+
+function toMember(client: Client): PresenceMember {
+  return {
+    clientId: client.id,
+    userId: client.userId,
+    displayName: client.displayName,
+    role: client.role,
+  };
 }
 
 function toBuffer(data: RawData) {
@@ -83,9 +103,21 @@ boardRoomWss.on('connection', (socket) => {
     room = new Map();
     rooms.set(client.boardId, room);
   }
+  // новачку — увесь список (разом із ним самим, щоб він знав свій clientId),
+  // решті — лише подію про нього. Хто в кімнаті, знає сервер, тому роздає він
+  const roster: RosterMessage = {
+    you: client.id,
+    members: [...room.values(), socket]
+      .map((s) => clients.get(s))
+      .filter((c): c is Client => !!c)
+      .map(toMember),
+  };
+  for (const [, other] of room) send(other, jsonFrame(SYNC_MSG.JOIN, toMember(client)));
+
   room.set(client.id, socket);
   missedPings.set(socket, 0);
   socket.on('pong', () => missedPings.set(socket, 0));
+  send(socket, jsonFrame(SYNC_MSG.ROSTER, roster));
 
   socket.on('message', (data) => {
     const buf = toBuffer(data);
@@ -136,7 +168,8 @@ boardRoomWss.on('connection', (socket) => {
   });
 
   const leave = () => {
-    room.delete(client.id);
+    if (!room.delete(client.id)) return;
+    for (const [, other] of room) send(other, jsonFrame(SYNC_MSG.LEAVE, { clientId: client.id }));
     if (room.size === 0) rooms.delete(client.boardId);
   };
   socket.on('close', leave);

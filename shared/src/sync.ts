@@ -1,3 +1,5 @@
+import type { BoardRole } from './boards';
+
 // жива синхронізація дошки поверх ws /ws/boards/:id — бінарні кадри,
 // перший байт — тип, далі байти Yjs як є (сервер їх не розбирає):
 //   UPDATE        [0][yjs update]           редактор → усім іншим у кімнаті
@@ -11,10 +13,41 @@
 // прогалиною в клоках лягає в pendingStructs, а delete set із неї застосується
 // одразу, і обʼєкт зникне в того, хто історії не отримав. Тому відповідь
 // приходить завжди, навіть порожня: клієнт по ній розуміє, що документ цілий
+//
+// присутність (хто зараз на дошці) — окремий канал у тому самому сокеті:
+//   ROSTER    [3][json RosterMessage]   сервер → новачку, повний список
+//   JOIN      [4][json PresenceMember]  сервер → решті, коли хтось зайшов
+//   LEAVE     [5][json LeaveMessage]    сервер → решті, коли хтось вийшов
+// Хто в кімнаті — знає сам сервер, тому роздає це він, а не клієнти
+// здогадуються з чужого трафіку. Присутність ефемерна: у Y.Doc і в базу не
+// потрапляє, з розривом сокета просто зникає. Роль тут не обмежує нічого —
+// глядач так само присутній; за роллю гейтиться лише UPDATE
 export const SYNC_MSG = {
   UPDATE: 0,
   SYNC_REQUEST: 1,
   SYNC_REPLY: 2,
+  ROSTER: 3,
+  JOIN: 4,
+  LEAVE: 5,
 } as const;
 
 export const SYNC_REQUESTER_ID_BYTES = 4;
+
+// id сокета, не користувача: та сама людина з двох вкладок — два записи,
+// і кожен зникає окремо
+export interface PresenceMember {
+  clientId: number;
+  userId: string;
+  displayName: string;
+  role: 'OWNER' | BoardRole;
+}
+
+export interface RosterMessage {
+  // який із members — це я; себе в списку присутніх не показуємо
+  you: number;
+  members: PresenceMember[];
+}
+
+export interface LeaveMessage {
+  clientId: number;
+}

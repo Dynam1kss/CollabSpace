@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { SYNC_MSG } from 'shared';
 import { app } from '../src/app';
 import { roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
 import { prisma } from '../src/prisma';
@@ -71,6 +72,25 @@ function nextMessage(ws: WebSocket, timeoutMs = 300) {
   });
 }
 
+// кадри присутності (roster/join/leave) прилітають самі по собі й до обміну
+// документом стосунку не мають — тести нижче чекають саме на свої
+function nextSyncMessage(ws: WebSocket, timeoutMs = 300) {
+  return new Promise<Buffer | null>((resolve) => {
+    const timer = setTimeout(() => {
+      ws.off('message', onMessage);
+      resolve(null);
+    }, timeoutMs);
+    const onMessage = (data: unknown) => {
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+      if (buf[0] >= SYNC_MSG.ROSTER) return;
+      clearTimeout(timer);
+      ws.off('message', onMessage);
+      resolve(buf);
+    };
+    ws.on('message', onMessage);
+  });
+}
+
 async function boardWithMembers() {
   const owner = await user();
   const editor = await user();
@@ -103,16 +123,20 @@ describe('кімнати дошок поверх ws', () => {
 
     const bytes = Buffer.from([0, 7, 8, 9]);
     a.send(bytes);
-    const [gotB, gotV, gotA] = await Promise.all([nextMessage(b), nextMessage(v), nextMessage(a)]);
+    const [gotB, gotV, gotA] = await Promise.all([
+      nextSyncMessage(b),
+      nextSyncMessage(v),
+      nextSyncMessage(a),
+    ]);
     expect(gotB && Buffer.compare(gotB, bytes)).toBe(0);
     expect(gotV && Buffer.compare(gotV, bytes)).toBe(0);
     expect(gotA).toBeNull();
 
     v.send(Buffer.from([0, 1, 2]));
-    expect(await Promise.all([nextMessage(a), nextMessage(b)])).toEqual([null, null]);
+    expect(await Promise.all([nextSyncMessage(a), nextSyncMessage(b)])).toEqual([null, null]);
     // і підроблена «відповідь» від глядача теж
     v.send(Buffer.from([2, 0, 0, 0, 1, 5]));
-    expect(await Promise.all([nextMessage(a), nextMessage(b)])).toEqual([null, null]);
+    expect(await Promise.all([nextSyncMessage(a), nextSyncMessage(b)])).toEqual([null, null]);
   });
 
   it('sync-запит іде найстаршому редактору з id новачка, відповідь — лише новачкові', async () => {
@@ -125,7 +149,7 @@ describe('кімнати дошок поверх ws', () => {
     await opened(b);
 
     b.send(Buffer.from([1, 42, 43]));
-    const [toA, toV] = await Promise.all([nextMessage(a), nextMessage(v)]);
+    const [toA, toV] = await Promise.all([nextSyncMessage(a), nextSyncMessage(v)]);
     expect(toV).toBeNull();
     expect(toA).not.toBeNull();
     expect(toA![0]).toBe(1);
@@ -134,7 +158,7 @@ describe('кімнати дошок поверх ws', () => {
 
     const reply = Buffer.concat([Buffer.from([2]), toA!.subarray(1, 5), Buffer.from([9, 9, 9])]);
     a.send(reply);
-    const [toB, toV2, toA2] = await Promise.all([nextMessage(b), nextMessage(v), nextMessage(a)]);
+    const [toB, toV2, toA2] = await Promise.all([nextSyncMessage(b), nextSyncMessage(v), nextSyncMessage(a)]);
     expect(toB && [...toB]).toEqual([2, 9, 9, 9]);
     expect(toV2).toBeNull();
     expect(toA2).toBeNull();
@@ -146,9 +170,50 @@ describe('кімнати дошок поверх ws', () => {
     b.close();
     await new Promise((r) => setTimeout(r, 100));
     v2.send(Buffer.from([1, 1]));
-    const [toVagain, toV2self] = await Promise.all([nextMessage(v), nextMessage(v2)]);
+    const [toVagain, toV2self] = await Promise.all([nextSyncMessage(v), nextSyncMessage(v2)]);
     expect(toVagain).toBeNull();
     expect(toV2self && [...toV2self]).toEqual([2]);
+  });
+
+  it('роутер присутності: список при вході, join і leave решті', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    // перший у кімнаті бачить лише себе, і знає свій clientId
+    const first = JSON.parse((await rosterA)!.subarray(1).toString());
+    expect(first.members).toHaveLength(1);
+    expect(first.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Тест' });
+    expect(first.members[0].clientId).toBe(first.you);
+
+    // глядач заходить: йому — список із двох, власнику — подія join
+    const v = connect(boardId, viewer.cookie);
+    const rosterV = nextMessage(v);
+    const joinToA = nextMessage(a);
+    await opened(v);
+    const second = JSON.parse((await rosterV)!.subarray(1).toString());
+    expect(second.members).toHaveLength(2);
+    expect(second.members.map((m: { role: string }) => m.role).sort()).toEqual(['OWNER', 'VIEWER']);
+
+    const join = (await joinToA)!;
+    expect(join[0]).toBe(4);
+    // глядач присутній нарівні з усіма — присутність за роллю не гейтиться
+    expect(JSON.parse(join.subarray(1).toString())).toMatchObject({ role: 'VIEWER', clientId: second.you });
+
+    // вихід глядача — власнику подія leave з тим самим clientId
+    const leaveToA = nextMessage(a);
+    v.close();
+    const leave = (await leaveToA)!;
+    expect(leave[0]).toBe(5);
+    expect(JSON.parse(leave.subarray(1).toString())).toEqual({ clientId: second.you });
+
+    // третій учасник заходить уже після виходу глядача — у списку лише живі
+    const b = connect(boardId, editor.cookie);
+    const rosterB = nextMessage(b);
+    await opened(b);
+    const third = JSON.parse((await rosterB)!.subarray(1).toString());
+    expect(third.members).toHaveLength(2);
+    expect(third.members.some((m: { role: string }) => m.role === 'VIEWER')).toBe(false);
   });
 
   it('мертвий сокет не блокує sync-запит іншим', async () => {
@@ -166,7 +231,7 @@ describe('кімнати дошок поверх ws', () => {
     const newcomer = connect(boardId, editor.cookie);
     await opened(newcomer);
     newcomer.send(Buffer.from([1, 5]));
-    expect(await nextMessage(alive)).toBeNull();
+    expect(await nextSyncMessage(alive)).toBeNull();
 
     // два такти без pong — сервер рве зʼєднання сам. пауза між тактами
     // обовʼязкова: живі встигають відповісти pong і скинути лічильник
@@ -178,7 +243,7 @@ describe('кімнати дошок поверх ws', () => {
 
     // тепер той самий запит доходить до живого редактора
     newcomer.send(Buffer.from([1, 5]));
-    const got = await nextMessage(alive);
+    const got = await nextSyncMessage(alive);
     expect(got).not.toBeNull();
     expect(got![0]).toBe(1);
     expect([...got!.subarray(5)]).toEqual([5]);
@@ -189,7 +254,7 @@ describe('кімнати дошок поверх ws', () => {
     const v = connect(boardId, viewer.cookie);
     await opened(v);
     v.send(Buffer.from([1, 7]));
-    const got = await nextMessage(v);
+    const got = await nextSyncMessage(v);
     expect(got && [...got]).toEqual([2]);
   });
 

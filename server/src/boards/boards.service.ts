@@ -22,6 +22,13 @@ export async function getBoardAccess(boardId: string, userId: string): Promise<B
   return { board, role: membership.role };
 }
 
+// імʼя для списку присутніх. Окремим запитом і раз на коннект: getBoardAccess
+// смикають усі rest-роути, там це імʼя не потрібне
+export async function getDisplayName(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } });
+  return user?.displayName ?? '';
+}
+
 // чужу дошку (немає жодного доступу) не відрізняємо від неіснуючої — 404
 export function requireBoardAccess(access: BoardAccess | null): BoardAccess {
   if (!access) {

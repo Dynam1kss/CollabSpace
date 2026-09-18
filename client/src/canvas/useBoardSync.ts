@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
+import type { LeaveMessage, PresenceMember, RosterMessage } from 'shared';
 import { resetBoardDoc } from './board-store';
+import { usePresenceStore } from './presence-store';
 
 export type SyncStatus = 'connecting' | 'live' | 'offline';
 
@@ -14,6 +16,11 @@ const REMOTE_ORIGIN = { source: 'network' };
 // сервер вибиває мертвий сокет за два такти по 10с — за цей час устигне
 // прийти або його відповідь, або серверне «нема кому відповідати»
 const SYNC_RETRY_MS = 3000;
+
+const decoder = new TextDecoder();
+function text(bytes: Uint8Array) {
+  return decoder.decode(bytes);
+}
 
 function frame(type: number, ...parts: Uint8Array[]) {
   const total = parts.reduce((n, p) => n + p.length, 1);
@@ -53,6 +60,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // свіжий документ на дошку — до того, як useBoardPersistence (він нижче в
     // BoardPage, тому його ефект іде після цього) почне вантажити снепшот
     const doc = resetBoardDoc();
+    // присутність — ефемерна й прив'язана до цього сокета: на новій дошці
+    // починаємо з порожнього списку, чужі записи зі старої кімнати не тягнемо
+    usePresenceStore.getState().reset();
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${protocol}://${location.host}/ws/boards/${boardId}`);
     ws.binaryType = 'arraybuffer';
@@ -110,6 +120,17 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           window.clearInterval(syncRetry);
           setStatus('live');
           return;
+        case SYNC_MSG.ROSTER: {
+          const roster = JSON.parse(text(payload)) as RosterMessage;
+          usePresenceStore.getState().setRoster(roster.you, roster.members);
+          return;
+        }
+        case SYNC_MSG.JOIN:
+          usePresenceStore.getState().addMember(JSON.parse(text(payload)) as PresenceMember);
+          return;
+        case SYNC_MSG.LEAVE:
+          usePresenceStore.getState().removeMember((JSON.parse(text(payload)) as LeaveMessage).clientId);
+          return;
         case SYNC_MSG.SYNC_REQUEST: {
           // мене вибрали відповідати новачкові: його id лишаємо як є, сервер по ньому адресує
           if (!canWriteRef.current) return;
@@ -131,6 +152,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
 
     return () => {
       window.clearInterval(syncRetry);
+      usePresenceStore.getState().reset();
       doc.off('update', handleLocalUpdate);
       // своє закриття — не «офлайн»
       ws.onclose = null;
