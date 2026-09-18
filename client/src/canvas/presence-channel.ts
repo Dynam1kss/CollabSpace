@@ -40,6 +40,16 @@ function flushCursor() {
   sendFrame(frame);
 }
 
+// виділення міняється рідко (клік, рамка, ctrl+a) — тут тротлінг ні до чого
+export function publishSelection(selectedIds: string[]) {
+  if (!sendFrame) return;
+  const body = new TextEncoder().encode(JSON.stringify(selectedIds));
+  const frame = new Uint8Array(1 + body.length);
+  frame[0] = SYNC_MSG.SELECTION;
+  frame.set(body, 1);
+  sendFrame(frame);
+}
+
 export function publishCursor(point: { x: number; y: number }) {
   pending = point;
   if (timer !== undefined) return;

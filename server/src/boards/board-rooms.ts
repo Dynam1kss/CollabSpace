@@ -144,6 +144,16 @@ boardRoomWss.on('connection', (socket) => {
         return;
       }
 
+      case SYNC_MSG.SELECTION: {
+        // виділяти можна й глядачу — це не зміна вмісту, тож роль тут ні до чого
+        const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
+        framed[0] = SYNC_MSG.SELECTION;
+        framed.writeUInt32BE(client.id, 1);
+        buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
+        for (const [, other] of others) send(other, framed);
+        return;
+      }
+
       case SYNC_MSG.SYNC_REQUEST: {
         // новачок просить історію — відповідає найстарший живий редактор (глядач
         // не може, бо його відповідь ми б не мали права ретранслювати).
