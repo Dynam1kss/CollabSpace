@@ -1,8 +1,8 @@
-import { Line, Rect } from 'react-konva';
+import { Arrow, Line, Rect } from 'react-konva';
 import type { BoardObject, PresenceMember } from 'shared';
 import { usePresenceStore } from '../presence-store';
 import { colorForUser } from '../presence-colors';
-import { flattenPoints } from './connector-geometry';
+import { CONNECTOR_TENSION, flattenPoints } from './connector-geometry';
 
 interface Props {
   objects: Record<string, BoardObject>;
@@ -38,17 +38,24 @@ export function RemoteSelections({ objects, viewportScale }: Props) {
         const color = colorForUser(member.userId);
 
         if (object.type === 'connector') {
-          return (
-            <Line
-              key={id}
-              points={flattenPoints(object.points)}
-              stroke={color}
-              strokeWidth={object.strokeWidth + strokeWidth * 2}
-              opacity={0.45}
-              lineCap="round"
-              lineJoin="round"
-              listening={false}
-            />
+          // та сама геометрія, що й у самого конектора: без tension підсвітка
+          // йшла прямими хордами повз намальовану криву. Ширша за лінію на ті
+          // самі 3px екрана з кожного боку, що й відступ рамки в решти типів,
+          // і напівпрозора — сама лінія має лишитись видною крізь ореол
+          const halo = {
+            points: flattenPoints(object.points),
+            tension: CONNECTOR_TENSION,
+            stroke: color,
+            strokeWidth: object.strokeWidth + padding * 2,
+            opacity: 0.45,
+            lineCap: 'round' as const,
+            lineJoin: 'round' as const,
+            listening: false,
+          };
+          return object.arrowEnd ? (
+            <Arrow key={id} {...halo} pointerLength={10} pointerWidth={10} fill={color} />
+          ) : (
+            <Line key={id} {...halo} />
           );
         }
 
