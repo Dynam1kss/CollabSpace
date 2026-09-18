@@ -71,6 +71,60 @@ describe('board-store поверх Y.Map', () => {
     expect(useBoardStore.getState().getAll()).toHaveLength(0);
   });
 
+  // 20.09: групове тягання писало в стор N² разів на кадр (konva прокидає
+  // drag трансформера на всі виділені вузли, а обробник кожного рухає решту),
+  // і кожен запис ішов у мережу окремим пакетом. updateSoon збирає їх в один
+  it('updateSoon складає кадр в одну транзакцію — один апдейт у мережу', () => {
+    const store = useBoardStore.getState();
+    const ids = ['a', 'b', 'c', 'd', 'e'];
+    for (const id of ids) store.add(sticky(id));
+
+    const updates: Uint8Array[] = [];
+    const onUpdate = (u: Uint8Array) => updates.push(u);
+    boardDoc.on('update', onUpdate);
+    let mirrored = 0;
+    const unsub = useBoardStore.subscribe(() => mirrored++);
+
+    // те, що робить один кадр тягання пʼяти виділених: кожен вузол пише себе
+    // і всіх інших — 25 викликів
+    for (const _node of ids) for (const id of ids) store.updateSoon(id, { x: 7 });
+    store.flushUpdates();
+
+    unsub();
+    boardDoc.off('update', onUpdate);
+    expect(updates).toHaveLength(1);
+    expect(mirrored).toBe(1);
+    expect(
+      useBoardStore
+        .getState()
+        .getAll()
+        .every((o) => o.x === 7),
+    ).toBe(true);
+  });
+
+  it('flushUpdates без черги нічого не шле', () => {
+    const store = useBoardStore.getState();
+    store.add(sticky('a'));
+    const updates: Uint8Array[] = [];
+    const onUpdate = (u: Uint8Array) => updates.push(u);
+    boardDoc.on('update', onUpdate);
+    store.flushUpdates();
+    store.flushUpdates();
+    boardDoc.off('update', onUpdate);
+    expect(updates).toHaveLength(0);
+  });
+
+  // кілька правок того самого обʼєкта за кадр мають злитись, а не затертись
+  it('updateSoon зливає патчі на один обʼєкт', () => {
+    const store = useBoardStore.getState();
+    store.add(sticky('a'));
+    store.updateSoon('a', { x: 5 });
+    store.updateSoon('a', { y: 9 });
+    store.updateSoon('a', { x: 11 });
+    store.flushUpdates();
+    expect(useBoardStore.getState().getById('a')).toMatchObject({ x: 11, y: 9 });
+  });
+
   it('два клієнти, ті самі зміни в різному порядку — однаковий стан', () => {
     const a = client();
     const b = client();

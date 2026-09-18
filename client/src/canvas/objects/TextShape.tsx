@@ -5,7 +5,7 @@ import type { TextObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from '../text-layout';
-import { useMultiDragDelta } from './useMultiDrag';
+import { useDragGesture } from './useMultiDrag';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 interface Props {
@@ -21,25 +21,22 @@ interface Props {
 // а Text малюється з авто-висотою — konva з фіксованою height обрізає рядки,
 // що не влізли, а нам текст не можна обрізати ніколи
 export function TextShape({ object, isSelected, isEditing, draggable, registerRef }: Props) {
-  const updateObject = useBoardStore((s) => s.update);
+  const updateSoon = useBoardStore((s) => s.updateSoon);
+  const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const startEditingText = useEditorStore((s) => s.startEditingText);
   const handlePointerDown = useSelectOnPointerDown(object.id);
-  const { onDragStart, onDragMove, onDragEnd } = useMultiDragDelta(object.id);
+  const { onDragStart, onDragEnd } = useDragGesture();
 
   // позицію пишемо в стор на кожен рух, а не лише на dragend — інакше інші
   // бачать не рух, а стрибок на місце. так само наживо давно їде точка конектора
   const commitPosition = (e: KonvaEventObject<DragEvent>) => {
-    updateObject(object.id, { x: e.target.x(), y: e.target.y() });
-  };
-
-  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
-    onDragMove(e);
-    commitPosition(e);
+    updateSoon(object.id, { x: e.target.x(), y: e.target.y() });
   };
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    onDragEnd(e);
+    onDragEnd();
     commitPosition(e);
+    flushUpdates();
   };
 
   const handleEdit = () => startEditingText(object.id);
@@ -55,7 +52,7 @@ export function TextShape({ object, isSelected, isEditing, draggable, registerRe
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
       onDragStart={onDragStart}
-      onDragMove={handleDragMove}
+      onDragMove={commitPosition}
       onDragEnd={handleDragEnd}
       onDblClick={handleEdit}
       onDblTap={handleEdit}

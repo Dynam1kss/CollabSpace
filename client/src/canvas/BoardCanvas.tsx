@@ -6,7 +6,7 @@ import { Grid } from './Grid';
 import { TextEditOverlay } from './TextEditOverlay';
 import { useBoardStore } from './board-store';
 import { screenToBoard } from './coordinates';
-import type { Viewport } from './coordinates';
+import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { ObjectRenderer } from './objects/ObjectRenderer';
 import { RemoteCursors } from './objects/RemoteCursors';
@@ -38,6 +38,8 @@ interface Props {
 // компонент лише міряє розмір, малює Stage і зводить усі обробники разом
 export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, currentUserId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // екранна точка з останнього mousemove — щоб переспівати курсор при пані/зумі
+  const lastPointer = useRef<Point | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const nodesById = useRef<Record<string, Konva.Node>>({});
   // клік по Stage (add+select обʼєкта) — це нативний Konva-обробник поза React-подіями,
@@ -116,8 +118,17 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
   // масштаб. Кадри складає presence-channel, він же їх і притримує
   function handleMouseMove(e: KonvaEventObject<MouseEvent>) {
     const point = e.target.getStage()?.getPointerPosition();
-    if (point) publishCursor(screenToBoard(point, viewport));
+    if (!point) return;
+    lastPointer.current = point;
+    publishCursor(screenToBoard(point, viewport));
   }
+
+  // під час пану/зуму (колесо, два пальці по трекпаду) миша стоїть, mousemove
+  // не приходить — а точка дошки під нею вже інша. Без переспіву чужий курсор
+  // лишався б там, де жест почався, і стрибав аж на наступному русі миші
+  useEffect(() => {
+    if (lastPointer.current) publishCursor(screenToBoard(lastPointer.current, viewport));
+  }, [viewport]);
 
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
 

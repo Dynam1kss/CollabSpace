@@ -4,7 +4,7 @@ import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ImageObject } from 'shared';
 import { useBoardStore } from '../board-store';
-import { useMultiDragDelta } from './useMultiDrag';
+import { useDragGesture } from './useMultiDrag';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 interface Props {
@@ -15,9 +15,10 @@ interface Props {
 }
 
 export function ImageShape({ object, isSelected, draggable, registerRef }: Props) {
-  const updateObject = useBoardStore((s) => s.update);
+  const updateSoon = useBoardStore((s) => s.updateSoon);
+  const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const handlePointerDown = useSelectOnPointerDown(object.id);
-  const { onDragStart, onDragMove, onDragEnd } = useMultiDragDelta(object.id);
+  const { onDragStart, onDragEnd } = useDragGesture();
   const [image, setImage] = useState<HTMLImageElement | null>(null);
 
   // звичайний Image без бібліотек; поки вантажиться — сіра заглушка (fill нижче)
@@ -34,17 +35,13 @@ export function ImageShape({ object, isSelected, draggable, registerRef }: Props
   // позицію пишемо в стор на кожен рух, а не лише на dragend — інакше інші
   // бачать не рух, а стрибок на місце. так само наживо давно їде точка конектора
   const commitPosition = (e: KonvaEventObject<DragEvent>) => {
-    updateObject(object.id, { x: e.target.x(), y: e.target.y() });
-  };
-
-  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
-    onDragMove(e);
-    commitPosition(e);
+    updateSoon(object.id, { x: e.target.x(), y: e.target.y() });
   };
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    onDragEnd(e);
+    onDragEnd();
     commitPosition(e);
+    flushUpdates();
   };
 
   return (
@@ -66,7 +63,7 @@ export function ImageShape({ object, isSelected, draggable, registerRef }: Props
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
       onDragStart={onDragStart}
-      onDragMove={handleDragMove}
+      onDragMove={commitPosition}
       onDragEnd={handleDragEnd}
     />
   );

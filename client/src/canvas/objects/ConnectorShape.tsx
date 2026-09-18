@@ -6,7 +6,7 @@ import type { BoardPoint, ConnectorObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { CONNECTOR_TENSION, flattenPoints, midpoints, withPoints } from './connector-geometry';
-import { moveByDelta, useMultiDragDelta } from './useMultiDrag';
+import { moveByDelta, useDragGesture } from './useMultiDrag';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 const HANDLE_SCREEN_RADIUS = 7; // px на екрані, не в координатах дошки — тому ділимо на масштаб нижче
@@ -32,7 +32,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
   // глядачу ручок не даємо — ними міняють точки
   const showHandles = useEditorStore((s) => s.canEdit && isSelected && s.selectedIds.length === 1);
   const handlePointerDown = useSelectOnPointerDown(object.id);
-  const { onDragStart, onDragMove, onDragEnd } = useMultiDragDelta(object.id);
+  const { onDragStart, onDragEnd } = useDragGesture();
   // зняти window-слухачі тягання щойно вставленої точки — і при pointerup,
   // і якщо компонент розмонтували посеред жесту
   const stopInsertDragRef = useRef<(() => void) | null>(null);
@@ -40,13 +40,14 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
   useEffect(() => () => stopInsertDragRef.current?.(), []);
 
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    onDragEnd(e);
+    onDragEnd();
     const dx = e.target.x();
     const dy = e.target.y();
     if (dx !== 0 || dy !== 0) {
       updateObject(object.id, moveByDelta(object, dx, dy));
       e.target.position({ x: 0, y: 0 });
     }
+    useBoardStore.getState().flushUpdates();
   };
 
   // під час тягання стор оновлюється на кожен рух, а object у замиканні —
@@ -134,7 +135,6 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
       onDragStart={onDragStart}
-      onDragMove={onDragMove}
       onDragEnd={handleDragEnd}
     >
       {object.arrowEnd ? (

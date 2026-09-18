@@ -102,7 +102,8 @@ interface Props {
 // групі з іншими він звичайний учасник
 export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selectedIds }: Props) {
   const transformerRef = useRef<Konva.Transformer>(null);
-  const updateObject = useBoardStore((s) => s.update);
+  const updateObject = useBoardStore((s) => s.updateSoon);
+  const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const setInteracting = useEditorStore((s) => s.setInteracting);
   // посеред жесту стор тепер оновлюється щокадру — а цей компонент від того
   // перемальовується і перечіпляє nodes() трансформера. Konva на setNodes
@@ -185,8 +186,9 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
   }
 
   function handleTransformEnd() {
-    setInteracting(false);
     commitNodes();
+    flushUpdates();
+    setInteracting(false);
   }
 
   // те саме тіло, що й було в handleTransformEnd: розмір/кут/позиція вузлів —
