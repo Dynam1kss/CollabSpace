@@ -115,19 +115,23 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
   }
 
   // курсор іншим — у координатах дошки, а не екрана: у кожного свій зсув і
-  // масштаб. Кадри складає presence-channel, він же їх і притримує
-  function handleMouseMove(e: KonvaEventObject<MouseEvent>) {
-    const point = e.target.getStage()?.getPointerPosition();
-    if (!point) return;
-    lastPointer.current = point;
-    publishCursor(screenToBoard(point, viewport));
-  }
-
-  // під час пану/зуму (колесо, два пальці по трекпаду) миша стоїть, mousemove
-  // не приходить — а точка дошки під нею вже інша. Без переспіву чужий курсор
-  // лишався б там, де жест почався, і стрибав аж на наступному русі миші
+  // масштаб. Кадри складає presence-channel, він же їх і притримує.
+  // Слухаємо window, а не mousemove на Stage: поки konva тягне вузол, Stage
+  // подій миші не бачить узагалі, і чужий курсор застигав у точці захвату до
+  // кінця жесту. Заразом переспівуємо останню точку на зміну viewport — під
+  // час пану трекпадом миша стоїть, а точка дошки під нею вже інша
   useEffect(() => {
     if (lastPointer.current) publishCursor(screenToBoard(lastPointer.current, viewport));
+    function handleMouseMove(e: MouseEvent) {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const point = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      lastPointer.current = point;
+      publishCursor(screenToBoard(point, viewport));
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [viewport]);
 
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
@@ -144,7 +148,6 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
           scaleY={viewport.scale}
           onWheel={stageHandlers.onWheel}
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
           onMouseUp={stageHandlers.onMouseUp}
           onContextMenu={stageHandlers.onContextMenu}
           onTouchStart={stageHandlers.onTouchStart}
