@@ -31,9 +31,20 @@ export function ImageShape({ object, isSelected, draggable, registerRef }: Props
     };
   }, [object.url]);
 
+  // позицію пишемо в стор на кожен рух, а не лише на dragend — інакше інші
+  // бачать не рух, а стрибок на місце. так само наживо давно їде точка конектора
+  const commitPosition = (e: KonvaEventObject<DragEvent>) => {
+    updateObject(object.id, { x: e.target.x(), y: e.target.y() });
+  };
+
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
+    onDragMove(e);
+    commitPosition(e);
+  };
+
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     onDragEnd(e);
-    updateObject(object.id, { x: e.target.x(), y: e.target.y() });
+    commitPosition(e);
   };
 
   return (
@@ -55,7 +66,7 @@ export function ImageShape({ object, isSelected, draggable, registerRef }: Props
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
       onDragStart={onDragStart}
-      onDragMove={onDragMove}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     />
   );

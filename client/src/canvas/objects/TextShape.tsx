@@ -26,9 +26,20 @@ export function TextShape({ object, isSelected, isEditing, draggable, registerRe
   const handlePointerDown = useSelectOnPointerDown(object.id);
   const { onDragStart, onDragMove, onDragEnd } = useMultiDragDelta(object.id);
 
+  // позицію пишемо в стор на кожен рух, а не лише на dragend — інакше інші
+  // бачать не рух, а стрибок на місце. так само наживо давно їде точка конектора
+  const commitPosition = (e: KonvaEventObject<DragEvent>) => {
+    updateObject(object.id, { x: e.target.x(), y: e.target.y() });
+  };
+
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
+    onDragMove(e);
+    commitPosition(e);
+  };
+
   const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
     onDragEnd(e);
-    updateObject(object.id, { x: e.target.x(), y: e.target.y() });
+    commitPosition(e);
   };
 
   const handleEdit = () => startEditingText(object.id);
@@ -44,7 +55,7 @@ export function TextShape({ object, isSelected, isEditing, draggable, registerRe
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
       onDragStart={onDragStart}
-      onDragMove={onDragMove}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onDblClick={handleEdit}
       onDblTap={handleEdit}

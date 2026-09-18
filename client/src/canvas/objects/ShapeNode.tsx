@@ -18,12 +18,23 @@ export function ShapeNode({ object, isSelected, draggable, registerRef }: Props)
   const handlePointerDown = useSelectOnPointerDown(object.id);
   const { onDragStart, onDragMove, onDragEnd } = useMultiDragDelta(object.id);
 
-  const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    onDragEnd(e);
+  // позицію пишемо в стор на кожен рух, а не лише на dragend — інакше інші
+  // бачать не рух, а стрибок на місце. так само наживо давно їде точка конектора
+  const commitPosition = (e: KonvaEventObject<DragEvent>) => {
     // Konva.Ellipse позиціюється від центру, модель тримає x/y як top-left кута — перевести назад
     const offsetX = object.shapeKind === 'ellipse' ? object.width / 2 : 0;
     const offsetY = object.shapeKind === 'ellipse' ? object.height / 2 : 0;
     updateObject(object.id, { x: e.target.x() - offsetX, y: e.target.y() - offsetY });
+  };
+
+  const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
+    onDragMove(e);
+    commitPosition(e);
+  };
+
+  const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
+    onDragEnd(e);
+    commitPosition(e);
   };
 
   const commonProps = {
@@ -39,7 +50,7 @@ export function ShapeNode({ object, isSelected, draggable, registerRef }: Props)
     onMouseDown: handlePointerDown,
     onTouchStart: handlePointerDown,
     onDragStart,
-    onDragMove,
+    onDragMove: handleDragMove,
     onDragEnd: handleDragEnd,
   };
 
