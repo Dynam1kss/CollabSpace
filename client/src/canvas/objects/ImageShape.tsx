@@ -4,7 +4,7 @@ import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { ImageObject } from 'shared';
 import { useBoardStore } from '../board-store';
-import { useDragGesture } from './useMultiDrag';
+import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 interface Props {

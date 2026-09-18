@@ -5,7 +5,7 @@ import type { StickyObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from '../text-layout';
-import { useDragGesture } from './useMultiDrag';
+import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 interface Props {

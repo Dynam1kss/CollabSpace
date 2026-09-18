@@ -2,9 +2,17 @@ import { createId } from '@paralleldrive/cuid2';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
-import { moveByDelta } from './objects/useMultiDrag';
+import { withPoints } from './objects/connector-geometry';
 
 // копія лягає не точно поверх оригіналу, а трохи вбік (координати дошки)
+// зсув цілого обʼєкта: у конектора рухаються самі точки, у решти — x/y
+function moveByDelta(obj: BoardObject, dx: number, dy: number) {
+  if (obj.type === 'connector') {
+    return withPoints(obj.points.map((p) => ({ x: p.x + dx, y: p.y + dy })));
+  }
+  return { x: obj.x + dx, y: obj.y + dy };
+}
+
 const PASTE_OFFSET = 20;
 
 export function nextZIndex() {

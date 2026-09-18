@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Arrow, Circle, Group, Line } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -6,7 +6,7 @@ import type { BoardPoint, ConnectorObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { CONNECTOR_TENSION, flattenPoints, midpoints, withPoints } from './connector-geometry';
-import { moveByDelta, useDragGesture } from './useMultiDrag';
+import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 const HANDLE_SCREEN_RADIUS = 7; // px на екрані, не в координатах дошки — тому ділимо на масштаб нижче
@@ -28,6 +28,12 @@ interface Props {
 // SelectionOverlay — тому лінія має name, щоб він її знайшов
 export function ConnectorShape({ object, isSelected, draggable, viewportScale, registerRef }: Props) {
   const updateObject = useBoardStore((s) => s.update);
+  const updateSoon = useBoardStore((s) => s.updateSoon);
+  // точки на момент захвату. Поки жест іде, малюємо саме їх, а зсув несе x/y
+  // групи — так само, як було завжди. Якби малювали те, що щокадру лягає в
+  // стор, зсув застосувався б двічі: і в точках, і в групі (та сама пастка,
+  // що з трансформером 17.09)
+  const [dragBase, setDragBase] = useState<BoardPoint[] | null>(null);
   // ручки точок — лише коли конектор виділений сам; у групі він у трансформері.
   // глядачу ручок не даємо — ними міняють точки
   const showHandles = useEditorStore((s) => s.canEdit && isSelected && s.selectedIds.length === 1);
@@ -39,15 +45,30 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
 
   useEffect(() => () => stopInsertDragRef.current?.(), []);
 
-  const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
-    onDragEnd();
+  const handleDragStart = () => {
+    onDragStart();
+    setDragBase(freshPoints());
+  };
+
+  // x/y групи konva рахує від початку жесту, а не від попереднього кадру,
+  // тому це завжди повний зсув — можна класти абсолютні точки, скільки б
+  // разів за кадр сюди не зайшли
+  const commitDrag = (e: KonvaEventObject<DragEvent>) => {
+    if (!dragBase) return;
     const dx = e.target.x();
     const dy = e.target.y();
-    if (dx !== 0 || dy !== 0) {
-      updateObject(object.id, moveByDelta(object, dx, dy));
-      e.target.position({ x: 0, y: 0 });
-    }
+    if (dx === 0 && dy === 0) return;
+    updateSoon(object.id, withPoints(dragBase.map((p) => ({ x: p.x + dx, y: p.y + dy }))));
+  };
+
+  const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
+    onDragEnd();
+    commitDrag(e);
+    // спершу дописуємо стор, і лише потім повертаємо групу в нуль і
+    // розморожуємо точки — інакше кадр між цим малює конектор на старому місці
     useBoardStore.getState().flushUpdates();
+    e.target.position({ x: 0, y: 0 });
+    setDragBase(null);
   };
 
   // під час тягання стор оновлюється на кожен рух, а object у замиканні —
@@ -113,10 +134,11 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
   };
 
   const strokeColor = isSelected ? '#4262ff' : object.strokeColor;
+  const points = dragBase ?? object.points;
 
   const lineProps = {
     name: 'line',
-    points: flattenPoints(object.points),
+    points: flattenPoints(points),
     tension: CONNECTOR_TENSION,
     stroke: strokeColor,
     strokeWidth: object.strokeWidth,
@@ -134,7 +156,8 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
       draggable={draggable}
       onMouseDown={handlePointerDown}
       onTouchStart={handlePointerDown}
-      onDragStart={onDragStart}
+      onDragStart={handleDragStart}
+      onDragMove={commitDrag}
       onDragEnd={handleDragEnd}
     >
       {object.arrowEnd ? (
@@ -143,7 +166,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
         <Line {...lineProps} />
       )}
       {showHandles &&
-        midpoints(object.points).map((p, i) => (
+        midpoints(points).map((p, i) => (
           <Circle
             key={`mid-${i}`}
             x={p.x}
@@ -157,7 +180,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
           />
         ))}
       {showHandles &&
-        object.points.map((p, i) => (
+        points.map((p, i) => (
           <Circle
             key={`main-${i}`}
             x={p.x}
