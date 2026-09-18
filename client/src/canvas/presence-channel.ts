@@ -18,7 +18,7 @@ export function setPresenceSender(fn: ((data: Uint8Array) => void) | null) {
 // ~18 кадрів на секунду. Курсор — не документ: втрачений кадр перекриється
 // наступним, тому шлемо не на кожен mousemove, а по таймеру. Останнє
 // положення доходить завжди — таймер із хвостом, а не простий «не частіше ніж»
-const CURSOR_THROTTLE_MS = 55;
+export const CURSOR_THROTTLE_MS = 55;
 
 let pending: { x: number; y: number } | null = null;
 let lastSentAt = 0;
