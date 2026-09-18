@@ -17,11 +17,15 @@ interface PresenceState {
   cursors: Record<number, CursorPoint>;
   // що зараз виділено в кожного — id обʼєктів
   selections: Record<number, string[]>;
+  // хто який обʼєкт зараз редагує (clientId → id обʼєкта). Щонайбільше один
+  // на людину, тому не масив
+  locks: Record<number, string>;
   setRoster: (selfClientId: number, members: PresenceMember[]) => void;
   addMember: (member: PresenceMember) => void;
   removeMember: (clientId: number) => void;
   setCursor: (clientId: number, point: CursorPoint) => void;
   setSelection: (clientId: number, selectedIds: string[]) => void;
+  setLock: (clientId: number, objectId: string | null) => void;
   reset: () => void;
 }
 
@@ -30,6 +34,7 @@ export const usePresenceStore = create<PresenceState>((set) => ({
   members: {},
   cursors: {},
   selections: {},
+  locks: {},
 
   setRoster: (selfClientId, members) =>
     set({
@@ -37,6 +42,7 @@ export const usePresenceStore = create<PresenceState>((set) => ({
       members: Object.fromEntries(members.map((m) => [m.clientId, m])),
       cursors: {},
       selections: {},
+      locks: {},
     }),
 
   addMember: (member) => set((state) => ({ members: { ...state.members, [member.clientId]: member } })),
@@ -48,10 +54,14 @@ export const usePresenceStore = create<PresenceState>((set) => ({
       const members = { ...state.members };
       const cursors = { ...state.cursors };
       const selections = { ...state.selections };
+      // замок зникає разом із людиною — саме тому окремий таймаут не потрібен:
+      // вкладка, яка впала, лишає по собі LEAVE, а з ним і звільнений обʼєкт
+      const locks = { ...state.locks };
       delete members[clientId];
       delete cursors[clientId];
       delete selections[clientId];
-      return { members, cursors, selections };
+      delete locks[clientId];
+      return { members, cursors, selections, locks };
     }),
 
   setCursor: (clientId, point) => set((state) => ({ cursors: { ...state.cursors, [clientId]: point } })),
@@ -59,10 +69,28 @@ export const usePresenceStore = create<PresenceState>((set) => ({
   setSelection: (clientId, selectedIds) =>
     set((state) => ({ selections: { ...state.selections, [clientId]: selectedIds } })),
 
-  reset: () => set({ selfClientId: null, members: {}, cursors: {}, selections: {} }),
+  setLock: (clientId, objectId) =>
+    set((state) => {
+      const locks = { ...state.locks };
+      if (objectId === null) delete locks[clientId];
+      else locks[clientId] = objectId;
+      return { locks };
+    }),
+
+  reset: () => set({ selfClientId: null, members: {}, cursors: {}, selections: {}, locks: {} }),
 }));
 
 // усі, крім мене — саме їх показуємо в списку й малюємо на полотні
 export function otherMembers(state: PresenceState) {
   return Object.values(state.members).filter((m) => m.clientId !== state.selfClientId);
+}
+
+// хто тримає обʼєкт зайнятим — не рахуючи мене самого: свій же замок
+// редагувати не заважає
+export function lockOwner(state: PresenceState, objectId: string) {
+  for (const [key, id] of Object.entries(state.locks)) {
+    const clientId = Number(key);
+    if (id === objectId && clientId !== state.selfClientId) return state.members[clientId] ?? null;
+  }
+  return null;
 }

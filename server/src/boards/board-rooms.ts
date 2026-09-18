@@ -154,6 +154,18 @@ boardRoomWss.on('connection', (socket) => {
         return;
       }
 
+      case SYNC_MSG.LOCK: {
+        // на відміну від виділення, замок обмежує інших — глядачу, який і так
+        // не редагує, нема чого його ставити
+        if (client.role === 'VIEWER') return;
+        const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
+        framed[0] = SYNC_MSG.LOCK;
+        framed.writeUInt32BE(client.id, 1);
+        buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
+        for (const [, other] of others) send(other, framed);
+        return;
+      }
+
       case SYNC_MSG.SYNC_REQUEST: {
         // новачок просить історію — відповідає найстарший живий редактор (глядач
         // не може, бо його відповідь ми б не мали права ретранслювати).

@@ -10,6 +10,7 @@ import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { ObjectRenderer } from './objects/ObjectRenderer';
 import { RemoteCursors } from './objects/RemoteCursors';
+import { RemoteLocks } from './objects/RemoteLocks';
 import { RemoteSelections } from './objects/RemoteSelections';
 import { SelectionOverlay } from './objects/SelectionOverlay';
 import { publishCursor } from './presence-channel';
@@ -177,6 +178,7 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
             ))}
 
             <RemoteSelections objects={objectsMap} viewportScale={viewport.scale} />
+            <RemoteLocks objects={objectsMap} viewportScale={viewport.scale} />
 
             {draft && <DraftPreview tool={draft.tool} start={draft.start} current={draft.current} />}
             {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}

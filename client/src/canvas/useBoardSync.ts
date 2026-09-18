@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import { publishSelection, setPresenceSender } from './presence-channel';
+import { publishLock, publishSelection, setPresenceSender } from './presence-channel';
 import { useEditorStore } from './editor-store';
-import type { LeaveMessage, PresenceMember, RosterMessage } from 'shared';
+import type { LeaveMessage, LockMessage, PresenceMember, RosterMessage } from 'shared';
 import { resetBoardDoc } from './board-store';
 import { usePresenceStore } from './presence-store';
 
@@ -74,9 +74,11 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     }
     // курсор і виділення підуть тим самим сокетом
     setPresenceSender(send);
-    // своє виділення — на кожну зміну; кадри рідкі, тримати їх нема сенсу
+    // своє виділення — на кожну зміну; кадри рідкі, тримати їх нема сенсу.
+    // так само й замок: зайшов у текст — зайняв обʼєкт, вийшов — відпустив
     const unsubSelection = useEditorStore.subscribe((state, prev) => {
       if (state.selectedIds !== prev.selectedIds) publishSelection(state.selectedIds);
+      if (state.editingTextId !== prev.editingTextId) publishLock(state.editingTextId);
     });
 
     // снепшот з rest вантажиться паралельно з рукостисканням сокета і часто
@@ -135,9 +137,10 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         }
         case SYNC_MSG.JOIN:
           usePresenceStore.getState().addMember(JSON.parse(text(payload)) as PresenceMember);
-          // новачок про чуже виділення нізвідки не дізнається — воно могло не
-          // мінятись годину. Тому на кожен вхід переспівуємо своє
+          // новачок про чуже виділення й замок нізвідки не дізнається — вони
+          // могли не мінятись годину. Тому на кожен вхід переспівуємо своє
           publishSelection(useEditorStore.getState().selectedIds);
+          publishLock(useEditorStore.getState().editingTextId);
           return;
         case SYNC_MSG.LEAVE:
           usePresenceStore.getState().removeMember((JSON.parse(text(payload)) as LeaveMessage).clientId);
@@ -148,6 +151,22 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           usePresenceStore.getState().setSelection(view.getUint32(0), ids);
           return;
         }
+        case SYNC_MSG.LOCK: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          const body = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as LockMessage;
+          const owner = view.getUint32(0);
+          usePresenceStore.getState().setLock(owner, body.objectId);
+          // рідкісна нічия: обидва зайшли в той самий обʼєкт, поки кадри
+          // летіли назустріч. Розходимось за clientId — менший лишається,
+          // більший виходить; правило однакове в обох, тому обидва зійдуться
+          const me = usePresenceStore.getState().selfClientId;
+          const editing = useEditorStore.getState().editingTextId;
+          if (body.objectId && body.objectId === editing && me !== null && owner < me) {
+            useEditorStore.getState().stopEditingText();
+          }
+          return;
+        }
+
         case SYNC_MSG.CURSOR: {
           const view = new DataView(data.buffer, data.byteOffset + 1);
           usePresenceStore

@@ -7,6 +7,8 @@ import { useEditorStore } from '../canvas/editor-store';
 import { createSticky } from '../canvas/object-defaults';
 import { nextZIndex } from '../canvas/selection-actions';
 import { TextEditor } from '../canvas/TextEditor';
+import { colorForUser } from '../canvas/presence-colors';
+import { lockOwner, usePresenceStore } from '../canvas/presence-store';
 
 type ColumnKey = StickyColumn | null;
 
@@ -52,6 +54,9 @@ export function KanbanView({ currentUserId, origin }: Props) {
   const canEdit = useEditorStore((s) => s.canEdit);
   const editingTextId = useEditorStore((s) => s.editingTextId);
   const startEditingText = useEditorStore((s) => s.startEditingText);
+  // текст картки редагується тим самим TextEditor, що й на полотні, тому й
+  // замок той самий — картку, в якій хтось друкує, не відкриваємо
+  const presence = usePresenceStore();
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   // після драгу в межах тієї самої картки браузер ще кине click — його глушимо
@@ -117,6 +122,7 @@ export function KanbanView({ currentUserId, origin }: Props) {
 
   function handleCardPointerDown(e: ReactPointerEvent<HTMLDivElement>, sticky: StickyObject) {
     if (!canEdit || e.button !== 0 || editingTextId === sticky.id) return;
+    if (lockOwner(presence, sticky.id)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     dragRef.current = {
       id: sticky.id,
@@ -134,6 +140,7 @@ export function KanbanView({ currentUserId, origin }: Props) {
 
   function handleCardClick(sticky: StickyObject) {
     if (suppressClickRef.current) return;
+    if (lockOwner(presence, sticky.id)) return;
     if (canEdit) startEditingText(sticky.id);
     else setExpandedId(expandedId === sticky.id ? null : sticky.id);
   }
@@ -165,32 +172,42 @@ export function KanbanView({ currentUserId, origin }: Props) {
               <span className="kanban-count">{cards.length}</span>
             </header>
             <div className="kanban-cards">
-              {cards.map((sticky) => (
-                <div
-                  key={sticky.id}
-                  className={[
-                    'kanban-card',
-                    canEdit ? 'draggable' : '',
-                    drag?.active && drag.id === sticky.id ? 'lifted' : '',
-                    expandedId === sticky.id ? 'expanded' : '',
-                  ].join(' ')}
-                  style={{ background: sticky.fillColor, color: sticky.textColor }}
-                  onPointerDown={(e) => handleCardPointerDown(e, sticky)}
-                  onClick={() => handleCardClick(sticky)}
-                >
-                  {editingTextId === sticky.id ? (
-                    <TextEditor
-                      object={sticky}
-                      className="kanban-card-editor"
-                      style={{ color: sticky.textColor }}
-                    />
-                  ) : sticky.text ? (
-                    <p>{sticky.text}</p>
-                  ) : (
-                    <p className="kanban-empty">порожній стікер</p>
-                  )}
-                </div>
-              ))}
+              {cards.map((sticky) => {
+                const locked = lockOwner(presence, sticky.id);
+                return (
+                  <div
+                    key={sticky.id}
+                    className={[
+                      'kanban-card',
+                      canEdit && !locked ? 'draggable' : '',
+                      locked ? 'locked' : '',
+                      drag?.active && drag.id === sticky.id ? 'lifted' : '',
+                      expandedId === sticky.id ? 'expanded' : '',
+                    ].join(' ')}
+                    style={{ background: sticky.fillColor, color: sticky.textColor }}
+                    onPointerDown={(e) => handleCardPointerDown(e, sticky)}
+                    onClick={() => handleCardClick(sticky)}
+                  >
+                    {locked && (
+                      <span className="kanban-lock" style={{ background: colorForUser(locked.userId) }}>
+                        <LockGlyph />
+                        {locked.displayName}
+                      </span>
+                    )}
+                    {editingTextId === sticky.id ? (
+                      <TextEditor
+                        object={sticky}
+                        className="kanban-card-editor"
+                        style={{ color: sticky.textColor }}
+                      />
+                    ) : sticky.text ? (
+                      <p>{sticky.text}</p>
+                    ) : (
+                      <p className="kanban-empty">порожній стікер</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {canEdit && (
               <button type="button" className="kanban-add" onClick={() => handleAdd(col.key)}>
@@ -215,5 +232,14 @@ export function KanbanView({ currentUserId, origin }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function LockGlyph() {
+  return (
+    <svg width="9" height="11" viewBox="0 0 9 11" fill="none" aria-hidden="true">
+      <path d="M2 4.5V3a2.5 2.5 0 0 1 5 0v1.5" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="0.5" y="4.5" width="8" height="6" rx="1" fill="currentColor" />
+    </svg>
   );
 }

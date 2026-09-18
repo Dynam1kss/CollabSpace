@@ -50,6 +50,17 @@ export function publishSelection(selectedIds: string[]) {
   sendFrame(frame);
 }
 
+// замок на редагування тексту — так само рідкий кадр, як і виділення:
+// заходиш у текст і виходиш, тротлити нема чого
+export function publishLock(objectId: string | null) {
+  if (!sendFrame) return;
+  const body = new TextEncoder().encode(JSON.stringify({ objectId }));
+  const frame = new Uint8Array(1 + body.length);
+  frame[0] = SYNC_MSG.LOCK;
+  frame.set(body, 1);
+  sendFrame(frame);
+}
+
 export function publishCursor(point: { x: number; y: number }) {
   pending = point;
   if (timer !== undefined) return;

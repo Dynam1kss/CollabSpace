@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { BoardObject } from 'shared';
+import { lockOwner, usePresenceStore } from './presence-store';
 
 export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
 
@@ -52,7 +53,14 @@ export const useEditorStore = create<EditorState>((set) => ({
     })),
   selectMany: (ids) => set({ selectedIds: ids }),
   clearSelection: () => set({ selectedIds: [] }),
-  startEditingText: (id) => set((state) => (state.canEdit ? { editingTextId: id } : state)),
+  // у зайнятий обʼєкт не пускаємо: двоє одночасно набрали б у нього текст, і
+  // зберігся б лише той, хто вийшов останнім — чужий набір зник би мовчки
+  startEditingText: (id) =>
+    set((state) => {
+      if (!state.canEdit) return state;
+      if (lockOwner(usePresenceStore.getState(), id)) return state;
+      return { editingTextId: id };
+    }),
   stopEditingText: () => set({ editingTextId: null }),
   setInteracting: (value) => set({ interacting: value }),
   setClipboard: (objects) => set({ clipboard: objects }),

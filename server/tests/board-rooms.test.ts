@@ -216,6 +216,44 @@ describe('кімнати дошок поверх ws', () => {
     expect(third.members.some((m: { role: string }) => m.role === 'VIEWER')).toBe(false);
   });
 
+  it('замок на редагування: сервер дописує clientId і розсилає решті, глядача не пускає', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    const me = JSON.parse((await rosterA)!.subarray(1).toString()).you as number;
+    const b = connect(boardId, editor.cookie);
+    await opened(b);
+    await nextMessage(a); // join
+
+    const lock = (ws: WebSocket, objectId: string | null) =>
+      ws.send(Buffer.concat([Buffer.from([SYNC_MSG.LOCK]), Buffer.from(JSON.stringify({ objectId }))]));
+
+    // зайняв
+    const toB = nextMessage(b);
+    lock(a, 'sticky-1');
+    const got = (await toB)!;
+    expect(got[0]).toBe(SYNC_MSG.LOCK);
+    expect(got.readUInt32BE(1)).toBe(me);
+    expect(JSON.parse(got.subarray(5).toString())).toEqual({ objectId: 'sticky-1' });
+
+    // собі назад не прилітає
+    expect(await nextMessage(a, 150)).toBeNull();
+
+    // відпустив — те саме повідомлення з null
+    const releaseToB = nextMessage(b);
+    lock(a, null);
+    expect(JSON.parse((await releaseToB)!.subarray(5).toString())).toEqual({ objectId: null });
+
+    // глядач замок поставити не може: він і не редагує, а зайняти чуже міг би
+    const v = connect(boardId, viewer.cookie);
+    await opened(v);
+    await nextMessage(a);
+    await nextMessage(b);
+    lock(v, 'sticky-1');
+    expect(await nextMessage(a, 200)).toBeNull();
+  });
+
   it('мертвий сокет не блокує sync-запит іншим', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     // найстарший редактор у кімнаті — і саме він зараз «помре»
