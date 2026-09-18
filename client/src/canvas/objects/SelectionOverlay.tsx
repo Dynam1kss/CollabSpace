@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Transformer } from 'react-konva';
 import type Konva from 'konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
 import type { RefObject } from 'react';
 import type { BoardObject, BoardPoint, ImageObject, ShapeObject, StickyObject, TextObject } from 'shared';
 import { useBoardStore } from '../board-store';
@@ -103,6 +104,12 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
   const transformerRef = useRef<Konva.Transformer>(null);
   const updateObject = useBoardStore((s) => s.update);
   const setInteracting = useEditorStore((s) => s.setInteracting);
+  // посеред жесту стор тепер оновлюється щокадру — а цей компонент від того
+  // перемальовується і перечіпляє nodes() трансформера. Konva на setNodes
+  // скидає власний rotation (для групи — у нуль), і кут починає накопичуватись.
+  // Тому поки жест іде, трансформер не чіпаємо: набір виділених вузлів за цей
+  // час не змінюється, а рамку konva й так тягне за вузлами сама
+  const interacting = useEditorStore((s) => s.interacting);
   const [shiftHeld, setShiftHeld] = useState(false);
 
   useEffect(() => {
@@ -130,6 +137,7 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
   const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
 
   useEffect(() => {
+    if (interacting) return;
     const nodesById = nodesByIdRef.current ?? {};
     const nodes = soleConnector
       ? []
@@ -141,14 +149,14 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
     transformerRef.current?.forceUpdate();
     transformerRef.current?.getLayer()?.batchDraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds.join(','), shiftHeld, nodesVersion, objects]);
+  }, [selectedIds.join(','), shiftHeld, nodesVersion, objects, interacting]);
 
   // на кожному кадрі тягання scale вузла одразу запікається в його розмір,
   // тож нода ніколи не несе scale: обведення не сплющується по осях (konva
   // масштабує stroke тією ж матрицею), стікер переносить текст наживо, у
   // тексту росте сам шрифт замість розтягування гліфів, а конектор
   // переносить трансформацію в самі точки
-  function handleTransform() {
+  function handleTransform(e: KonvaEventObject<Event>) {
     const tr = transformerRef.current;
     if (!tr) return;
     const anchor = tr.getActiveAnchor();
@@ -163,16 +171,27 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
       } else if (obj.type === 'text') {
         scaleTextLive(node as Konva.Group, obj.autoWidth);
       } else if (obj.type === 'connector') {
-        // лише на вузлі, у стор — на transformend: оновлення стору посеред
-        // жесту перечіплює nodes() трансформера, а konva при цьому скидає
-        // свій rotation у 0, і кут повороту починає накопичуватись
         bakeConnectorTransform(node as Konva.Group);
       }
     }
+    // і одразу в стор — інакше інші бачать не зміну розміру, а стрибок у
+    // кінцевий стан. Безпечно це стало тоді, коли ефект з nodes() перестав
+    // перечіплювати трансформер посеред жесту (див. interacting у його умові):
+    // раніше setNodes скидав власний rotation трансформера, і кут накопичувався.
+    // konva шле 'transform' по разу на кожен вузол за кадр, а цикл вище й так
+    // проходить усі — пишемо лише на першому, інакше для групи з N виходить
+    // N² оновлень і стільки ж пакетів у мережу
+    if (e.target === tr.nodes()[0]) commitNodes();
   }
 
   function handleTransformEnd() {
     setInteracting(false);
+    commitNodes();
+  }
+
+  // те саме тіло, що й було в handleTransformEnd: розмір/кут/позиція вузлів —
+  // у стор. Викликається і щокадру, і в кінці жесту
+  function commitNodes() {
     const tr = transformerRef.current;
     if (!tr) return;
     for (const node of tr.nodes()) {
