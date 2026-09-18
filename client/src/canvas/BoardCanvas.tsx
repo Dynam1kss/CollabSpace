@@ -5,10 +5,13 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { Grid } from './Grid';
 import { TextEditOverlay } from './TextEditOverlay';
 import { useBoardStore } from './board-store';
+import { screenToBoard } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { ObjectRenderer } from './objects/ObjectRenderer';
+import { RemoteCursors } from './objects/RemoteCursors';
 import { SelectionOverlay } from './objects/SelectionOverlay';
+import { publishCursor } from './presence-channel';
 import { useObjectInteractions } from './useObjectInteractions';
 
 interface StageHandlers {
@@ -108,6 +111,13 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
     handleStageMouseDown(e);
   }
 
+  // курсор іншим — у координатах дошки, а не екрана: у кожного свій зсув і
+  // масштаб. Кадри складає presence-channel, він же їх і притримує
+  function handleMouseMove(e: KonvaEventObject<MouseEvent>) {
+    const point = e.target.getStage()?.getPointerPosition();
+    if (point) publishCursor(screenToBoard(point, viewport));
+  }
+
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
 
   return (
@@ -122,6 +132,7 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
           scaleY={viewport.scale}
           onWheel={stageHandlers.onWheel}
           onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
           onMouseUp={stageHandlers.onMouseUp}
           onContextMenu={stageHandlers.onContextMenu}
           onTouchStart={stageHandlers.onTouchStart}
@@ -152,6 +163,11 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
 
             {draft && <DraftPreview tool={draft.tool} start={draft.start} current={draft.current} />}
             {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}
+          </Layer>
+
+          {/* чужі курсори — поверх обʼєктів, але під трансформером */}
+          <Layer listening={false}>
+            <RemoteCursors viewportScale={viewport.scale} />
           </Layer>
 
           {/* трансформер глядачу не малюємо — ручки без дії лише плутали б;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
+import { setPresenceSender } from './presence-channel';
 import type { LeaveMessage, PresenceMember, RosterMessage } from 'shared';
 import { resetBoardDoc } from './board-store';
 import { usePresenceStore } from './presence-store';
@@ -70,6 +71,8 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     function send(data: Uint8Array) {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
     }
+    // курсор і виділення підуть тим самим сокетом
+    setPresenceSender(send);
 
     // снепшот з rest вантажиться паралельно з рукостисканням сокета і часто
     // встигає лягти в документ раніше — такі оновлення send() просто викидав,
@@ -131,6 +134,13 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         case SYNC_MSG.LEAVE:
           usePresenceStore.getState().removeMember((JSON.parse(text(payload)) as LeaveMessage).clientId);
           return;
+        case SYNC_MSG.CURSOR: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          usePresenceStore
+            .getState()
+            .setCursor(view.getUint32(0), { x: view.getFloat32(4), y: view.getFloat32(8) });
+          return;
+        }
         case SYNC_MSG.SYNC_REQUEST: {
           // мене вибрали відповідати новачкові: його id лишаємо як є, сервер по ньому адресує
           if (!canWriteRef.current) return;
@@ -152,7 +162,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
 
     return () => {
       window.clearInterval(syncRetry);
+      setPresenceSender(null);
       usePresenceStore.getState().reset();
+      setPresenceSender(send);
       doc.off('update', handleLocalUpdate);
       // своє закриття — не «офлайн»
       ws.onclose = null;

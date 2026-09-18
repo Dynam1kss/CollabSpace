@@ -2,7 +2,7 @@ import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
-import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
+import { CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
 import type { PresenceMember, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
@@ -130,6 +130,19 @@ boardRoomWss.on('connection', (socket) => {
         if (client.role === 'VIEWER') return;
         for (const [, other] of others) send(other, buf);
         return;
+
+      case SYNC_MSG.CURSOR: {
+        // глядача тут не відсікаємо: він присутній і теж возить курсором.
+        // Дописуємо id відправника й розсилаємо як є — сервер у координати
+        // не заглядає, вони йому ні до чого
+        if (buf.length !== 1 + CURSOR_BYTES - SYNC_REQUESTER_ID_BYTES) return;
+        const framed = Buffer.alloc(1 + CURSOR_BYTES);
+        framed[0] = SYNC_MSG.CURSOR;
+        framed.writeUInt32BE(client.id, 1);
+        buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
+        for (const [, other] of others) send(other, framed);
+        return;
+      }
 
       case SYNC_MSG.SYNC_REQUEST: {
         // новачок просить історію — відповідає найстарший живий редактор (глядач
