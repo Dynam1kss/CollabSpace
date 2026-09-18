@@ -4,7 +4,7 @@ import request from 'supertest';
 import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { app } from '../src/app';
-import { roomSize, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
+import { roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
 import { prisma } from '../src/prisma';
 
 // той самий роутинг апгрейду, що в index.ts, лише на випадковому порту
@@ -139,14 +139,58 @@ describe('кімнати дошок поверх ws', () => {
     expect(toV2).toBeNull();
     expect(toA2).toBeNull();
 
-    // запит, коли редакторів нема — просто тиша
+    // запит, коли редакторів нема — порожня відповідь самому питальнику
     const v2 = connect(boardId, viewer.cookie);
     await opened(v2);
     a.close();
     b.close();
     await new Promise((r) => setTimeout(r, 100));
     v2.send(Buffer.from([1, 1]));
-    expect(await nextMessage(v)).toBeNull();
+    const [toVagain, toV2self] = await Promise.all([nextMessage(v), nextMessage(v2)]);
+    expect(toVagain).toBeNull();
+    expect(toV2self && [...toV2self]).toEqual([2]);
+  });
+
+  it('мертвий сокет не блокує sync-запит іншим', async () => {
+    const { boardId, owner, editor } = await boardWithMembers();
+    // найстарший редактор у кімнаті — і саме він зараз «помре»
+    const dead = connect(boardId, owner.cookie);
+    await opened(dead);
+    const alive = connect(boardId, editor.cookie);
+    await opened(alive);
+    // обрив без FIN: клієнт перестає читати сокет, тому pong не приходить,
+    // а сервер далі вважає зʼєднання відкритим
+    dead.pause();
+
+    // поки сервер не помітив — запит новачка йде мертвому і губиться
+    const newcomer = connect(boardId, editor.cookie);
+    await opened(newcomer);
+    newcomer.send(Buffer.from([1, 5]));
+    expect(await nextMessage(alive)).toBeNull();
+
+    // два такти без pong — сервер рве зʼєднання сам. пауза між тактами
+    // обовʼязкова: живі встигають відповісти pong і скинути лічильник
+    sweepDeadSockets();
+    await new Promise((r) => setTimeout(r, 100));
+    sweepDeadSockets();
+    await new Promise((r) => setTimeout(r, 150));
+    expect(roomSize(boardId)).toBe(2);
+
+    // тепер той самий запит доходить до живого редактора
+    newcomer.send(Buffer.from([1, 5]));
+    const got = await nextMessage(alive);
+    expect(got).not.toBeNull();
+    expect(got![0]).toBe(1);
+    expect([...got!.subarray(5)]).toEqual([5]);
+  });
+
+  it('нема кому відповідати — сервер сам шле порожню відповідь', async () => {
+    const { boardId, viewer } = await boardWithMembers();
+    const v = connect(boardId, viewer.cookie);
+    await opened(v);
+    v.send(Buffer.from([1, 7]));
+    const got = await nextMessage(v);
+    expect(got && [...got]).toEqual([2]);
   });
 
   it('close прибирає сокет, порожня кімната зникає', async () => {

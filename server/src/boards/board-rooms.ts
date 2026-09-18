@@ -21,7 +21,11 @@ export const boardRoomWss = new WebSocketServer({ noServer: true });
 // Map, а не Set — порядок вставки дає «найстаршого» в кімнаті, він і відповідає новачкам
 const rooms = new Map<string, Map<number, WebSocket>>();
 const clients = new WeakMap<WebSocket, Client>();
+// той самий лічильник пропущених pong, що в spikeSignalWss: обрив без FIN
+// (згорнутий телефон, тунель, ECONNRESET) лишає сокет «відкритим» назавжди
+const missedPings = new WeakMap<WebSocket, number>();
 let nextClientId = 1;
+const KEEPALIVE_MS = 10_000;
 
 const PATH = /^\/ws\/boards\/([^/]+)$/;
 
@@ -80,6 +84,8 @@ boardRoomWss.on('connection', (socket) => {
     rooms.set(client.boardId, room);
   }
   room.set(client.id, socket);
+  missedPings.set(socket, 0);
+  socket.on('pong', () => missedPings.set(socket, 0));
 
   socket.on('message', (data) => {
     const buf = toBuffer(data);
@@ -94,11 +100,20 @@ boardRoomWss.on('connection', (socket) => {
         return;
 
       case SYNC_MSG.SYNC_REQUEST: {
-        // новачок просить історію — відповідає найстарший редактор (глядач не
-        // може, бо його відповідь ми б не мали права ретранслювати); якщо
-        // редакторів нема, новачок лишається зі снепшотом з rest
-        const responder = others.find(([, other]) => clients.get(other)?.role !== 'VIEWER');
-        if (!responder) return;
+        // новачок просить історію — відповідає найстарший живий редактор (глядач
+        // не може, бо його відповідь ми б не мали права ретранслювати).
+        // readyState перевіряємо тут, а не тільки в send: мовчазна відповідь
+        // «найстаршого» лишала б новачка без історії, а далі чужа дельта
+        // вбивала б у нього обʼєкт (див. журнал)
+        const responder = others.find(
+          ([, other]) => other.readyState === WebSocket.OPEN && clients.get(other)?.role !== 'VIEWER',
+        );
+        // відповідати нема кому — кажемо це вголос порожньою відповіддю, інакше
+        // новачок не відрізнить «я сам на дошці» від «мене не почули»
+        if (!responder) {
+          send(socket, Buffer.from([SYNC_MSG.SYNC_REPLY]));
+          return;
+        }
         const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
         framed[0] = SYNC_MSG.SYNC_REQUEST;
         framed.writeUInt32BE(client.id, 1);
@@ -131,3 +146,23 @@ boardRoomWss.on('connection', (socket) => {
 function send(socket: WebSocket, data: Buffer) {
   if (socket.readyState === WebSocket.OPEN) socket.send(data);
 }
+
+// два пропущені pong поспіль — рвемо самі; terminate() дає 'close', тож
+// прибирання з кімнати йде звичайним шляхом. окремо від інтервалу, щоб тест
+// міг прокрутити два такти без очікування
+export function sweepDeadSockets() {
+  for (const room of rooms.values()) {
+    for (const socket of room.values()) {
+      const missed = (missedPings.get(socket) ?? 0) + 1;
+      if (missed >= 2) {
+        socket.terminate();
+        continue;
+      }
+      missedPings.set(socket, missed);
+      socket.ping();
+    }
+  }
+}
+
+// unref — щоб не тримати процес у тестах
+setInterval(sweepDeadSockets, KEEPALIVE_MS).unref();

@@ -27,8 +27,18 @@ const iceStunUrls = (process.env.ICE_STUN_URLS ?? 'stun:stun.l.google.com:19302'
 // перевірити сам TURN-сервер окремо від мережі перед висновками про CGNAT/NAT
 const iceTransportPolicy = process.env.ICE_TRANSPORT_POLICY === 'relay' ? 'relay' : 'all';
 
+// скільки проксі-хопів перед express — від цього залежить, який адресу він
+// візьме за req.ip (по ньому рахує ліміт спроб логіну). в розробці 1: тунель
+// на телефон додає X-Forwarded-For, vite-проксі його лише передає, тож запис
+// там один; без тунелю заголовка нема і req.ip лишається адресою сокета.
+// у проді 0 — у docker compose перед сервером зараз нічого не стоїть, а
+// `true` довіряло б X-Forwarded-For від кого завгодно, і ліміт логінів
+// обходився б підробленим заголовком. зʼявиться nginx — виставити TRUST_PROXY=1
+const trustProxy = Number(process.env.TRUST_PROXY ?? (isProduction ? 0 : 1)) || 0;
+
 export const env = {
   port: Number(process.env.PORT) || 3000,
+  trustProxy,
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-not-for-production',
   isProduction,
   iceStunUrls,

@@ -23,9 +23,11 @@ function sticky(id: string, extra: Partial<StickyObject> = {}): StickyObject {
   };
 }
 
-// клієнт у тесті — просто ще один Y.Doc з тією самою мапою, що й у сторі
-function client() {
+// клієнт у тесті — просто ще один Y.Doc з тією самою мапою, що й у сторі.
+// clientID задається явно там, де від його порядку залежить, чий запис виграє
+function client(clientID?: number) {
   const doc = new Y.Doc();
+  if (clientID !== undefined) doc.clientID = clientID;
   return { doc, objects: doc.getMap<BoardObject>('objects') };
 }
 
@@ -113,6 +115,59 @@ describe('board-store поверх Y.Map', () => {
     Y.applyUpdate(b.doc, Y.encodeStateAsUpdate(a.doc));
     expect(a.objects.get('s1')).toEqual(b.objects.get('s1'));
     expect(['від a', 'від b']).toContain((a.objects.get('s1') as StickyObject).text);
+  });
+
+  // це той самий баг, що зʼїв обʼєкти з бази 18.09: B зайшла, не отримала
+  // історію A (sync-запит пішов мертвому сокету) і підняла ті самі обʼєкти зі
+  // снепшоту як власні. Далі дельта A приносить delete на запис B — його
+  // застосувати можна одразу, а заміну ні (прогалина в клоках A), і обʼєкт
+  // зникає в B назовсім. Тест тримає причину, а не симптом
+  it('дельта від клієнта, чиєї історії нема, зʼїдає обʼєкт', () => {
+    // clientID A менший — тоді у A виграє запис B, і саме його дельта A видалить
+    const a = client(100);
+    const b = client(200);
+    a.objects.set('s1', sticky('s1'));
+    a.objects.set('s2', sticky('s2'));
+
+    const fromB: Uint8Array[] = [];
+    b.doc.on('update', (u: Uint8Array) => fromB.push(u));
+    // B без sync-відповіді: ті самі обʼєкти зі снепшоту, але як власні add
+    b.objects.set('s1', sticky('s1'));
+    b.objects.set('s2', sticky('s2'));
+    for (const u of fromB) Y.applyUpdate(a.doc, u);
+
+    const fromA: Uint8Array[] = [];
+    a.doc.on('update', (u: Uint8Array) => fromA.push(u));
+    a.objects.set('s1', { ...(a.objects.get('s1') as StickyObject), x: 999 });
+    for (const u of fromA) Y.applyUpdate(b.doc, u);
+
+    expect(Object.keys(a.objects.toJSON()).sort()).toEqual(['s1', 's2']);
+    expect(b.objects.has('s1')).toBe(false);
+  });
+
+  it('з історією A та сама дельта нічого не зʼїдає', () => {
+    const a = client(100);
+    const b = client(200);
+    a.objects.set('s1', sticky('s1'));
+    a.objects.set('s2', sticky('s2'));
+    // sync-відповідь, якої в баговому сценарії не було
+    Y.applyUpdate(b.doc, Y.encodeStateAsUpdate(a.doc, Y.encodeStateVector(b.doc)));
+    b.objects.set('s1', sticky('s1'));
+    b.objects.set('s2', sticky('s2'));
+
+    const fromA: Uint8Array[] = [];
+    a.doc.on('update', (u: Uint8Array) => fromA.push(u));
+    a.objects.set('s1', { ...(a.objects.get('s1') as StickyObject), x: 999 });
+    for (const u of fromA) Y.applyUpdate(b.doc, u);
+
+    // обидва обʼєкти на місці — саме цього не було без історії
+    expect(Object.keys(b.objects.toJSON()).sort()).toEqual(['s1', 's2']);
+    sync(a.doc, b.doc);
+    expect(a.objects.toJSON()).toEqual(b.objects.toJSON());
+    // а от значення x — не 999: адди B зі снепшоту виграли за clientID.
+    // це відомий компроміс «снепшот з REST як власні add», описаний у журналі
+    // за 17.09; він псує поле, але не зʼїдає обʼєкт
+    expect((b.objects.get('s1') as StickyObject).x).toBe(0);
   });
 
   it('чуже оновлення, застосоване до документа стору, зʼявляється в дзеркалі', () => {

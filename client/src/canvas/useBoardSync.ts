@@ -9,6 +9,12 @@ export type SyncStatus = 'connecting' | 'live' | 'offline';
 // їх назад у мережу — інакше чуже оновлення поверталось би по колу
 const REMOTE_ORIGIN = { source: 'network' };
 
+// sync-запит повторюємо, поки не відповіли: сервер адресує його одному
+// «найстаршому» редактору, і якщо той обірвався без FIN, запит просто зникає.
+// сервер вибиває мертвий сокет за два такти по 10с — за цей час устигне
+// прийти або його відповідь, або серверне «нема кому відповідати»
+const SYNC_RETRY_MS = 3000;
+
 function frame(type: number, ...parts: Uint8Array[]) {
   const total = parts.reduce((n, p) => n + p.length, 1);
   const out = new Uint8Array(total);
@@ -24,7 +30,10 @@ function frame(type: number, ...parts: Uint8Array[]) {
 // жива синхронізація документа стору з іншими вкладками тієї ж дошки через
 // /ws/boards/:id. Початковий стан і збереження — як і були, через rest-снепшот
 // (useBoardPersistence); тут лише дельти між тими, хто зараз онлайн.
-// перепідключення поки нема — розрив = 'offline' до перезавантаження
+// перепідключення поки нема — розрив = 'offline' до перезавантаження.
+// 'live' — не «сокет відкрито», а «історія інших у мене вже є»: до відповіді
+// на sync-запит документ неповний, чужа дельта в нього не інтегрується, і
+// збереження такого стану затирає обʼєкти в базі (журнал 18.09)
 export function useBoardSync(boardId: string | null, canWrite: boolean) {
   // статус привʼязаний до дошки: для нової дошки, поки її ефект не відзвітував, — 'connecting'
   const [state, setState] = useState<{ boardId: string | null; status: SyncStatus }>({
@@ -59,10 +68,16 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     }
     doc.on('update', handleLocalUpdate);
 
-    ws.onopen = () => {
-      setStatus('live');
-      // що в мене вже є → у відповідь прийде все, чого бракує (див. shared/sync)
+    // вектор рахуємо на кожен повтор наново — документ міг підрости
+    let syncRetry: number | undefined;
+    function askForHistory() {
       send(frame(SYNC_MSG.SYNC_REQUEST, Y.encodeStateVector(doc)));
+    }
+
+    ws.onopen = () => {
+      // що в мене вже є → у відповідь прийде все, чого бракує (див. shared/sync)
+      askForHistory();
+      syncRetry = window.setInterval(askForHistory, SYNC_RETRY_MS);
     };
 
     ws.onmessage = (e: MessageEvent<ArrayBuffer>) => {
@@ -71,8 +86,14 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       const payload = data.subarray(1);
       switch (data[0]) {
         case SYNC_MSG.UPDATE:
-        case SYNC_MSG.SYNC_REPLY:
           Y.applyUpdate(doc, payload, REMOTE_ORIGIN);
+          return;
+        case SYNC_MSG.SYNC_REPLY:
+          // порожня відповідь — сервер каже «відповідати нема кому», віддавати
+          // нічого, але рукостискання закрите: далі можна зберігати
+          if (payload.length > 0) Y.applyUpdate(doc, payload, REMOTE_ORIGIN);
+          window.clearInterval(syncRetry);
+          setStatus('live');
           return;
         case SYNC_MSG.SYNC_REQUEST: {
           // мене вибрали відповідати новачкові: його id лишаємо як є, сервер по ньому адресує
@@ -85,10 +106,16 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       }
     };
 
-    ws.onclose = () => setStatus('offline');
-    ws.onerror = () => setStatus('offline');
+    // перепідключення нема, тому закритий сокет уже не оживе — повтори гасимо
+    const dropped = () => {
+      window.clearInterval(syncRetry);
+      setStatus('offline');
+    };
+    ws.onclose = dropped;
+    ws.onerror = dropped;
 
     return () => {
+      window.clearInterval(syncRetry);
       doc.off('update', handleLocalUpdate);
       // своє закриття — не «офлайн»
       ws.onclose = null;

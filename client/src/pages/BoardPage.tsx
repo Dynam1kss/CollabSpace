@@ -58,7 +58,9 @@ export function BoardPage() {
   // потім вантажить снепшот; порядок ефектів у react — порядок оголошення
   const openBoardId = state === 'ready' && board ? board.id : null;
   const syncStatus = useBoardSync(openBoardId, editable);
-  const saveStatus = useBoardPersistence(openBoardId, editable);
+  // 'наживо' тут означає «історія інших уже в документі» — тільки з цього
+  // моменту можна писати снепшот, інакше затреш у базі те, чого ще не отримав
+  const saveStatus = useBoardPersistence(openBoardId, editable, syncStatus === 'live');
 
   useEffect(() => {
     setCanEdit(editable);

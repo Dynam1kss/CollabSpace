@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchBoardSnapshot, saveBoardSnapshot } from '../api/boards';
 import { useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
@@ -12,8 +12,26 @@ export type SaveStatus = 'loading' | 'saved' | 'saving' | 'error' | 'readonly';
 // завантажує снепшот у board-store і зберігає його назад із дебаунсом.
 // Стор про це не знає — працюємо з ним ззовні через add/getAll/removeMany,
 // щоб персистентність не проросла в нього (наступного тижня тут буде Yjs)
-export function useBoardPersistence(boardId: string | null, canWrite: boolean) {
+//
+// syncReady — право писати снепшот. Знімок іде в базу цілим, тому клієнт із
+// неповним документом затирає там усе, чого сам не бачить. Поки не прийшла
+// відповідь на sync-запит, документ саме такий — і краще не зберегти нічого,
+// ніж стерти чуже (журнал 18.09)
+export function useBoardPersistence(boardId: string | null, canWrite: boolean, syncReady: boolean) {
   const [status, setStatus] = useState<SaveStatus>('loading');
+  // дошка, по якій рукостискання вже пройшло. Назад право не забираємо: після
+  // відповіді документ цілий, і обрив звʼязку його не псує — інакше все,
+  // намальоване після обриву, не збереглось би взагалі. Через ref, щоб поява
+  // дозволу не перезапускала ефект: він перечитує снепшот
+  const syncedBoardRef = useRef<string | null>(null);
+  // чим ефект відкриває збереження, коли дозвіл нарешті прийшов
+  const resumeRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (!syncReady || !boardId) return;
+    syncedBoardRef.current = boardId;
+    resumeRef.current?.();
+  }, [syncReady, boardId]);
 
   useEffect(() => {
     if (!boardId) return;
@@ -27,9 +45,15 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean) {
     let pending = false;
     let timer: number | undefined;
 
+    function idleStatus() {
+      if (!canWrite) return 'readonly' as const;
+      // ще не маємо права писати — це не «збережено», це «поки нікуди не пишу»
+      return syncedBoardRef.current === boardId ? ('saved' as const) : ('loading' as const);
+    }
+
     async function save(keepalive = false) {
       timer = undefined;
-      if (!loaded || !canWrite || !boardId) return;
+      if (!loaded || !canWrite || !boardId || syncedBoardRef.current !== boardId) return;
       pending = false;
       setStatus('saving');
       try {
@@ -61,12 +85,20 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean) {
       if (timer !== undefined || pending) void save(true);
     }
 
+    // дозвіл писати зʼявився вже після завантаження — віддаємо те, що встигли
+    // намалювати, поки чекали
+    resumeRef.current = () => {
+      if (!loaded) return;
+      if (pending) schedule();
+      else setStatus(idleStatus());
+    };
+
     fetchBoardSnapshot(boardId)
       .then(({ objects }) => {
         if (cancelled) return;
         for (const object of objects) useBoardStore.getState().add(object);
         loaded = true;
-        setStatus(canWrite ? 'saved' : 'readonly');
+        setStatus(idleStatus());
       })
       .catch(() => {
         if (!cancelled) setStatus('error');
@@ -83,6 +115,7 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean) {
     return () => {
       flush();
       cancelled = true;
+      resumeRef.current = null;
       window.clearTimeout(timer);
       unsubObjects();
       unsubInteracting();

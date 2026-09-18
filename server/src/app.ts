@@ -21,6 +21,9 @@ interface SpikeIceServerConfig {
 }
 
 export const app = express();
+// express-rate-limit інакше кидає ValidationError, щойно побачить
+// X-Forwarded-For (тунель на телефон), і рахує ліміт по адресі проксі
+app.set('trust proxy', env.trustProxy);
 // дефолтних 100kb снепшоту дошки замало
 app.use(express.json({ limit: '10mb' }));
 
