@@ -20,6 +20,8 @@ interface Peer {
   // прикріплений до медіаелемента
   audio: HTMLAudioElement;
   gain: GainNode | null;
+  // потрібен, щоб зібрати граф наново, якщо контекст доведеться перестворити
+  stream: MediaStream | null;
   // кандидати, що прийшли раніше за опис зʼєднання — їх не можна додавати
   // до setRemoteDescription, інакше браузер лається й губить їх
   pendingIce: VoiceIceMessage[];
@@ -35,6 +37,12 @@ let unsubscribeSeats: (() => void) | null = null;
 
 // різку зміну підсилення чути як тріск, тому доводимо плавно
 const GAIN_RAMP_SECONDS = 0.08;
+
+// доріжка мікрофона після повернення з фону буває коротко muted і сама
+// відходить. Даємо їй цей час, перш ніж перезапитувати мікрофон
+const TRACK_SETTLE_MS = 400;
+
+let unsubscribeVisibility: (() => void) | null = null;
 
 function context() {
   audioCtx ??= new AudioContext();
@@ -64,6 +72,19 @@ function attachAudio() {
   return audio;
 }
 
+// потік → регулятор гучності → колонки. Винесено окремо, бо цей самий граф
+// доводиться збирати наново, коли сафарі закриває контекст у фоні
+function wireAudio(peer: Peer) {
+  if (!peer.stream) return;
+  const ctx = context();
+  void ctx.resume().catch(() => {});
+  peer.gain?.disconnect();
+  const gain = ctx.createGain();
+  gain.gain.value = 1;
+  ctx.createMediaStreamSource(peer.stream).connect(gain).connect(ctx.destination);
+  peer.gain = gain;
+}
+
 function createPeer(clientId: number) {
   const existing = peers.get(clientId);
   if (existing) return existing;
@@ -73,7 +94,7 @@ function createPeer(clientId: number) {
     iceServers: iceConfig.iceServers,
     iceTransportPolicy: iceConfig.iceTransportPolicy,
   });
-  const peer: Peer = { pc, audio: attachAudio(), gain: null, pendingIce: [] };
+  const peer: Peer = { pc, audio: attachAudio(), gain: null, stream: null, pendingIce: [] };
   peers.set(clientId, peer);
   useVoiceStore.getState().setPeer(clientId, 'connecting');
 
@@ -96,13 +117,8 @@ function createPeer(clientId: number) {
     peer.audio.muted = true;
     void peer.audio.play().catch(() => {});
     if (!stream) return;
-
-    const ctx = context();
-    void ctx.resume().catch(() => {});
-    const gain = ctx.createGain();
-    gain.gain.value = 1;
-    ctx.createMediaStreamSource(stream).connect(gain).connect(ctx.destination);
-    peer.gain = gain;
+    peer.stream = stream;
+    wireAudio(peer);
     applySpatialGain();
   };
 
@@ -193,6 +209,91 @@ export function dropPeer(clientId: number) {
   useVoiceStore.getState().removePeer(clientId);
 }
 
+// сафарі, коли вкладка йде у фон (зокрема — у прихований Tab Group), глушить
+// і приймання, і передавання: AudioContext переходить у 'suspended' або в
+// нестандартний для webkit стан 'interrupted', а доріжку мікрофона система
+// позначає muted. Сокет при цьому живий — pong на ping браузер відповідає сам,
+// у мережевому шарі, без участі js, тому ні присутність, ні дошка не рвуться,
+// і жнець мертвих сокетів такого клієнта не бачить. Тобто це не проблема
+// сокета, а суто шар WebRTC/Web Audio, і вона не лікується сама: нічого в
+// застосунку не вмикало звук назад, поки людина не перезаходила в розмову
+async function recoverAudio() {
+  if (!useVoiceStore.getState().inVoice) return;
+
+  // 1. контекст. 'closed' — стан безповоротний, тоді збираємо граф наново
+  if (audioCtx && audioCtx.state === 'closed') {
+    audioCtx = null;
+    for (const peer of peers.values()) {
+      peer.gain = null;
+      wireAudio(peer);
+    }
+    applySpatialGain();
+  } else if (audioCtx && audioCtx.state !== 'running') {
+    await audioCtx.resume().catch(() => {});
+  }
+
+  // 2. елементи-приймачі: у фоні їх ставлять на паузу
+  for (const peer of peers.values()) {
+    if (peer.audio.paused) void peer.audio.play().catch(() => {});
+  }
+
+  // 3. свій мікрофон. Закінчену доріжку міняємо одразу, приглушеній даємо
+  // мить отямитись — після повернення з фону вона часто відходить сама
+  let track = localStream?.getAudioTracks()[0] ?? null;
+  if (track?.muted) {
+    await new Promise((resolve) => setTimeout(resolve, TRACK_SETTLE_MS));
+    track = localStream?.getAudioTracks()[0] ?? null;
+  }
+  if (!track || track.readyState === 'ended' || track.muted) {
+    await replaceLocalTrack();
+  }
+
+  // 4. самі зʼєднання. Пропонує той, хто й мав би — правило те саме, що на
+  // вході в розмову, тому зустрічних пропозицій не буде й тут
+  for (const [clientId, peer] of peers) {
+    const state = peer.pc.connectionState;
+    if (state !== 'failed' && state !== 'disconnected') continue;
+    if (!shouldOffer(clientId)) continue;
+    peer.pc.restartIce();
+    await offerTo(clientId).catch(() => {});
+  }
+}
+
+// беремо мікрофон наново й підмінюємо доріжку в кожному зʼєднанні: так
+// переговори не потрібні, зʼєднання лишаються ті самі
+async function replaceLocalTrack() {
+  let fresh: MediaStream;
+  try {
+    fresh = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    useVoiceStore.getState().setError('Мікрофон не повернувся — перезайдіть у розмову');
+    return;
+  }
+  const track = fresh.getAudioTracks()[0] ?? null;
+  for (const peer of peers.values()) {
+    const sender = peer.pc.getSenders().find((s) => s.track?.kind === 'audio');
+    if (sender && track) await sender.replaceTrack(track).catch(() => {});
+  }
+  localStream?.getTracks().forEach((t) => t.stop());
+  localStream = fresh;
+}
+
+// повернення вкладки на очі — єдиний момент, коли це можна полагодити.
+// pageshow потрібен окремо: вихід із bfcache не дає visibilitychange
+function watchVisibility() {
+  if (unsubscribeVisibility) return;
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') void recoverAudio();
+  };
+  const onPageShow = () => void recoverAudio();
+  document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('pageshow', onPageShow);
+  unsubscribeVisibility = () => {
+    document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener('pageshow', onPageShow);
+  };
+}
+
 export async function startVoice() {
   const store = useVoiceStore.getState();
   if (store.inVoice || store.starting) return;
@@ -209,6 +310,7 @@ export async function startVoice() {
   useVoiceStore.getState().setStarting(false);
   useVoiceStore.getState().setInVoice(true);
   unsubscribeSeats ??= useSeatStore.subscribe(applySpatialGain);
+  watchVisibility();
   // сервер у відповідь переспіває нам тих, хто вже в розмові, і розкаже
   // про нас решті — далі напрямок пропозицій вирішує shouldOffer
   publishVoiceState(true);
@@ -219,6 +321,8 @@ export function stopVoice() {
   publishVoiceState(false);
   unsubscribeSeats?.();
   unsubscribeSeats = null;
+  unsubscribeVisibility?.();
+  unsubscribeVisibility = null;
   for (const clientId of [...peers.keys()]) dropPeer(clientId);
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
@@ -229,6 +333,8 @@ export function stopVoice() {
 export function resetVoice() {
   unsubscribeSeats?.();
   unsubscribeSeats = null;
+  unsubscribeVisibility?.();
+  unsubscribeVisibility = null;
   for (const clientId of [...peers.keys()]) dropPeer(clientId);
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
