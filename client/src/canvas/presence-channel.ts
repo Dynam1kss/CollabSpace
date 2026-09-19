@@ -8,6 +8,12 @@ import { useEditorStore } from './editor-store';
 // підписці на editor-store, тягнути сокет через обидва шляхи пропсами дорожче
 let sendFrame: ((data: Uint8Array) => void) | null = null;
 
+// той самий сокет дошки для всього, що не документ: присутність, чат,
+// сигналізація голосу. Другого зʼєднання не заводимо
+export function sendBoardFrame(data: Uint8Array) {
+  sendFrame?.(data);
+}
+
 export function setPresenceSender(fn: ((data: Uint8Array) => void) | null) {
   sendFrame = fn;
   if (!fn) {

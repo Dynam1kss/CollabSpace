@@ -44,6 +44,16 @@ import type { BoardRole } from './boards';
 //   KICKED    [12] без тіла             сервер → ОДНОМУ клієнту, якого щойно
 //             прибрали з дошки; одразу по ньому сервер закриває сокет.
 //             Тіла нема — казати тут нічого, сам факт і є повідомлення
+//   VOICE_STATE  [13][json VoiceStateMessage] клієнт → серверу «я в розмові
+//             / я вийшов»; сервер дописує clientId і шле решті:
+//             [13][clientId:u32][json]. Тому, хто щойно зайшов, сервер ще й
+//             переспівує по такому ж кадру на кожного, хто вже в розмові —
+//             так новачок дізнається склад, не питаючи окремо
+//   VOICE_SDP    [14][clientId:u32][json VoiceSdpMessage]
+//   VOICE_ICE    [15][clientId:u32][json VoiceIceMessage]
+//             адресні кадри переговорів, як SYNC_REQUEST: клієнт кладе туди
+//             clientId ТОГО, КОМУ шле, сервер міняє його на clientId
+//             відправника й передає адресату. У тіло не заглядає
 // Хто в кімнаті — знає сам сервер, тому роздає це він, а не клієнти
 // здогадуються з чужого трафіку. Присутність ефемерна: у Y.Doc і в базу не
 // потрапляє, з розривом сокета просто зникає. Глядач присутній нарівні з
@@ -68,6 +78,9 @@ export const SYNC_MSG = {
   CHAT: 10,
   ROLE: 11,
   KICKED: 12,
+  VOICE_STATE: 13,
+  VOICE_SDP: 14,
+  VOICE_ICE: 15,
 } as const;
 
 export const SYNC_REQUESTER_ID_BYTES = 4;
@@ -83,6 +96,9 @@ export interface PresenceMember {
   userId: string;
   displayName: string;
   role: 'OWNER' | BoardRole;
+  // чи людина вже в голосовій розмові на момент, коли я зайшов на дошку.
+  // Далі це живе окремим кадром VOICE_STATE, а тут — лише початковий знімок
+  inVoice: boolean;
 }
 
 export interface RosterMessage {

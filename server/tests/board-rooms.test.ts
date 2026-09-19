@@ -451,6 +451,107 @@ describe('кімнати дошок поверх ws', () => {
     expect(await rejected(connect(boardId, editor.cookie))).toBe(404);
   });
 
+  it('голос: вхід у розмову переспівують новачку, а про нього кажуть решті', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    const idA = JSON.parse((await rosterA)!.subarray(1).toString()).you as number;
+
+    const b = connect(boardId, editor.cookie);
+    const rosterB = nextMessage(b);
+    await opened(b);
+    const idB = JSON.parse((await rosterB)!.subarray(1).toString()).you as number;
+    await nextMessage(a); // join b
+
+    const voice = (ws: WebSocket, inVoice: boolean) =>
+      ws.send(Buffer.concat([Buffer.from([SYNC_MSG.VOICE_STATE]), Buffer.from(JSON.stringify({ inVoice }))]));
+
+    // A заходить перший: переспівувати нема кого, але B про це чує
+    const toB = nextOfType(b, SYNC_MSG.VOICE_STATE);
+    voice(a, true);
+    const heard = (await toB)!;
+    expect(heard.readUInt32BE(1)).toBe(idA);
+    expect(JSON.parse(heard.subarray(5).toString())).toEqual({ inVoice: true });
+
+    // B заходить другим — і має отримати кадр про A, якого пропустив
+    const catchUp = nextOfType(b, SYNC_MSG.VOICE_STATE);
+    const toA = nextOfType(a, SYNC_MSG.VOICE_STATE);
+    voice(b, true);
+    const about = (await catchUp)!;
+    expect(about.readUInt32BE(1)).toBe(idA);
+    expect(JSON.parse(about.subarray(5).toString())).toEqual({ inVoice: true });
+    expect((await toA)!.readUInt32BE(1)).toBe(idB);
+
+    // глядач заходить у розмову нарівні з усіма — роль тут не питають
+    const v = connect(boardId, viewer.cookie);
+    const rosterV = nextMessage(v);
+    await opened(v);
+    const idV = JSON.parse((await rosterV)!.subarray(1).toString()).you as number;
+    const vLearnsA = nextOfType(v, SYNC_MSG.VOICE_STATE);
+    const aLearnsV = nextOfType(a, SYNC_MSG.VOICE_STATE);
+    voice(v, true);
+    expect([idA, idB]).toContain((await vLearnsA)!.readUInt32BE(1));
+    expect((await aLearnsV)!.readUInt32BE(1)).toBe(idV);
+
+    // вихід із розмови розлітається так само
+    const leaveToA = nextOfType(a, SYNC_MSG.VOICE_STATE);
+    voice(v, false);
+    const left = (await leaveToA)!;
+    expect(left.readUInt32BE(1)).toBe(idV);
+    expect(JSON.parse(left.subarray(5).toString())).toEqual({ inVoice: false });
+  });
+
+  it('голос: sdp і кандидати йдуть рівно адресату, з підміненим clientId', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    const idA = JSON.parse((await rosterA)!.subarray(1).toString()).you as number;
+    const b = connect(boardId, editor.cookie);
+    const rosterB = nextMessage(b);
+    await opened(b);
+    const idB = JSON.parse((await rosterB)!.subarray(1).toString()).you as number;
+    const c = connect(boardId, viewer.cookie);
+    await opened(c);
+    await nextMessage(a);
+    await nextMessage(a);
+
+    // A шле offer саме B: у кадрі лежить id адресата
+    const addressed = (type: number, target: number, payload: unknown) => {
+      const body = Buffer.from(JSON.stringify(payload));
+      const frame = Buffer.alloc(5 + body.length);
+      frame[0] = type;
+      frame.writeUInt32BE(target, 1);
+      body.copy(frame, 5);
+      return frame;
+    };
+
+    const toB = nextOfType(b, SYNC_MSG.VOICE_SDP);
+    const toC = nextOfType(c, SYNC_MSG.VOICE_SDP, 400);
+    a.send(addressed(SYNC_MSG.VOICE_SDP, idB, { type: 'offer', sdp: 'v=0 тест' }));
+
+    const got = (await toB)!;
+    // сервер підмінив «кому» на «від кого»
+    expect(got.readUInt32BE(1)).toBe(idA);
+    expect(JSON.parse(got.subarray(5).toString())).toEqual({ type: 'offer', sdp: 'v=0 тест' });
+    // третьому не дісталось нічого — кадр адресний, не широкомовний
+    expect(await toC).toBeNull();
+
+    // кандидат так само
+    const iceToA = nextOfType(a, SYNC_MSG.VOICE_ICE);
+    b.send(addressed(SYNC_MSG.VOICE_ICE, idA, { candidate: 'cand', sdpMid: '0', sdpMLineIndex: 0 }));
+    const ice = (await iceToA)!;
+    expect(ice.readUInt32BE(1)).toBe(idB);
+    expect(JSON.parse(ice.subarray(5).toString())).toMatchObject({ candidate: 'cand' });
+
+    // неіснуючий адресат і кадр самому собі просто нікуди не йдуть
+    a.send(addressed(SYNC_MSG.VOICE_SDP, 999999, { type: 'offer', sdp: 'x' }));
+    a.send(addressed(SYNC_MSG.VOICE_SDP, idA, { type: 'offer', sdp: 'x' }));
+    expect(await nextOfType(a, SYNC_MSG.VOICE_SDP, 300)).toBeNull();
+    expect(await nextOfType(b, SYNC_MSG.VOICE_SDP, 300)).toBeNull();
+  });
+
   it('привид у списку присутніх: жнець шле LEAVE тим, хто лишився', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     const watcher = connect(boardId, owner.cookie);

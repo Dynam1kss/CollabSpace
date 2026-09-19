@@ -25,7 +25,8 @@ const iceStunUrls = (process.env.ICE_STUN_URLS ?? 'stun:stun.l.google.com:19302'
 
 // relay — примусово через TURN (прямі й STUN-кандидати заборонені), щоб
 // перевірити сам TURN-сервер окремо від мережі перед висновками про CGNAT/NAT
-const iceTransportPolicy = process.env.ICE_TRANSPORT_POLICY === 'relay' ? 'relay' : 'all';
+const iceTransportPolicy: 'all' | 'relay' =
+  process.env.ICE_TRANSPORT_POLICY === 'relay' ? 'relay' : 'all';
 
 // скільки проксі-хопів перед express — від цього залежить, який адресу він
 // візьме за req.ip (по ньому рахує ліміт спроб логіну). в розробці 1: тунель

@@ -717,3 +717,57 @@ elementFromPoint повертав би її саму замість колонк
 .chat-form button {
   flex: 0 0 auto;
 }
+
+/* голос: острівець унизу ліворуч, щоб не змагатись із чатом і статусами */
+.voice-panel {
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.voice-panel button {
+  font-size: 0.8rem;
+}
+
+.voice-leave {
+  color: #c2255c;
+}
+
+.voice-peers {
+  display: flex;
+  gap: 4px;
+}
+
+.voice-peer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* поки зʼєднання ще будується — блідо; не вдалось — перекреслено кольором */
+.voice-peer.connecting {
+  opacity: 0.45;
+}
+
+.voice-peer.failed {
+  opacity: 0.5;
+  outline: 2px solid #c2255c;
+}
+
+.voice-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.voice-error {
+  color: #c2255c;
+}

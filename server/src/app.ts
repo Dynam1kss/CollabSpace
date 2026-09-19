@@ -2,7 +2,8 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import type { HealthResponse } from 'shared';
+import type { HealthResponse, IceConfigResponse, IceServerConfig } from 'shared';
+import { requireAuth } from './auth/auth.middleware';
 import { authRouter } from './auth/auth.routes';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
@@ -14,12 +15,6 @@ import { errorHandler } from './errors';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
-
-interface SpikeIceServerConfig {
-  urls: string[];
-  username?: string;
-  credential?: string;
-}
 
 export const app = express();
 // express-rate-limit інакше кидає ValidationError, щойно побачить
@@ -37,6 +32,23 @@ app.get('/api/health', (_req, res) => {
   res.json(body);
 });
 
+// куди браузеру стукати, щоб пробити NAT. Облікові дані TURN мусять дійти
+// до самого браузера — інакше він до ретранслятора не підключиться; захист
+// тут не в приховуванні, а в тому, що вони тимчасові (див. записку 2.6).
+// Під авторизацією, щоб TURN не роздавався всьому інтернету
+app.get('/api/ice-config', requireAuth, (_req, res) => {
+  const iceServers: IceServerConfig[] = [{ urls: env.iceStunUrls }];
+  if (env.iceTurnUrl) {
+    iceServers.push({
+      urls: [env.iceTurnUrl],
+      username: env.iceTurnUsername,
+      credential: env.iceTurnCredential,
+    });
+  }
+  const body: IceConfigResponse = { iceServers, iceTransportPolicy: env.iceTransportPolicy };
+  res.json(body);
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/boards', boardsRouter);
 app.use('/api/boards/:id/snapshot', snapshotsRouter);
@@ -48,7 +60,7 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // спайки — тільки для розробки, в проді їх не буде на диску
 if (!env.isProduction) {
   app.get('/spike/webrtc-ice-config', (_req, res) => {
-    const iceServers: SpikeIceServerConfig[] = [{ urls: env.iceStunUrls }];
+    const iceServers: IceServerConfig[] = [{ urls: env.iceStunUrls }];
     if (env.iceTurnUrl) {
       iceServers.push({
         urls: [env.iceTurnUrl],

@@ -19,6 +19,9 @@ interface Client {
   role: BoardAccess['role'];
   userId: string;
   displayName: string;
+  // чи людина зараз у голосовій розмові. Тримаємо тут, щоб новачок дізнався
+  // склад розмови одразу на вході, а не питав окремим кадром
+  inVoice: boolean;
 }
 
 export const boardRoomWss = new WebSocketServer({ noServer: true });
@@ -82,7 +85,14 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
   }
   const displayName = await getDisplayName(userId);
   boardRoomWss.handleUpgrade(req, socket, head, (ws) => {
-    clients.set(ws, { id: nextClientId++, boardId, role: access.role, userId, displayName });
+    clients.set(ws, {
+      id: nextClientId++,
+      boardId,
+      role: access.role,
+      userId,
+      displayName,
+      inVoice: false,
+    });
     boardRoomWss.emit('connection', ws, req);
   });
 }
@@ -100,13 +110,32 @@ function jsonFrame(type: number, payload: unknown) {
   return Buffer.concat([Buffer.from([type]), Buffer.from(JSON.stringify(payload), 'utf8')]);
 }
 
+// тіло для кадрів, які збираються через withClientId: там перший байт і id
+// дописуються окремо, тому лишається сам json з фіктивним першим байтом
+function jsonBody(payload: unknown) {
+  return Buffer.concat([Buffer.from([0]), Buffer.from(JSON.stringify(payload), 'utf8')]);
+}
+
 function toMember(client: Client): PresenceMember {
   return {
     clientId: client.id,
     userId: client.userId,
     displayName: client.displayName,
     role: client.role,
+    inVoice: client.inVoice,
   };
+}
+
+// адресний кадр переговорів: клієнт поклав туди clientId того, кому шле;
+// міняємо його на clientId відправника й передаємо адресату. Тіло (sdp чи
+// кандидат) для сервера — непрозорі байти, як і оновлення yjs
+function relayToPeer(room: Map<number, WebSocket>, from: Client, buf: Buffer) {
+  if (buf.length < 1 + SYNC_REQUESTER_ID_BYTES) return;
+  const peer = room.get(buf.readUInt32BE(1));
+  if (!peer || peer === room.get(from.id)) return;
+  const framed = Buffer.from(buf);
+  framed.writeUInt32BE(from.id, 1);
+  send(peer, framed);
 }
 
 // виділення, замок, вікно й sync-запит ідуть далі однаково: сервер лише
@@ -238,6 +267,38 @@ boardRoomWss.on('connection', (socket) => {
         for (const [, other] of others) send(other, framed);
         return;
       }
+
+      case SYNC_MSG.VOICE_STATE: {
+        // голос ролі не питає — глядач говорить нарівні з усіма, як і в чаті
+        let body: { inVoice?: unknown };
+        try {
+          body = JSON.parse(buf.subarray(1).toString('utf8')) as { inVoice?: unknown };
+        } catch {
+          return;
+        }
+        if (typeof body.inVoice !== 'boolean') return;
+        const joining = body.inVoice && !client.inVoice;
+        client.inVoice = body.inVoice;
+
+        // новачкові — по кадру на кожного, хто вже в розмові: далі він сам
+        // вирішить, кому з них пропонувати зʼєднання, а кого дочекатись
+        if (joining) {
+          for (const [, other] of others) {
+            const peer = clients.get(other);
+            if (peer?.inVoice) {
+              send(socket, withClientId(SYNC_MSG.VOICE_STATE, peer.id, jsonBody({ inVoice: true })));
+            }
+          }
+        }
+        const framed = withClientId(SYNC_MSG.VOICE_STATE, client.id, jsonBody({ inVoice: body.inVoice }));
+        for (const [, other] of others) send(other, framed);
+        return;
+      }
+
+      case SYNC_MSG.VOICE_SDP:
+      case SYNC_MSG.VOICE_ICE:
+        relayToPeer(room, client, buf);
+        return;
 
       case SYNC_MSG.CHAT:
         // чат — не вміст дошки, тому за роллю не гейтимо: глядач пише й читає

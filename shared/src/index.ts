@@ -4,3 +4,4 @@ export * from './boards';
 export * from './board-objects';
 export * from './sync';
 export * from './chat';
+export * from './voice';

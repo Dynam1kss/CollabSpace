@@ -8,6 +8,7 @@ import type {
   BoardSummary,
   ChatHistoryResponse,
   CreateBoardRequest,
+  IceConfigResponse,
   RemoveBoardMemberRequest,
   SaveSnapshotRequest,
   SnapshotResponse,
@@ -107,6 +108,12 @@ export function uploadBoardImage(boardId: string, file: File) {
     headers: { 'Content-Type': file.type },
     body: file,
   }).then((res) => parseResponse<UploadImageResponse>(res));
+}
+
+// куди стукати браузеру, щоб пробити NAT. Тягнемо на вхід у розмову, а не
+// на завантаження дошки: більшості сеансів голос узагалі не потрібен
+export function fetchIceConfig() {
+  return fetch('/api/ice-config').then((res) => parseResponse<IceConfigResponse>(res));
 }
 
 // історія чату. Окремим запитом від снепшоту: це різні сутності й різні

@@ -10,9 +10,19 @@ import type {
   PresenceMember,
   RoleChangedMessage,
   RosterMessage,
+  VoiceIceMessage,
+  VoiceSdpMessage,
+  VoiceStateMessage,
   ViewportMessage,
 } from 'shared';
 import { useChatStore } from './chat-store';
+import {
+  dropPeer,
+  handleVoiceIce,
+  handleVoiceSdp,
+  handleVoiceState,
+  resetVoice,
+} from '../voice/voice-mesh';
 import { resetBoardDoc } from './board-store';
 import { usePresenceStore } from './presence-store';
 
@@ -76,6 +86,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // присутність — ефемерна й прив'язана до цього сокета: на новій дошці
     // починаємо з порожнього списку, чужі записи зі старої кімнати не тягнемо
     usePresenceStore.getState().reset();
+    resetVoice();
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${protocol}://${location.host}/ws/boards/${boardId}`);
     ws.binaryType = 'arraybuffer';
@@ -158,9 +169,13 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           publishLock(useEditorStore.getState().editingTextId);
           republishViewport();
           return;
-        case SYNC_MSG.LEAVE:
-          usePresenceStore.getState().removeMember((JSON.parse(text(payload)) as LeaveMessage).clientId);
+        case SYNC_MSG.LEAVE: {
+          const { clientId } = JSON.parse(text(payload)) as LeaveMessage;
+          usePresenceStore.getState().removeMember(clientId);
+          // окремого «вийшов з голосу» не треба: пішов з дошки — пішов звідусіль
+          dropPeer(clientId);
           return;
+        }
         case SYNC_MSG.SELECTION: {
           const view = new DataView(data.buffer, data.byteOffset + 1);
           const ids = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as string[];
@@ -200,6 +215,29 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
             useEditorStore.getState().stopEditingText();
             useEditorStore.getState().clearSelection();
           }
+          return;
+        }
+
+        case SYNC_MSG.VOICE_STATE: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          const body = JSON.parse(
+            text(payload.subarray(SYNC_REQUESTER_ID_BYTES)),
+          ) as VoiceStateMessage;
+          handleVoiceState(view.getUint32(0), body.inVoice);
+          return;
+        }
+
+        case SYNC_MSG.VOICE_SDP: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          const body = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as VoiceSdpMessage;
+          void handleVoiceSdp(view.getUint32(0), body);
+          return;
+        }
+
+        case SYNC_MSG.VOICE_ICE: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          const body = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as VoiceIceMessage;
+          void handleVoiceIce(view.getUint32(0), body);
           return;
         }
 
@@ -254,6 +292,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       unsubSelection();
       setPresenceSender(null);
       usePresenceStore.getState().reset();
+      resetVoice();
       setPresenceSender(send);
       doc.off('update', handleLocalUpdate);
       // своє закриття — не «офлайн»
