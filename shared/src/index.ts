@@ -3,3 +3,4 @@ export * from './auth';
 export * from './boards';
 export * from './board-objects';
 export * from './sync';
+export * from './chat';

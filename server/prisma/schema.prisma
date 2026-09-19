@@ -21,6 +21,7 @@ model User {
 
   ownedBoards  Board[]       @relation("BoardOwner")
   memberships  BoardMember[]
+  chatMessages ChatMessage[]
 }
 
 model Board {
@@ -33,6 +34,7 @@ model Board {
 
   members   BoardMember[]
   snapshot  BoardSnapshot?
+  chat      ChatMessage[]
 }
 
 model BoardMember {
@@ -44,6 +46,21 @@ model BoardMember {
   role    BoardRole
 
   @@unique([boardId, userId])
+}
+
+// чат дошки — на відміну від присутності, це не ефемерний стан: хто зайде
+// завтра, має побачити розмову, а не порожнечу. Індекс саме парою — вибірка
+// завжди «останні N цієї дошки»
+model ChatMessage {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([boardId, createdAt])
 }
 
 model BoardSnapshot {
