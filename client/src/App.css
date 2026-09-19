@@ -517,7 +517,10 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.12),
     0 2px 6px rgba(0, 0, 0, 0.06);
-  font-size: 0.9rem;
+  /* не менше 16px: під цим порогом мобільний сафарі зумить сторінку, щойно
+  редактор картки дістане фокус. Картка й редактор мають один розмір, тому
+  піднімаємо саме тут, а не в редакторі — інакше текст стрибав би на вході */
+  font-size: 1rem;
   line-height: 1.3;
   cursor: pointer;
   user-select: none;

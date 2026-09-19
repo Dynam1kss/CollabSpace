@@ -10,6 +10,12 @@ interface Props {
   viewport: Viewport;
 }
 
+// нижче цього порога мобільний сафарі зумить САМУ СТОРІНКУ, щойно поле
+// отримає фокус, і назад уже не вертає (в нас ще й щипок глушиться, тому
+// відзумити руками теж не вийде). На зменшеному полотні шрифт редактора
+// виходив 4.5px, тобто далеко під порогом
+const MIN_INPUT_FONT_PX = 16;
+
 // подвійний клік по стікеру/тексту вмикає це — звичайний HTML <textarea>
 // поверх полотна (Konva сам по собі текст не редагує), позиціюємо його за
 // screen-координатами обʼєкта; сам textarea і коміт — у TextEditor
@@ -23,9 +29,19 @@ export function TextEditOverlay({ object, viewport }: Props) {
 
   const screen = boardToScreen({ x: object.x, y: object.y }, viewport);
   const padding = object.type === 'sticky' ? 10 : 0;
-  const fontSize = (object.type === 'text' ? object.fontSize : 16) * viewport.scale;
   const color = object.type === 'sticky' ? object.textColor : object.color;
   const size = textSize ?? { width: object.width, height: object.height };
+
+  // потрібний розмір на екрані може бути скільки завгодно малим, а полю
+  // ставимо не менше порога і стискаємо все разом трансформом: у браузера
+  // шрифт лишається великим, на екрані виглядає як і має
+  const wantedFont = (object.type === 'text' ? object.fontSize : 16) * viewport.scale;
+  const fontSize = Math.max(MIN_INPUT_FONT_PX, wantedFont);
+  const shrink = wantedFont / fontSize;
+  // коробку роздуваємо рівно настільки, наскільки її потім стисне трансформ —
+  // щоб на екрані вона лягла точно на обʼєкт
+  const boxWidth = ((size.width - padding * 2) * viewport.scale) / shrink;
+  const boxHeight = ((size.height - padding * 2) * viewport.scale) / shrink;
 
   function handleInput(text: string) {
     if (object.type === 'text') setTextSize(fitTextBox({ ...object, text }));
@@ -39,13 +55,16 @@ export function TextEditOverlay({ object, viewport }: Props) {
       style={{
         left: screen.x + padding * viewport.scale,
         top: screen.y + padding * viewport.scale,
-        width: (size.width - padding * 2) * viewport.scale,
-        height: (size.height - padding * 2) * viewport.scale,
+        width: boxWidth,
+        height: boxHeight,
         fontSize,
         fontFamily: TEXT_FONT_FAMILY,
         lineHeight: TEXT_LINE_HEIGHT,
         color,
-        transform: `rotate(${object.rotation}deg)`,
+        // від лівого верхнього кута, як крутить і konva — інакше поворот
+        // ішов би навколо центру коробки й не збігався з фігурою
+        transformOrigin: 'top left',
+        transform: `rotate(${object.rotation}deg) scale(${shrink})`,
       }}
       onInput={handleInput}
     />

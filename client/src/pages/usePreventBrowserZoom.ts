@@ -12,7 +12,12 @@ export function usePreventBrowserZoom() {
       if (e.ctrlKey) e.preventDefault();
     }
     function handleTouchMove(e: TouchEvent) {
-      if (e.touches.length > 1) e.preventDefault();
+      if (e.touches.length <= 1) return;
+      // якщо сторінку вже якось зумнуло (сафарі робить це сам, коли фокус
+      // потрапляє в дрібне поле), не глушимо щипок — інакше людині нема чим
+      // повернути масштаб назад і вкладка лишається збільшеною назавжди
+      if ((window.visualViewport?.scale ?? 1) > 1) return;
+      e.preventDefault();
     }
     function handleGesture(e: Event) {
       e.preventDefault();
