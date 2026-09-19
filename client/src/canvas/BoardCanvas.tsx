@@ -17,6 +17,7 @@ import { SelectionOverlay } from './objects/SelectionOverlay';
 import { publishCursor, publishViewport } from './presence-channel';
 import { useLockedByOthers } from './presence-store';
 import { useObjectInteractions } from './useObjectInteractions';
+import { useImageDrop } from './use-image-drop';
 import { BoardSeats } from '../voice/BoardSeats';
 import { useMySeat } from '../voice/use-my-seat';
 
@@ -169,6 +170,7 @@ export function BoardCanvas({
   }, [touchInput, visibleRect, size.width, size.height]);
 
   const saveSeat = useMySeat(boardId, currentUserId);
+  const imageDrop = useImageDrop(boardId, currentUserId, containerRef, viewport);
 
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
 
@@ -245,6 +247,8 @@ export function BoardCanvas({
           )}
         </Stage>
       )}
+      {imageDrop.uploading && <div className="board-island tool-error">Завантажую зображення…</div>}
+      {imageDrop.error && <div className="board-island tool-error">{imageDrop.error}</div>}
       {editingObject && <TextEditOverlay object={editingObject} viewport={viewport} />}
     </div>
   );
