@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { BoardDetail } from 'shared';
 import { ApiError, fetchBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
@@ -38,7 +38,11 @@ const SYNC_STATUS_TEXT: Record<SyncStatus, string> = {
   connecting: 'підключення…',
   live: 'наживо',
   offline: 'офлайн',
+  kicked: 'доступ забрано',
 };
+
+// скільки людина бачить пояснення, перш ніж її віднесе до списку дошок
+const KICKED_REDIRECT_MS = 2500;
 
 // глядач нічого не зберігає і не змінює — сервер і так відхилить, але й пробувати не варто
 function canEdit(board: BoardDetail, userId: string) {
@@ -47,6 +51,7 @@ function canEdit(board: BoardDetail, userId: string) {
 
 export function BoardPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [board, setBoard] = useState<BoardDetail | null>(null);
   const [state, setState] = useState<LoadState>('loading');
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -93,6 +98,14 @@ export function BoardPage() {
       });
   }, [id]);
 
+  // власник забрав доступ просто зараз: даємо прочитати, чому, і відводимо
+  // до списку — лишати людину на дошці, якої в неї вже нема, нема сенсу
+  useEffect(() => {
+    if (syncStatus !== 'kicked') return;
+    const timer = window.setTimeout(() => navigate('/'), KICKED_REDIRECT_MS);
+    return () => window.clearTimeout(timer);
+  }, [syncStatus, navigate]);
+
   const center = { x: canvasSize.width / 2, y: canvasSize.height / 2 };
 
   // щойно дізнались розмір полотна — центруємо початок координат дошки
@@ -126,6 +139,18 @@ export function BoardPage() {
     return (
       <div className="board-page-message">
         <h1>Дошку не знайдено</h1>
+        <p>
+          <Link to="/">До списку дошок</Link>
+        </p>
+      </div>
+    );
+  }
+
+  if (syncStatus === 'kicked') {
+    return (
+      <div className="board-page-message">
+        <h1>Доступ до дошки закрито</h1>
+        <p>Власник видалив вас із цієї дошки.</p>
         <p>
           <Link to="/">До списку дошок</Link>
         </p>

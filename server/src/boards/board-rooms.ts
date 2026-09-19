@@ -158,6 +158,17 @@ async function relayChat(client: Client, buf: Buffer) {
   for (const [, socket] of room) send(socket, frame);
 }
 
+// власник прибрав людину з дошки. Мовчки рвати сокет не годиться — людина не
+// зрозуміє, чому її раптом викинуло; тому спершу кадр, і вже по ньому
+// закриття. close() шле кадр закриття після всього, що вже стало в чергу,
+// тож повідомлення встигає піти
+export function kickMember(boardId: string, userId: string) {
+  for (const socket of socketsOfUser(boardId, userId)) {
+    send(socket, Buffer.from([SYNC_MSG.KICKED]));
+    socket.close();
+  }
+}
+
 boardRoomWss.on('connection', (socket) => {
   const client = clients.get(socket);
   if (!client) {

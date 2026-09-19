@@ -16,7 +16,9 @@ import { useChatStore } from './chat-store';
 import { resetBoardDoc } from './board-store';
 import { usePresenceStore } from './presence-store';
 
-export type SyncStatus = 'connecting' | 'live' | 'offline';
+// 'kicked' — не різновид обриву, а окрема причина: власник забрав доступ.
+// Сокет після цього теж закриється, але сторінці треба сказати інше
+export type SyncStatus = 'connecting' | 'live' | 'offline' | 'kicked';
 
 // позначка на вхідних оновленнях: doc.on('update') бачить origin і не шле
 // їх назад у мережу — інакше чуже оновлення поверталось би по колу
@@ -89,6 +91,10 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       if (state.selectedIds !== prev.selectedIds) publishSelection(state.selectedIds);
       if (state.editingTextId !== prev.editingTextId) publishLock(state.editingTextId);
     });
+
+    // сокет закриє сам сервер одразу по кадру — щоб onclose не перебив
+    // причину звичайним «офлайн»
+    let kicked = false;
 
     // снепшот з rest вантажиться паралельно з рукостисканням сокета і часто
     // встигає лягти в документ раніше — такі оновлення send() просто викидав,
@@ -177,6 +183,11 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           return;
         }
 
+        case SYNC_MSG.KICKED:
+          kicked = true;
+          setStatus('kicked');
+          return;
+
         case SYNC_MSG.ROLE: {
           // власник змінив мені роль просто зараз. Сам прапорець їде в
           // presence-store, а звідти — у canEdit через BoardPage; тут лишається
@@ -226,6 +237,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // перепідключення нема, тому закритий сокет уже не оживе — повтори гасимо
     const dropped = () => {
       window.clearInterval(syncRetry);
+      if (kicked) return;
       // присутність приходить лише цим сокетом. Поки він був живий, список
       // був правдою; тепер про кімнату не відомо нічого, і лишати останній
       // знімок висіти — гірше, ніж не показувати нікого: людина бачить

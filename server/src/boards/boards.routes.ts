@@ -10,7 +10,7 @@ import type {
   UpdateBoardRequest,
 } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
-import { applyRoleChange } from './board-rooms';
+import { applyRoleChange, kickMember } from './board-rooms';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import {
@@ -196,6 +196,8 @@ boardsRouter.delete('/:id/members', async (req, res, next) => {
     const { userId }: RemoveBoardMemberRequest = parsed.data;
 
     await prisma.boardMember.deleteMany({ where: { boardId: access.board.id, userId } });
+    // доступу вже нема — виводимо з дошки й тих, хто сидить у ній просто зараз
+    kickMember(access.board.id, userId);
     res.status(204).end();
   } catch (err) {
     next(err);

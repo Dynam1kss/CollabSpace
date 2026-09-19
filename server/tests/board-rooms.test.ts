@@ -417,6 +417,40 @@ describe('кімнати дошок поверх ws', () => {
     expect((await afterRestore)?.[0]).toBe(SYNC_MSG.UPDATE);
   });
 
+  it('видалення учасника виводить його з дошки живцем, з усіх вкладок', async () => {
+    const { boardId, owner, editor } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    await opened(a);
+    const tab1 = connect(boardId, editor.cookie);
+    const tab2 = connect(boardId, editor.cookie);
+    await Promise.all([opened(tab1), opened(tab2)]);
+    await nextMessage(a);
+    await nextMessage(a);
+    expect(roomSize(boardId)).toBe(3);
+
+    const kickedTab1 = nextOfType(tab1, SYNC_MSG.KICKED);
+    const kickedTab2 = nextOfType(tab2, SYNC_MSG.KICKED);
+    const closed1 = new Promise<number>((r) => tab1.once('close', r));
+    const closed2 = new Promise<number>((r) => tab2.once('close', r));
+
+    const removed = await owner.agent
+      .delete(`/api/boards/${boardId}/members`)
+      .send({ userId: (await editorUserId(editor)).id });
+    expect(removed.status).toBe(204);
+
+    // спершу пояснення, і лише потім закриття — щоб людина знала, що сталось
+    expect((await kickedTab1)![0]).toBe(SYNC_MSG.KICKED);
+    expect((await kickedTab2)![0]).toBe(SYNC_MSG.KICKED);
+    await Promise.all([closed1, closed2]);
+
+    // у кімнаті лишився сам власник, і він дізнався про вихід
+    await new Promise((r) => setTimeout(r, 100));
+    expect(roomSize(boardId)).toBe(1);
+
+    // назад той самий сокет уже не оживе, а новий не пустять
+    expect(await rejected(connect(boardId, editor.cookie))).toBe(404);
+  });
+
   it('привид у списку присутніх: жнець шле LEAVE тим, хто лишився', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     const watcher = connect(boardId, owner.cookie);
