@@ -11,7 +11,11 @@ interface Track {
   from: number[];
   to: number[];
   start: number;
+  duration: number;
 }
+
+// доїзд коротший за це не має сенсу — це вже менше за кадр
+const MIN_TWEEN_MS = 16;
 
 interface Tween {
   // ref для вузла учасника; кешується за clientId, бо нова функція на кожен
@@ -25,6 +29,9 @@ interface Tween {
   stop: () => void;
 }
 
+// durationMs — не жорстка тривалість, а орієнтир: реальний інтервал між
+// кадрами міряємо самі (див. retarget), бо відправник міняє темп, а таймер на
+// завантаженій вкладці ще й плаває
 export function createPresenceTween(
   durationMs: number,
   apply: (node: Konva.Node, values: number[]) => void,
@@ -33,6 +40,7 @@ export function createPresenceTween(
   const refs = new Map<number, (node: Konva.Node | null) => void>();
   const current = new Map<number, number[]>();
   const tracks = new Map<number, Track>();
+  const lastArrival = new Map<number, number>();
   let raf: number | null = null;
 
   function paint(clientId: number, values: number[]) {
@@ -50,7 +58,7 @@ export function createPresenceTween(
     const now = performance.now();
     let layer: Konva.Layer | null = null;
     for (const [clientId, track] of tracks) {
-      const k = Math.min(1, (now - track.start) / durationMs);
+      const k = Math.min(1, (now - track.start) / track.duration);
       const values = track.from.map((from, i) => from + (track.to[i] - from) * k);
       layer = paint(clientId, values) ?? layer;
       if (k >= 1) tracks.delete(clientId);
@@ -78,16 +86,26 @@ export function createPresenceTween(
         refs.delete(clientId);
         tracks.delete(clientId);
         current.delete(clientId);
+        lastArrival.delete(clientId);
       }
+      const now = performance.now();
       let layer: Konva.Layer | null = null;
       for (const [key, values] of Object.entries(targets)) {
         const clientId = Number(key);
+        const previous = lastArrival.get(clientId);
+        lastArrival.set(clientId, now);
         const from = current.get(clientId);
         if (!from) {
           layer = paint(clientId, values) ?? layer;
           continue;
         }
-        tracks.set(clientId, { from, to: values, start: performance.now() });
+        // їдемо рівно стільки, скільки реально минуло між кадрами. Фіксована
+        // тривалість означала б або доїзд ривком і простій до наступного кадру
+        // (саме це й робило курсор млявим під час тягання), або недоїзд.
+        // Стеля — щоб після паузи в русі не повзти до нової точки секунду
+        const gap = previous === undefined ? durationMs : now - previous;
+        const duration = Math.min(durationMs * 1.5, Math.max(MIN_TWEEN_MS, gap));
+        tracks.set(clientId, { from, to: values, start: now, duration });
       }
       layer?.batchDraw();
       if (tracks.size > 0 && raf === null) raf = requestAnimationFrame(step);
