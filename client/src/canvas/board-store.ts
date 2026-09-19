@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { create } from 'zustand';
+import { diag } from './diag';
 import type {
   BoardObject,
   ConnectorObject,
@@ -60,6 +61,15 @@ const APP_ORIGIN = { source: 'app' };
 
 export function asAppEdit(fn: () => void) {
   boardDoc.transact(fn, APP_ORIGIN);
+}
+
+// хто спорожнив мапу востаннє. Потрібне запобіжнику в персистентності:
+// «людина стерла все сама» і «щось усередині застосунку прибрало обʼєкти» —
+// це різні події, і зберігати порожнечу можна лише в першому випадку
+let emptiedBy: 'user' | 'app' | 'remote' | null = null;
+
+export function lastEmptiedBy() {
+  return emptiedBy;
 }
 
 // 500мс — те саме групування, що yjs бере за замовчуванням: серія дій в один
@@ -148,6 +158,13 @@ export const useBoardStore = create<BoardObjectsState>((set, get) => ({
 // будь-яка зміна мапи (своя чи чужа з мережі) → перезбираємо дзеркало лише
 // по зачеплених ключах; нове посилання objects — React перемальовує як і раніше
 function mirror(event: Y.YMapEvent<BoardObject>) {
+  if (yObjects.size === 0) {
+    const origin: unknown = event.transaction.origin;
+    emptiedBy = origin === APP_ORIGIN ? 'app' : origin == null ? 'user' : 'remote';
+    diag('мапа обʼєктів спорожніла', { emptiedBy, keysChanged: event.keysChanged.size });
+  } else {
+    emptiedBy = null;
+  }
   useBoardStore.setState((state) => {
     const objects = { ...state.objects };
     for (const key of event.keysChanged) {
@@ -161,6 +178,7 @@ function mirror(event: Y.YMapEvent<BoardObject>) {
 yObjects.observe(mirror);
 
 export function resetBoardDoc() {
+  diag('resetBoardDoc: новий порожній документ', { було: yObjects.size });
   // недописаний жест зі старої дошки в нову не переносимо
   queued = null;
   // історія правок теж прив'язана до документа: на новій дошці ctrl+z не має
@@ -171,6 +189,7 @@ export function resetBoardDoc() {
   yObjects = boardDoc.getMap<BoardObject>('objects');
   yObjects.observe(mirror);
   boardUndo = createUndo();
+  emptiedBy = null;
   useBoardStore.setState({ objects: {} });
   return boardDoc;
 }

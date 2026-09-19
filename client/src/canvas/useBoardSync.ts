@@ -32,7 +32,8 @@ import {
   handleVoiceState,
   resetVoice,
 } from '../voice/voice-mesh';
-import { resetBoardDoc } from './board-store';
+import { resetBoardDoc, useBoardStore } from './board-store';
+import { diag } from './diag';
 import { usePresenceStore } from './presence-store';
 
 // 'kicked' — не різновид обриву, а окрема причина: власник забрав доступ.
@@ -136,10 +137,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // вектор рахуємо на кожен повтор наново — документ міг підрости
     let syncRetry: number | undefined;
     function askForHistory() {
+      diag('шлю SYNC_REQUEST', { boardId, обʼєктів: useBoardStore.getState().getAll().length });
       send(frame(SYNC_MSG.SYNC_REQUEST, Y.encodeStateVector(doc)));
     }
 
     ws.onopen = () => {
+      diag('ws відкрито', { boardId, обʼєктів: useBoardStore.getState().getAll().length });
       // віддаємо свій стан цілком — інакше сусід не зможе прийняти жодної
       // нашої наступної дельти: yjs вимагає клоки без пропусків
       if (missedWhileConnecting && canWriteRef.current) {
@@ -159,13 +162,22 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         case SYNC_MSG.UPDATE:
           Y.applyUpdate(doc, payload, REMOTE_ORIGIN);
           return;
-        case SYNC_MSG.SYNC_REPLY:
+        case SYNC_MSG.SYNC_REPLY: {
+          const before = useBoardStore.getState().getAll().length;
           // порожня відповідь — сервер каже «відповідати нема кому», віддавати
           // нічого, але рукостискання закрите: далі можна зберігати
           if (payload.length > 0) Y.applyUpdate(doc, payload, REMOTE_ORIGIN);
+          diag('SYNC_REPLY', {
+            boardId,
+            байтів: payload.length,
+            порожня: payload.length === 0,
+            обʼєктівБуло: before,
+            обʼєктівСтало: useBoardStore.getState().getAll().length,
+          });
           window.clearInterval(syncRetry);
           setStatus('live');
           return;
+        }
         case SYNC_MSG.ROSTER: {
           const roster = JSON.parse(text(payload)) as RosterMessage;
           usePresenceStore.getState().setRoster(roster.you, roster.members);
@@ -217,6 +229,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         }
 
         case SYNC_MSG.KICKED:
+          diag('прилетів KICKED', { boardId });
           kicked = true;
           setStatus('kicked');
           return;
@@ -226,6 +239,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           // presence-store, а звідти — у canEdit через BoardPage; тут лишається
           // прибрати за собою те, чого глядачу вже не можна
           const { role } = JSON.parse(text(payload)) as RoleChangedMessage;
+          diag('прилетів ROLE', { boardId, role, обʼєктів: useBoardStore.getState().getAll().length });
           usePresenceStore.getState().setSelfRole(role);
           if (role === 'VIEWER') {
             // з тексту виходимо тим самим шляхом, що й при програші за замок:

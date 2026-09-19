@@ -18,6 +18,7 @@ import { ChatPanel } from '../canvas/ChatPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { Participants } from '../canvas/Participants';
 import { usePresenceStore } from '../canvas/presence-store';
+import { diag } from '../canvas/diag';
 import { Toolbar } from '../canvas/Toolbar';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
@@ -79,6 +80,13 @@ export function BoardPage() {
     setCanEdit(editable);
     return () => setCanEdit(false);
   }, [editable, setCanEdit]);
+
+  // монтування й розмонтування самої сторінки дошки — крайні точки всього
+  // життєвого циклу, від них і читається решта журналу
+  useEffect(() => {
+    diag('сторінку дошки змонтовано', { boardId: id });
+    return () => diag('сторінку дошки розмонтовано', { boardId: id });
+  }, [id]);
 
   const { viewport, spaceHeld, touchInput, zoomIn, zoomOut, resetView, setViewport, stageHandlers } =
     useCanvasViewport({

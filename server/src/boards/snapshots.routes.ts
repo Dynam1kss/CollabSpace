@@ -42,6 +42,25 @@ snapshotsRouter.put('/', async (req: Request<{ id: string }>, res, next) => {
     }
     const { objects }: SaveSnapshotRequest = parsed.data;
 
+    // єдине місце, де вміст дошки лягає в базу. Пишемо в журнал кількість
+    // обʼєктів і хто пише: саме тут зникали обʼєкти (журнал 20.09)
+    const previous = await prisma.boardSnapshot.findUnique({
+      where: { boardId: access.board.id },
+      select: { state: true },
+    });
+    const wasEmpty = previous ? (JSON.parse(previous.state.toString('utf8')) as unknown[]).length : 0;
+    if (objects.length === 0 && wasEmpty > 0) {
+      console.warn(
+        `[boardsync-diag] ${new Date().toISOString()} УВАГА: порожній знімок поверх непорожнього`,
+        JSON.stringify({ boardId: access.board.id, userId: req.userId, було: wasEmpty, стало: 0 }),
+      );
+    } else {
+      console.info(
+        `[boardsync-diag] ${new Date().toISOString()} знімок збережено`,
+        JSON.stringify({ boardId: access.board.id, userId: req.userId, було: wasEmpty, стало: objects.length }),
+      );
+    }
+
     const state = Buffer.from(JSON.stringify(objects), 'utf8');
     await prisma.boardSnapshot.upsert({
       where: { boardId: access.board.id },

@@ -24,6 +24,12 @@ interface Client {
   inVoice: boolean;
 }
 
+// той самий журнал, що й у клієнта: коли обʼєкти зникають, послідовність
+// треба читати з обох боків одночасно
+function diag(event: string, data: Record<string, unknown>) {
+  console.info(`[boardsync-diag] ${new Date().toISOString()} ${event}`, JSON.stringify(data));
+}
+
 export const boardRoomWss = new WebSocketServer({ noServer: true });
 // Map, а не Set — порядок вставки дає «найстаршого» в кімнаті, він і відповідає новачкам
 const rooms = new Map<string, Map<number, WebSocket>>();
@@ -54,6 +60,7 @@ function socketsOfUser(boardId: string, userId: string) {
 // розсилав би UPDATE. Тому після запису в базу правимо кеш і кажемо клієнту,
 // щоб той переставив і свій бік без перезавантаження
 export function applyRoleChange(boardId: string, userId: string, role: BoardRole) {
+  diag('зміна ролі доганяє відкриті сокети', { boardId, userId, role });
   for (const socket of socketsOfUser(boardId, userId)) {
     const client = clients.get(socket);
     if (!client) continue;
@@ -192,6 +199,7 @@ async function relayChat(client: Client, buf: Buffer) {
 // закриття. close() шле кадр закриття після всього, що вже стало в чергу,
 // тож повідомлення встигає піти
 export function kickMember(boardId: string, userId: string) {
+  diag('учасника виводять з дошки', { boardId, userId });
   for (const socket of socketsOfUser(boardId, userId)) {
     send(socket, Buffer.from([SYNC_MSG.KICKED]));
     socket.close();
@@ -221,6 +229,12 @@ boardRoomWss.on('connection', (socket) => {
   for (const [, other] of room) send(other, jsonFrame(SYNC_MSG.JOIN, toMember(client)));
 
   room.set(client.id, socket);
+  diag('до кімнати зайшли', {
+    boardId: client.boardId,
+    clientId: client.id,
+    role: client.role,
+    у_кімнаті: room.size,
+  });
   missedPings.set(socket, 0);
   socket.on('pong', () => missedPings.set(socket, 0));
   send(socket, jsonFrame(SYNC_MSG.ROSTER, roster));
@@ -320,9 +334,19 @@ boardRoomWss.on('connection', (socket) => {
         // відповідати нема кому — кажемо це вголос порожньою відповіддю, інакше
         // новачок не відрізнить «я сам на дошці» від «мене не почули»
         if (!responder) {
+          diag('SYNC_REQUEST: відповідати нема кому, шлю порожню', {
+            boardId: client.boardId,
+            clientId: client.id,
+            у_кімнаті: room.size,
+          });
           send(socket, Buffer.from([SYNC_MSG.SYNC_REPLY]));
           return;
         }
+        diag('SYNC_REQUEST переадресовано', {
+          boardId: client.boardId,
+          від: client.id,
+          кому: clients.get(responder[1])?.id,
+        });
         send(responder[1], withClientId(SYNC_MSG.SYNC_REQUEST, client.id, buf));
         return;
       }
@@ -334,6 +358,12 @@ boardRoomWss.on('connection', (socket) => {
         const stripped = Buffer.alloc(buf.length - SYNC_REQUESTER_ID_BYTES);
         stripped[0] = SYNC_MSG.SYNC_REPLY;
         buf.copy(stripped, 1, 1 + SYNC_REQUESTER_ID_BYTES);
+        diag('SYNC_REPLY віддано', {
+          boardId: client.boardId,
+          від: client.id,
+          кому: clients.get(requester)?.id,
+          байтів: stripped.length - 1,
+        });
         send(requester, stripped);
         return;
       }
@@ -342,6 +372,7 @@ boardRoomWss.on('connection', (socket) => {
 
   const leave = () => {
     if (!room.delete(client.id)) return;
+    diag('з кімнати вийшли', { boardId: client.boardId, clientId: client.id, лишилось: room.size });
     for (const [, other] of room) send(other, jsonFrame(SYNC_MSG.LEAVE, { clientId: client.id }));
     // знімаємо з реєстру лише СВОЮ кімнату: поки цей сокет доживав, ту саму
     // дошку могли відкрити наново, і тоді в rooms уже лежить інша мапа —
