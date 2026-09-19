@@ -771,3 +771,15 @@ elementFromPoint повертав би її саму замість колонк
 .voice-error {
   color: #c2255c;
 }
+
+/* кнопка виходу з дошки: ліворуч від назви, щоб не треба було правити адресу */
+.board-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.board-back:hover {
+  color: var(--text);
+}

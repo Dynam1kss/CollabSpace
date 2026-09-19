@@ -19,6 +19,7 @@ import { VoicePanel } from '../voice/VoicePanel';
 import { Participants } from '../canvas/Participants';
 import { usePresenceStore } from '../canvas/presence-store';
 import { diag } from '../canvas/diag';
+import { BackIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
@@ -174,6 +175,15 @@ export function BoardPage() {
   return (
     <div className="board-page">
       <header className="board-toolbar">
+        <button
+          type="button"
+          className="icon-button board-back"
+          title="До списку дошок"
+          aria-label="До списку дошок"
+          onClick={() => navigate('/')}
+        >
+          <BackIcon />
+        </button>
         <span className="board-title">{board.title}</span>
         <div className="view-switch">
           <button

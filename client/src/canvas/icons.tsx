@@ -106,6 +106,33 @@ export function SendBackIcon() {
   );
 }
 
+export function BackIcon() {
+  return (
+    <Svg>
+      <path d="M12.5 4L6.5 10l6 6" />
+    </Svg>
+  );
+}
+
+// проти годинникової — скасувати, за годинниковою — повторити
+export function UndoIcon() {
+  return (
+    <Svg>
+      <path d="M7 7H4V4" />
+      <path d="M4.5 7.5a6 6 0 1 1 1 6.5" />
+    </Svg>
+  );
+}
+
+export function RedoIcon() {
+  return (
+    <Svg>
+      <path d="M13 7h3V4" />
+      <path d="M15.5 7.5a6 6 0 1 0-1 6.5" />
+    </Svg>
+  );
+}
+
 export function ChatIcon() {
   return (
     <Svg>
