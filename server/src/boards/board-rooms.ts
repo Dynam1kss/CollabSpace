@@ -248,7 +248,11 @@ boardRoomWss.on('connection', (socket) => {
   const leave = () => {
     if (!room.delete(client.id)) return;
     for (const [, other] of room) send(other, jsonFrame(SYNC_MSG.LEAVE, { clientId: client.id }));
-    if (room.size === 0) rooms.delete(client.boardId);
+    // знімаємо з реєстру лише СВОЮ кімнату: поки цей сокет доживав, ту саму
+    // дошку могли відкрити наново, і тоді в rooms уже лежить інша мапа —
+    // стерти її означало б розділити кімнату надвоє, і нові учасники
+    // перестали б бачити одне одного
+    if (room.size === 0 && rooms.get(client.boardId) === room) rooms.delete(client.boardId);
   };
   socket.on('close', leave);
   socket.on('error', leave);

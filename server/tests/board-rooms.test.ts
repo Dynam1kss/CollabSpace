@@ -345,6 +345,37 @@ describe('кімнати дошок поверх ws', () => {
     expect(await prisma.chatMessage.count({ where: { boardId } })).toBe(1);
   });
 
+  it('привид у списку присутніх: жнець шле LEAVE тим, хто лишився', async () => {
+    const { boardId, owner, editor } = await boardWithMembers();
+    const watcher = connect(boardId, owner.cookie);
+    const rosterW = nextMessage(watcher);
+    await opened(watcher);
+    await rosterW;
+
+    const ghost = connect(boardId, editor.cookie);
+    const joinToWatcher = nextMessage(watcher);
+    await opened(ghost);
+    const ghostId = JSON.parse((await joinToWatcher)!.subarray(1).toString()).clientId as number;
+    expect(roomSize(boardId)).toBe(2);
+
+    // так вмирає зʼєднання за тунелем: клієнта вже нема, але сокет на сервері
+    // лишився «відкритим» і FIN не приходить — сам сервер про це не дізнається
+    ghost.pause();
+
+    // поки жнець не відпрацював, привид висить у кімнаті
+    expect(roomSize(boardId)).toBe(2);
+
+    const leaveToWatcher = nextMessage(watcher, 2000);
+    sweepDeadSockets();
+    await new Promise((r) => setTimeout(r, 100));
+    sweepDeadSockets();
+
+    const leave = (await leaveToWatcher)!;
+    expect(leave[0]).toBe(SYNC_MSG.LEAVE);
+    expect(JSON.parse(leave.subarray(1).toString())).toEqual({ clientId: ghostId });
+    expect(roomSize(boardId)).toBe(1);
+  });
+
   it('мертвий сокет не блокує sync-запит іншим', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     // найстарший редактор у кімнаті — і саме він зараз «помре»
