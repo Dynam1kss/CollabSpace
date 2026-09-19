@@ -39,6 +39,13 @@ export interface AddBoardMemberRequest {
   role: BoardRole;
 }
 
+// роль міняємо на місці, не видаляючи й не заводячи учасника наново —
+// інакше ряд у базі щоразу новий, а з ним і його id
+export interface UpdateBoardMemberRequest {
+  userId: string;
+  role: BoardRole;
+}
+
 export interface RemoveBoardMemberRequest {
   userId: string;
 }

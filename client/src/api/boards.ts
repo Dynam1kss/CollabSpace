@@ -11,6 +11,7 @@ import type {
   RemoveBoardMemberRequest,
   SaveSnapshotRequest,
   SnapshotResponse,
+  UpdateBoardMemberRequest,
   UpdateBoardRequest,
   UploadImageResponse,
 } from 'shared';
@@ -70,6 +71,17 @@ export function addBoardMember(boardId: string, email: string, role: BoardRole) 
   const payload: AddBoardMemberRequest = { email, role };
   return fetch(`/api/boards/${boardId}/members`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((res) => parseResponse<BoardDetail>(res));
+}
+
+// роль наявного учасника — не видалення з повторним додаванням. У відповідь
+// приходить уся дошка з оновленим списком, тому перезапитувати не треба
+export function updateBoardMemberRole(boardId: string, userId: string, role: BoardRole) {
+  const payload: UpdateBoardMemberRequest = { userId, role };
+  return fetch(`/api/boards/${boardId}/members`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   }).then((res) => parseResponse<BoardDetail>(res));

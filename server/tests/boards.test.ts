@@ -91,6 +91,86 @@ describe('дошки — CRUD і права доступу', () => {
     expect(addMemberRes.status).toBe(403);
   });
 
+  it('зміна ролі на місці: той самий рядок, нові права', async () => {
+    const owner = await registerUser();
+    const member = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+
+    await owner.agent
+      .post(`/api/boards/${boardId}/members`)
+      .send({ email: member.payload.email, role: 'EDITOR' });
+    const before = await prisma.boardMember.findFirst({ where: { boardId, userId: member.user.id } });
+
+    const res = await owner.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: member.user.id, role: 'VIEWER' });
+    expect(res.status).toBe(200);
+    expect(res.body.members).toHaveLength(1);
+    expect(res.body.members[0]).toMatchObject({ userId: member.user.id, role: 'VIEWER' });
+
+    // саме зміна рядка, а не видалення з повторним заведенням
+    const after = await prisma.boardMember.findFirst({ where: { boardId, userId: member.user.id } });
+    expect(after!.id).toBe(before!.id);
+    expect(after!.role).toBe('VIEWER');
+
+    // права справді поїхали за роллю: глядачу писати вже не можна
+    const save = await member.agent
+      .put(`/api/boards/${boardId}/snapshot`)
+      .send({ objects: [] });
+    expect(save.status).toBe(403);
+
+    // і назад
+    await owner.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: member.user.id, role: 'EDITOR' });
+    expect((await member.agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] })).status).toBe(204);
+  });
+
+  it('роль міняє лише власник, і лише наявному учаснику', async () => {
+    const owner = await registerUser();
+    const member = await registerUser();
+    const stranger = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent
+      .post(`/api/boards/${boardId}/members`)
+      .send({ email: member.payload.email, role: 'EDITOR' });
+
+    // учасник-редактор ролями не розпоряджається
+    const byMember = await member.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: member.user.id, role: 'VIEWER' });
+    expect(byMember.status).toBe(403);
+
+    // чужому дошки не видно взагалі
+    const byStranger = await stranger.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: member.user.id, role: 'VIEWER' });
+    expect(byStranger.status).toBe(404);
+
+    // кого нема в списку — тому й міняти нема чого; власника в списку теж нема
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: stranger.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: owner.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(404);
+
+    // покручене тіло
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: member.user.id, role: 'BOSS' }))
+        .status,
+    ).toBe(400);
+    expect((await owner.agent.patch(`/api/boards/${boardId}/members`).send({ role: 'VIEWER' })).status).toBe(400);
+
+    // роль учасника після всіх спроб не змінилась
+    const row = await prisma.boardMember.findFirst({ where: { boardId, userId: member.user.id } });
+    expect(row!.role).toBe('EDITOR');
+  });
+
   it('видалення учасника забирає йому доступ до дошки', async () => {
     const owner = await registerUser();
     const member = await registerUser();

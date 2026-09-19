@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { BoardMemberInfo, BoardRole } from 'shared';
-import { addBoardMember, fetchBoard, removeBoardMember } from '../api/boards';
-
-const ROLE_LABEL: Record<BoardRole, string> = {
-  EDITOR: 'редактор',
-  VIEWER: 'глядач',
-};
+import { addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
 
 interface Props {
   boardId: string;
@@ -19,6 +14,8 @@ export function BoardMembers({ boardId }: Props) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<BoardRole>('EDITOR');
   const [error, setError] = useState<string | null>(null);
+  // кого саме зараз перемикаємо — щоб не блокувати весь список
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBoard(boardId)
@@ -42,6 +39,19 @@ export function BoardMembers({ boardId }: Props) {
     }
   };
 
+  const handleRoleChange = async (userId: string, next: BoardRole) => {
+    setBusyUserId(userId);
+    try {
+      const board = await updateBoardMemberRole(boardId, userId, next);
+      setMembers(board.members);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не вдалося змінити роль');
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
   const handleRemove = async (userId: string) => {
     try {
       await removeBoardMember(boardId, userId);
@@ -61,7 +71,15 @@ export function BoardMembers({ boardId }: Props) {
           {members.map((m) => (
             <li key={m.userId}>
               <span>{m.email}</span>
-              <span className="board-role">{ROLE_LABEL[m.role]}</span>
+              <select
+                value={m.role}
+                disabled={busyUserId === m.userId}
+                aria-label={`Роль: ${m.email}`}
+                onChange={(e) => handleRoleChange(m.userId, e.target.value as BoardRole)}
+              >
+                <option value="EDITOR">Редактор</option>
+                <option value="VIEWER">Глядач</option>
+              </select>
               <button type="button" onClick={() => handleRemove(m.userId)}>
                 Видалити
               </button>
