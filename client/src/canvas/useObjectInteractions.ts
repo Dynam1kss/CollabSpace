@@ -18,6 +18,7 @@ import {
   pasteClipboard,
   selectAll,
 } from './selection-actions';
+import { redoBoard, undoBoard } from './board-undo';
 
 function isTypingTarget(target: EventTarget | null) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
@@ -253,6 +254,16 @@ export function useObjectInteractions(
         if (!canEdit || selectedIds.length === 0) return;
         e.preventDefault();
         deleteSelected();
+        return;
+      }
+      // скасувати/повторити — до загальної перевірки нижче, бо та відсікає
+      // shift, а ctrl+shift+z це саме повтор. Глядачу нема чого відкочувати:
+      // сервер його UPDATE однаково не пустить, а документ у нього розʼїхався б
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.code === 'KeyZ' || e.code === 'KeyY')) {
+        if (!canEdit) return;
+        e.preventDefault();
+        if (e.code === 'KeyY' || e.shiftKey) redoBoard();
+        else undoBoard();
         return;
       }
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;

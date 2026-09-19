@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { BoardObject } from 'shared';
+import { beginUndoGesture, endUndoGesture } from './board-store';
 import { lockOwner, usePresenceStore } from './presence-store';
 
 export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
@@ -62,6 +63,12 @@ export const useEditorStore = create<EditorState>((set) => ({
       return { editingTextId: id };
     }),
   stopEditingText: () => set({ editingTextId: null }),
-  setInteracting: (value) => set({ interacting: value }),
+  // заразом межа кроку undo: цілий жест має відкочуватись одним ctrl+z,
+  // а не покадрово — board-store пише в документ раз на кадр
+  setInteracting: (value) => {
+    if (value) beginUndoGesture();
+    else endUndoGesture();
+    set({ interacting: value });
+  },
   setClipboard: (objects) => set({ clipboard: objects }),
 }));

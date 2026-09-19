@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchBoardSnapshot, saveBoardSnapshot } from '../api/boards';
-import { useBoardStore } from './board-store';
+import { asAppEdit, useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
 
 // 2.5с від останньої зміни — під час тягання стор оновлюється на кожен рух,
@@ -36,8 +36,10 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
   useEffect(() => {
     if (!boardId) return;
     const store = useBoardStore.getState();
-    // стор глобальний — після іншої дошки в ньому лишились би її обʼєкти
-    store.removeMany(store.getAll().map((o) => o.id));
+    // стор глобальний — після іншої дошки в ньому лишились би її обʼєкти.
+    // asAppEdit скрізь тут — це не правки людини, і ctrl+z не має ні зносити
+    // щойно завантажену дошку, ні воскрешати чужу
+    asAppEdit(() => store.removeMany(store.getAll().map((o) => o.id)));
 
     let loaded = false;
     let cancelled = false;
@@ -96,7 +98,9 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
     fetchBoardSnapshot(boardId)
       .then(({ objects }) => {
         if (cancelled) return;
-        for (const object of objects) useBoardStore.getState().add(object);
+        asAppEdit(() => {
+          for (const object of objects) useBoardStore.getState().add(object);
+        });
         loaded = true;
         setStatus(idleStatus());
       })
@@ -121,7 +125,7 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
       unsubInteracting();
       window.removeEventListener('beforeunload', flush);
       const current = useBoardStore.getState();
-      current.removeMany(current.getAll().map((o) => o.id));
+      asAppEdit(() => current.removeMany(current.getAll().map((o) => o.id)));
       useEditorStore.getState().clearSelection();
     };
   }, [boardId, canWrite]);

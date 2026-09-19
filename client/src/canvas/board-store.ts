@@ -53,6 +53,51 @@ let frameQueued = false;
 const nextFrame: (fn: () => void) => void =
   typeof requestAnimationFrame === 'function' ? requestAnimationFrame : queueMicrotask;
 
+// правки, які робить не людина, а сам застосунок: завантаження снепшота й
+// чистка стору при зміні дошки. Свій origin, щоб undo їх не бачив — інакше
+// перший же ctrl+z після відкриття дошки зніс би її цілком
+const APP_ORIGIN = { source: 'app' };
+
+export function asAppEdit(fn: () => void) {
+  boardDoc.transact(fn, APP_ORIGIN);
+}
+
+// 500мс — те саме групування, що yjs бере за замовчуванням: серія дій в один
+// такт (вставка кількох копій, видалення групи) лягає одним кроком. На жести
+// це число не впливає взагалі, там час вимкнено — див. beginUndoGesture
+const DISCRETE_CAPTURE_MS = 500;
+
+// відкочуємо лише свої правки: trackedOrigins — це null, тобто транзакції без
+// позначки. REMOTE_ORIGIN (чуже з мережі, useBoardSync) і APP_ORIGIN повз
+// нього, бо ctrl+z не має відкочувати сусідові його ж роботу
+function createUndo() {
+  return new Y.UndoManager(yObjects, {
+    trackedOrigins: new Set([null]),
+    captureTimeout: DISCRETE_CAPTURE_MS,
+  });
+}
+
+export let boardUndo = createUndo();
+
+// межі кроку undo для жесту. Тягання й трансформація пишуть у документ раз на
+// кадр — за секунду це під 60 транзакцій, і без групування ctrl+z відкочував би
+// жест покадрово. Всередині жесту час не ділить кроки взагалі: пауза посеред
+// тягання (рука спинилась прицілитись) не має різати його надвоє
+export function beginUndoGesture() {
+  boardUndo.stopCapturing();
+  boardUndo.captureTimeout = Number.MAX_SAFE_INTEGER;
+}
+
+// dragend у фігур спершу шле цей сигнал і лише потім дописує останній кадр
+// (onDragEnd → commitPosition → flushUpdates), тому закриваємо крок не тут, а
+// мікротаскою пізніше — інакше хвіст жесту став би окремим ctrl+z
+export function endUndoGesture() {
+  queueMicrotask(() => {
+    boardUndo.captureTimeout = DISCRETE_CAPTURE_MS;
+    boardUndo.stopCapturing();
+  });
+}
+
 export const useBoardStore = create<BoardObjectsState>((set, get) => ({
   objects: {},
 
@@ -118,10 +163,14 @@ yObjects.observe(mirror);
 export function resetBoardDoc() {
   // недописаний жест зі старої дошки в нову не переносимо
   queued = null;
+  // історія правок теж прив'язана до документа: на новій дошці ctrl+z не має
+  // діставати кроки з попередньої
+  boardUndo.destroy();
   boardDoc.destroy();
   boardDoc = new Y.Doc();
   yObjects = boardDoc.getMap<BoardObject>('objects');
   yObjects.observe(mirror);
+  boardUndo = createUndo();
   useBoardStore.setState({ objects: {} });
   return boardDoc;
 }
