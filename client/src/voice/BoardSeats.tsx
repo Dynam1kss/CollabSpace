@@ -5,6 +5,8 @@ import { colorForUser, initialsOf } from '../canvas/presence-colors';
 import { usePresenceStore } from '../canvas/presence-store';
 import { publishSeat, SEAT_THROTTLE_MS } from '../canvas/presence-channel';
 import { createPresenceTween } from '../canvas/objects/presence-tween';
+import { useBoardStore } from '../canvas/board-store';
+import { nearestFreeSeat } from './seat-position';
 import { useSeatStore } from './seat-store';
 import { useVoiceStore } from './voice-store';
 
@@ -53,6 +55,20 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
     publishSeat(seat);
   }
 
+  // відпустили — сідаємо на найближче вільне місце. Інакше двоє стільців
+  // лягають один в один, і ні ініціалів, ні імен уже не прочитати
+  function handleDragEnd(e: KonvaEventObject<DragEvent>) {
+    const taken = Object.entries(useSeatStore.getState().others)
+      .filter(([key]) => Number(key) !== selfClientId)
+      .map(([, seat]) => seat);
+    const blocks = useBoardStore.getState().getAll();
+    const seat = nearestFreeSeat({ x: e.target.x(), y: e.target.y() }, taken, blocks);
+    e.target.position(seat);
+    useSeatStore.getState().setMine(seat);
+    publishSeat(seat);
+    onDropMine();
+  }
+
   return (
     <>
       {Object.entries(others).map(([key]) => {
@@ -78,7 +94,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
           y={mine.y}
           draggable
           onDragMove={handleDragMove}
-          onDragEnd={onDropMine}
+          onDragEnd={handleDragEnd}
           onMouseEnter={(e) => {
             const stage = e.target.getStage();
             if (stage) stage.container().style.cursor = 'grab';
