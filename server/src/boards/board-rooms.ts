@@ -3,7 +3,7 @@ import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 import { CHAT_MAX_LENGTH, CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import type { PresenceMember, RosterMessage } from 'shared';
+import type { BoardRole, PresenceMember, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getDisplayName } from './boards.service';
@@ -35,6 +35,28 @@ const PATH = /^\/ws\/boards\/([^/]+)$/;
 
 export function roomSize(boardId: string) {
   return rooms.get(boardId)?.size ?? 0;
+}
+
+// усі сокети однієї людини в кімнаті. Вкладок може бути кілька, і присутність
+// давно рахує їх окремими записами — тому й тут чіпаємо всі, а не перший
+// -ліпший: інакше в одній вкладці права поїхали б, а в сусідній ні
+function socketsOfUser(boardId: string, userId: string) {
+  const room = rooms.get(boardId);
+  if (!room) return [];
+  return [...room.values()].filter((socket) => clients.get(socket)?.userId === userId);
+}
+
+// роль у сокеті кешується з моменту підключення: rest щоразу читає базу
+// наново, а тут би лишилась стара до перезаходу — і знижений редактор далі
+// розсилав би UPDATE. Тому після запису в базу правимо кеш і кажемо клієнту,
+// щоб той переставив і свій бік без перезавантаження
+export function applyRoleChange(boardId: string, userId: string, role: BoardRole) {
+  for (const socket of socketsOfUser(boardId, userId)) {
+    const client = clients.get(socket);
+    if (!client) continue;
+    client.role = role;
+    send(socket, jsonFrame(SYNC_MSG.ROLE, { role }));
+  }
 }
 
 // true — шлях наш (апгрейд або відмова вже наші); false — хай роутить далі

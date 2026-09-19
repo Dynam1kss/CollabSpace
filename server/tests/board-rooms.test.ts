@@ -91,6 +91,31 @@ function nextSyncMessage(ws: WebSocket, timeoutMs = 300) {
   });
 }
 
+// чекаємо саме потрібний тип кадру: у сокеті можуть висіти ще не розібрані
+// ретрансляції, і «наступне повідомлення» легко виявиться не тим
+function nextOfType(ws: WebSocket, type: number, timeoutMs = 1000) {
+  return new Promise<Buffer | null>((resolve) => {
+    const timer = setTimeout(() => {
+      ws.off('message', onMessage);
+      resolve(null);
+    }, timeoutMs);
+    const onMessage = (data: unknown) => {
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+      if (buf[0] !== type) return;
+      clearTimeout(timer);
+      ws.off('message', onMessage);
+      resolve(buf);
+    };
+    ws.on('message', onMessage);
+  });
+}
+
+// id учасника потрібен для patch-ролі; у user() його нема, тому дістаємо з бази
+async function editorUserId(u: { email: string }) {
+  const found = await prisma.user.findUnique({ where: { email: u.email }, select: { id: true } });
+  return found!;
+}
+
 async function boardWithMembers() {
   const owner = await user();
   const editor = await user();
@@ -343,6 +368,53 @@ describe('кімнати дошок поверх ws', () => {
     const got = (await nextMessage(a))!;
     expect(JSON.parse(got.subarray(1).toString()).text).toHaveLength(CHAT_MAX_LENGTH);
     expect(await prisma.chatMessage.count({ where: { boardId } })).toBe(1);
+  });
+
+  it('зміна ролі наздоганяє відкритий сокет, і то всі вкладки людини', async () => {
+    const { boardId, owner, editor } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    await opened(a);
+    // дві вкладки однієї людини — присутність рахує їх окремо, і роль теж
+    const tab1 = connect(boardId, editor.cookie);
+    const tab2 = connect(boardId, editor.cookie);
+    await Promise.all([opened(tab1), opened(tab2)]);
+    await nextMessage(a);
+    await nextMessage(a);
+
+    // поки редактор — його UPDATE долітає
+    const beforeDowngrade = nextSyncMessage(a);
+    tab1.send(Buffer.from([SYNC_MSG.UPDATE, 1, 2, 3]));
+    expect((await beforeDowngrade)?.[0]).toBe(SYNC_MSG.UPDATE);
+
+    // власник знижує його до глядача, сокети не чіпаючи
+    const roleToTab1 = nextOfType(tab1, SYNC_MSG.ROLE);
+    const roleToTab2 = nextOfType(tab2, SYNC_MSG.ROLE);
+    const patch = await owner.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: (await editorUserId(editor)).id, role: 'VIEWER' });
+    expect(patch.status).toBe(200);
+
+    // кадр про нову роль приходить в обидві вкладки
+    for (const got of [(await roleToTab1)!, (await roleToTab2)!]) {
+      expect(got[0]).toBe(SYNC_MSG.ROLE);
+      expect(JSON.parse(got.subarray(1).toString())).toEqual({ role: 'VIEWER' });
+    }
+
+    // і головне: сервер більше не ретранслює його UPDATE, хоч сокет той самий
+    tab1.send(Buffer.from([SYNC_MSG.UPDATE, 4, 5, 6]));
+    tab2.send(Buffer.from([SYNC_MSG.UPDATE, 7, 8, 9]));
+    expect(await nextSyncMessage(a, 300)).toBeNull();
+
+    // повернули редактора — так само наздоганяє, без перезаходу
+    const backToTab1 = nextOfType(tab1, SYNC_MSG.ROLE);
+    await owner.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: (await editorUserId(editor)).id, role: 'EDITOR' });
+    expect(JSON.parse((await backToTab1)!.subarray(1).toString())).toEqual({ role: 'EDITOR' });
+
+    const afterRestore = nextSyncMessage(a);
+    tab1.send(Buffer.from([SYNC_MSG.UPDATE, 1, 1, 1]));
+    expect((await afterRestore)?.[0]).toBe(SYNC_MSG.UPDATE);
   });
 
   it('привид у списку присутніх: жнець шле LEAVE тим, хто лишився', async () => {

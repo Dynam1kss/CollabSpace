@@ -16,6 +16,7 @@ import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { ChatPanel } from '../canvas/ChatPanel';
 import { Participants } from '../canvas/Participants';
+import { usePresenceStore } from '../canvas/presence-store';
 import { Toolbar } from '../canvas/Toolbar';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
@@ -53,7 +54,11 @@ export function BoardPage() {
   const currentUserId = useAuthStore((s) => s.user?.id) ?? '';
   const objects = useBoardStore((s) => s.objects);
   const setCanEdit = useEditorStore((s) => s.setCanEdit);
-  const editable = !!board && canEdit(board, currentUserId);
+  // роль із rest — те, що було на момент відкриття; selfRole — те, що сервер
+  // думає про мене зараз. Власник міг знизити мене вже після завантаження,
+  // і тоді діє свіжіше
+  const selfRole = usePresenceStore((s) => s.selfRole);
+  const editable = !!board && canEdit(board, currentUserId) && selfRole !== 'VIEWER';
 
   usePreventBrowserZoom();
   // sync — перед persistence: його ефект дає свіжий документ, у який persistence

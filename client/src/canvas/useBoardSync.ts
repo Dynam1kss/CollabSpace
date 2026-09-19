@@ -8,6 +8,7 @@ import type {
   LeaveMessage,
   LockMessage,
   PresenceMember,
+  RoleChangedMessage,
   RosterMessage,
   ViewportMessage,
 } from 'shared';
@@ -172,6 +173,21 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           const editing = useEditorStore.getState().editingTextId;
           if (body.objectId && body.objectId === editing && me !== null && owner < me) {
             useEditorStore.getState().stopEditingText();
+          }
+          return;
+        }
+
+        case SYNC_MSG.ROLE: {
+          // власник змінив мені роль просто зараз. Сам прапорець їде в
+          // presence-store, а звідти — у canEdit через BoardPage; тут лишається
+          // прибрати за собою те, чого глядачу вже не можна
+          const { role } = JSON.parse(text(payload)) as RoleChangedMessage;
+          usePresenceStore.getState().setSelfRole(role);
+          if (role === 'VIEWER') {
+            // з тексту виходимо тим самим шляхом, що й при програші за замок:
+            // stopEditingText відпускає і сам замок, підпискою нижче
+            useEditorStore.getState().stopEditingText();
+            useEditorStore.getState().clearSelection();
           }
           return;
         }

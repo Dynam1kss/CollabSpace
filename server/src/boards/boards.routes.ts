@@ -10,6 +10,7 @@ import type {
   UpdateBoardRequest,
 } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
+import { applyRoleChange } from './board-rooms';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import {
@@ -169,6 +170,8 @@ boardsRouter.patch('/:id/members', async (req, res, next) => {
     if (changed.count === 0) {
       throw new AppError(404, 'MEMBER_NOT_FOUND', 'Такого учасника на дошці немає');
     }
+    // відкритий сокет живе з роллю, взятою на підключенні — доганяємо його
+    applyRoleChange(access.board.id, userId, role);
 
     const members = await prisma.boardMember.findMany({
       where: { boardId: access.board.id },

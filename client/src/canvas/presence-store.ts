@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import type { PresenceMember, ViewportMessage } from 'shared';
+import type { BoardRole, PresenceMember, ViewportMessage } from 'shared';
 
 // хто зараз на дошці. Стан суто ефемерний: живе, поки відкрита вкладка, у
 // Y.Doc і в базу не потрапляє. Джерело правди — сервер: він шле список при
@@ -13,6 +13,9 @@ export interface CursorPoint {
 interface PresenceState {
   // мій clientId із roster — щоб не малювати себе серед «інших»
   selfClientId: number | null;
+  // моя роль на цій дошці за версією сервера. Початково з roster, далі її
+  // може змінити власник просто під час сеансу — кадром ROLE
+  selfRole: 'OWNER' | BoardRole | null;
   members: Record<number, PresenceMember>;
   // останнє відоме положення курсора, у координатах дошки
   cursors: Record<number, CursorPoint>;
@@ -30,11 +33,13 @@ interface PresenceState {
   setSelection: (clientId: number, selectedIds: string[]) => void;
   setLock: (clientId: number, objectId: string | null) => void;
   setViewport: (clientId: number, rect: ViewportMessage) => void;
+  setSelfRole: (role: 'OWNER' | BoardRole) => void;
   reset: () => void;
 }
 
 export const usePresenceStore = create<PresenceState>((set) => ({
   selfClientId: null,
+  selfRole: null,
   members: {},
   cursors: {},
   selections: {},
@@ -44,6 +49,7 @@ export const usePresenceStore = create<PresenceState>((set) => ({
   setRoster: (selfClientId, members) =>
     set({
       selfClientId,
+      selfRole: members.find((m) => m.clientId === selfClientId)?.role ?? null,
       members: Object.fromEntries(members.map((m) => [m.clientId, m])),
       cursors: {},
       selections: {},
@@ -88,8 +94,18 @@ export const usePresenceStore = create<PresenceState>((set) => ({
   setViewport: (clientId, rect) =>
     set((state) => ({ viewports: { ...state.viewports, [clientId]: rect } })),
 
+  setSelfRole: (role) => set({ selfRole: role }),
+
   reset: () =>
-    set({ selfClientId: null, members: {}, cursors: {}, selections: {}, locks: {}, viewports: {} }),
+    set({
+      selfClientId: null,
+      selfRole: null,
+      members: {},
+      cursors: {},
+      selections: {},
+      locks: {},
+      viewports: {},
+    }),
 }));
 
 // усі, крім мене — саме їх показуємо в списку й малюємо на полотні
