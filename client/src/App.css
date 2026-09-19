@@ -603,3 +603,117 @@ elementFromPoint повертав би її саму замість колонк
   line-height: 1.2;
   color: #fff;
 }
+
+/* чат: кнопка внизу праворуч, над островами статусу; панель розкривається
+над нею. Обидва стани — той самий острівець, що й решта плашок */
+.chat-toggle {
+  right: 12px;
+  bottom: 48px;
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chat-toggle:hover {
+  color: var(--text);
+}
+
+.chat-unread {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  line-height: 16px;
+  text-align: center;
+}
+
+.chat-panel {
+  right: 12px;
+  bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  max-height: min(420px, 60%);
+  overflow: hidden;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.chat-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.chat-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.72rem;
+}
+
+.chat-author {
+  font-weight: 600;
+}
+
+.chat-time {
+  color: var(--text-muted);
+}
+
+.chat-text {
+  margin: 1px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  /* довге слово без пробілів інакше розсуває панель */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-form {
+  display: flex;
+  /* глобальне правило для form ставить колонку — тут поле й кнопка в рядок */
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.chat-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  /* не менше 16px: під цим порогом мобільний сафарі зумить сторінку на фокусі */
+  font-size: 1rem;
+}
+
+.chat-form button {
+  flex: 0 0 auto;
+}

@@ -14,6 +14,7 @@ import { useCanvasViewport } from '../canvas/useCanvasViewport';
 import { screenToBoard } from '../canvas/coordinates';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
+import { ChatPanel } from '../canvas/ChatPanel';
 import { Participants } from '../canvas/Participants';
 import { Toolbar } from '../canvas/Toolbar';
 import { KanbanView } from '../kanban/KanbanView';
@@ -185,6 +186,8 @@ export function BoardPage() {
           <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} />
         )}
         <Participants />
+        {/* чат не залежить від того, що зараз показано — полотно чи канбан */}
+        <ChatPanel boardId={board.id} />
         <div className={`board-island sync-status ${syncStatus}`}>{SYNC_STATUS_TEXT[syncStatus]}</div>
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>

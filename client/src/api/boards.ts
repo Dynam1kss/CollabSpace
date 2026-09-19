@@ -6,6 +6,7 @@ import type {
   BoardObject,
   BoardRole,
   BoardSummary,
+  ChatHistoryResponse,
   CreateBoardRequest,
   RemoveBoardMemberRequest,
   SaveSnapshotRequest,
@@ -94,6 +95,12 @@ export function uploadBoardImage(boardId: string, file: File) {
     headers: { 'Content-Type': file.type },
     body: file,
   }).then((res) => parseResponse<UploadImageResponse>(res));
+}
+
+// історія чату. Окремим запитом від снепшоту: це різні сутності й різні
+// обсяги, тягнути їх разом лише заради одного раунд-тріпу нема сенсу
+export function fetchChatHistory(id: string) {
+  return fetch(`/api/boards/${id}/chat`).then((res) => parseResponse<ChatHistoryResponse>(res));
 }
 
 export function fetchBoardSnapshot(id: string) {

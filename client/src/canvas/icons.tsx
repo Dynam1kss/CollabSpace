@@ -106,6 +106,14 @@ export function SendBackIcon() {
   );
 }
 
+export function ChatIcon() {
+  return (
+    <Svg>
+      <path d="M3 5.5h14v9h-7l-4 3v-3H3v-9z" />
+    </Svg>
+  );
+}
+
 export function TrashIcon() {
   return (
     <Svg>

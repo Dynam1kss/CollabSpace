@@ -15,12 +15,27 @@ interface ChatState {
   reset: () => void;
 }
 
+function mergeMessages(a: ChatMessageInfo[], b: ChatMessageInfo[]) {
+  const byId = new Map(a.map((m) => [m.id, m]));
+  for (const message of b) byId.set(message.id, message);
+  // той самий порядок, що й на сервері: за часом, а при збігу — за id
+  return [...byId.values()].sort(
+    (x, y) => x.createdAt.localeCompare(y.createdAt) || x.id.localeCompare(y.id),
+  );
+}
+
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   open: false,
   unread: 0,
 
-  setHistory: (messages) => set({ messages }),
+  // історія з rest і живі кадри з сокета йдуть різними шляхами й можуть
+  // прийти в будь-якому порядку, тому не замінюємо, а зливаємо: інакше
+  // історія, що прийшла другою, затерла б уже отримане живе повідомлення.
+  // Гейтити одне одним, як снепшот дошки, тут не треба — чат тільки
+  // дописується, а id і час призначає сервер, тож злиття однозначне
+  setHistory: (history) =>
+    set((state) => ({ messages: mergeMessages(state.messages, history) })),
 
   // те саме повідомлення може прийти двічі: історія з rest і живий кадр з
   // сокета ходять різними шляхами й можуть накластись на межі підключення
