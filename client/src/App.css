@@ -796,3 +796,25 @@ elementFromPoint повертав би її саму замість колонк
   opacity: 0.3;
   cursor: default;
 }
+
+/* свої перемикачі мікрофона й звуку */
+.voice-self {
+  display: flex;
+  gap: 4px;
+}
+
+.voice-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.voice-toggle.off {
+  color: #c2255c;
+  border-color: #f3c0d2;
+  background: #fdeef3;
+}

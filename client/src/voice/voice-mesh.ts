@@ -135,13 +135,41 @@ function createPeer(clientId: number) {
 // у координатах дошки, тому зум ні на що не впливає
 export function applySpatialGain() {
   const { mine, others } = useSeatStore.getState();
+  // «нікого не чую» — це множник поверх просторової гучності, а не заміна їй:
+  // сама гучність від відстані далі рахується й лишається в сторі, тож після
+  // вимкнення чути рівно те, що чулось би й без нього
+  const master = useVoiceStore.getState().deafened ? 0 : 1;
   for (const [clientId, peer] of peers) {
     const theirs = others[clientId];
     const volume = mine && theirs ? spatialGain(seatDistance(mine, theirs)) : 1;
     useVoiceStore.getState().setVolume(clientId, volume);
     if (!peer.gain || !audioCtx) continue;
-    peer.gain.gain.setTargetAtTime(volume, audioCtx.currentTime, GAIN_RAMP_SECONDS);
+    peer.gain.gain.setTargetAtTime(volume * master, audioCtx.currentTime, GAIN_RAMP_SECONDS);
   }
+}
+
+// доріжку не знімаємо й не перепідключаємо — лише глушимо. Тому вмикається
+// вона миттєво й без переговорів
+export function setMicMuted(muted: boolean) {
+  localStream?.getAudioTracks().forEach((track) => {
+    track.enabled = !muted;
+  });
+  useVoiceStore.getState().setMicMuted(muted);
+}
+
+// як у дискорді: «не чую» тягне за собою й «не говорю», а на виході
+// повертає мікрофон у той стан, у якому він був до цього
+export function setDeafened(on: boolean) {
+  const store = useVoiceStore.getState();
+  if (on === store.deafened) return;
+  if (on) {
+    store.setDeafened(true, store.micMuted);
+    setMicMuted(true);
+  } else {
+    store.setDeafened(false, store.micMutedBeforeDeafen);
+    setMicMuted(store.micMutedBeforeDeafen);
+  }
+  applySpatialGain();
 }
 
 async function offerTo(clientId: number) {

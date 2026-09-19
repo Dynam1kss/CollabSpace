@@ -1,7 +1,13 @@
 import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import { usePresenceStore } from '../canvas/presence-store';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
-import { startVoice, stopVoice, voiceIsFull } from './voice-mesh';
+import { setDeafened, setMicMuted, startVoice, stopVoice, voiceIsFull } from './voice-mesh';
+import {
+  HeadphonesIcon,
+  HeadphonesOffIcon,
+  MicIcon,
+  MicOffIcon,
+} from '../canvas/icons';
 import type { PeerInfo } from './voice-store';
 import { useVoiceStore } from './voice-store';
 
@@ -19,6 +25,8 @@ export function VoicePanel() {
   const starting = useVoiceStore((s) => s.starting);
   const peers = useVoiceStore((s) => s.peers);
   const error = useVoiceStore((s) => s.error);
+  const micMuted = useVoiceStore((s) => s.micMuted);
+  const deafened = useVoiceStore((s) => s.deafened);
   const members = usePresenceStore((s) => s.members);
 
   const peerIds = Object.keys(peers).map(Number);
@@ -34,6 +42,31 @@ export function VoicePanel() {
       >
         {starting ? 'мікрофон…' : inVoice ? 'Вийти з розмови' : 'Приєднатись до розмови'}
       </button>
+
+      {inVoice && (
+        <div className="voice-self">
+          <button
+            type="button"
+            className={micMuted ? 'voice-toggle off' : 'voice-toggle'}
+            title={micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
+            aria-label={micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
+            aria-pressed={micMuted}
+            onClick={() => setMicMuted(!micMuted)}
+          >
+            {micMuted ? <MicOffIcon /> : <MicIcon />}
+          </button>
+          <button
+            type="button"
+            className={deafened ? 'voice-toggle off' : 'voice-toggle'}
+            title={deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
+            aria-label={deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
+            aria-pressed={deafened}
+            onClick={() => setDeafened(!deafened)}
+          >
+            {deafened ? <HeadphonesOffIcon /> : <HeadphonesIcon />}
+          </button>
+        </div>
+      )}
 
       {peerIds.length > 0 && (
         <div className="voice-peers">

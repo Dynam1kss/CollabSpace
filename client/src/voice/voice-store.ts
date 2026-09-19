@@ -20,12 +20,21 @@ interface VoiceState {
   peers: Record<number, PeerInfo>;
   // не вдалось узяти мікрофон — показуємо причину, а не мовчимо
   error: string | null;
+  // свій мікрофон вимкнено (доріжку не знімаємо, лише глушимо)
+  micMuted: boolean;
+  // нікого не чую. Як у дискорді, тягне за собою й свій мікрофон
+  deafened: boolean;
+  // яким був мікрофон до того, як я заглушив усіх: щоб повернути саме його
+  // стан, а не просто увімкнути
+  micMutedBeforeDeafen: boolean;
   setInVoice: (value: boolean) => void;
   setStarting: (value: boolean) => void;
   setPeer: (clientId: number, phase: PeerPhase) => void;
   setVolume: (clientId: number, volume: number) => void;
   removePeer: (clientId: number) => void;
   setError: (message: string | null) => void;
+  setMicMuted: (muted: boolean) => void;
+  setDeafened: (on: boolean, micMutedBefore: boolean) => void;
   reset: () => void;
 }
 
@@ -34,6 +43,9 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   starting: false,
   peers: {},
   error: null,
+  micMuted: false,
+  deafened: false,
+  micMutedBeforeDeafen: false,
 
   setInVoice: (value) => set({ inVoice: value, error: value ? null : undefined }),
   setStarting: (value) => set({ starting: value }),
@@ -55,5 +67,16 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       return { peers };
     }),
   setError: (message) => set({ error: message }),
-  reset: () => set({ inVoice: false, starting: false, peers: {}, error: null }),
+  setMicMuted: (micMuted) => set({ micMuted }),
+  setDeafened: (deafened, micMutedBeforeDeafen) => set({ deafened, micMutedBeforeDeafen }),
+  reset: () =>
+    set({
+      inVoice: false,
+      starting: false,
+      peers: {},
+      error: null,
+      micMuted: false,
+      deafened: false,
+      micMutedBeforeDeafen: false,
+    }),
 }));

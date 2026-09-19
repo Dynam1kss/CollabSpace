@@ -141,6 +141,46 @@ export function ChatIcon() {
   );
 }
 
+export function MicIcon() {
+  return (
+    <Svg>
+      <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
+      <path d="M4.5 9a5.5 5.5 0 0 0 11 0M10 14.5v3" />
+    </Svg>
+  );
+}
+
+export function MicOffIcon() {
+  return (
+    <Svg>
+      <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
+      <path d="M4.5 9a5.5 5.5 0 0 0 11 0M10 14.5v3" />
+      <path d="M3 3l14 14" />
+    </Svg>
+  );
+}
+
+export function HeadphonesIcon() {
+  return (
+    <Svg>
+      <path d="M4 12V9.5a6 6 0 0 1 12 0V12" />
+      <rect x="2.5" y="11.5" width="3.5" height="5" rx="1.5" />
+      <rect x="14" y="11.5" width="3.5" height="5" rx="1.5" />
+    </Svg>
+  );
+}
+
+export function HeadphonesOffIcon() {
+  return (
+    <Svg>
+      <path d="M4 12V9.5a6 6 0 0 1 12 0V12" />
+      <rect x="2.5" y="11.5" width="3.5" height="5" rx="1.5" />
+      <rect x="14" y="11.5" width="3.5" height="5" rx="1.5" />
+      <path d="M3 3l14 14" />
+    </Svg>
+  );
+}
+
 export function TrashIcon() {
   return (
     <Svg>
