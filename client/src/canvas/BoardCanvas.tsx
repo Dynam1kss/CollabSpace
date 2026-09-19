@@ -17,6 +17,8 @@ import { SelectionOverlay } from './objects/SelectionOverlay';
 import { publishCursor, publishViewport } from './presence-channel';
 import { useLockedByOthers } from './presence-store';
 import { useObjectInteractions } from './useObjectInteractions';
+import { BoardSeats } from '../voice/BoardSeats';
+import { useMySeat } from '../voice/use-my-seat';
 
 interface StageHandlers {
   onWheel: (e: KonvaEventObject<WheelEvent>) => void;
@@ -29,6 +31,7 @@ interface StageHandlers {
 }
 
 interface Props {
+  boardId: string;
   viewport: Viewport;
   spaceHeld: boolean;
   stageHandlers: StageHandlers;
@@ -41,6 +44,7 @@ interface Props {
 // виділення — у useObjectInteractions + board-store/editor-store; цей
 // компонент лише міряє розмір, малює Stage і зводить усі обробники разом
 export function BoardCanvas({
+  boardId,
   viewport,
   spaceHeld,
   stageHandlers,
@@ -164,6 +168,8 @@ export function BoardCanvas({
     publishViewport(visibleRect);
   }, [touchInput, visibleRect, size.width, size.height]);
 
+  const saveSeat = useMySeat(boardId, currentUserId);
+
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
 
   return (
@@ -211,6 +217,11 @@ export function BoardCanvas({
 
             {draft && <DraftPreview tool={draft.tool} start={draft.start} current={draft.current} />}
             {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}
+          </Layer>
+
+          {/* стільці — окремим шаром: свій тягається, тому шар ловить події */}
+          <Layer>
+            <BoardSeats viewportScale={viewport.scale} onDropMine={saveSeat} />
           </Layer>
 
           {/* чужа присутність — поверх обʼєктів, але під трансформером */}

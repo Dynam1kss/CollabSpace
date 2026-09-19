@@ -10,7 +10,9 @@ import type {
   CreateBoardRequest,
   IceConfigResponse,
   RemoveBoardMemberRequest,
+  SaveSeatRequest,
   SaveSnapshotRequest,
+  SeatResponse,
   SnapshotResponse,
   UpdateBoardMemberRequest,
   UpdateBoardRequest,
@@ -108,6 +110,21 @@ export function uploadBoardImage(boardId: string, file: File) {
     headers: { 'Content-Type': file.type },
     body: file,
   }).then((res) => parseResponse<UploadImageResponse>(res));
+}
+
+// своє місце на дошці. Чужі приходять живим кадром, у базу кожен пише лише
+// власне — тому тут немає ні списку, ні чужого id
+export function fetchMySeat(boardId: string) {
+  return fetch(`/api/boards/${boardId}/seat`).then((res) => parseResponse<SeatResponse>(res));
+}
+
+export async function saveMySeat(boardId: string, seat: SaveSeatRequest) {
+  const res = await fetch(`/api/boards/${boardId}/seat`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(seat),
+  });
+  if (!res.ok) throw new Error('Не вдалося зберегти місце');
 }
 
 // куди стукати браузеру, щоб пробити NAT. Тягнемо на вхід у розмову, а не

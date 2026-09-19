@@ -22,6 +22,7 @@ model User {
   ownedBoards  Board[]       @relation("BoardOwner")
   memberships  BoardMember[]
   chatMessages ChatMessage[]
+  seats        BoardSeat[]
 }
 
 model Board {
@@ -35,6 +36,7 @@ model Board {
   members   BoardMember[]
   snapshot  BoardSnapshot?
   chat      ChatMessage[]
+  seats     BoardSeat[]
 }
 
 model BoardMember {
@@ -61,6 +63,22 @@ model ChatMessage {
   createdAt DateTime @default(now())
 
   @@index([boardId, createdAt])
+}
+
+// місце людини на дошці — «стілець», до якого вона сіла. Окрема таблиця, а
+// не поле в BoardMember: у власника рядка учасника немає взагалі, а стілець
+// потрібен і йому. Ключ — пара (дошка, людина), по одному місцю на дошку
+model BoardSeat {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  x         Float
+  y         Float
+  updatedAt DateTime @updatedAt
+
+  @@unique([boardId, userId])
 }
 
 model BoardSnapshot {

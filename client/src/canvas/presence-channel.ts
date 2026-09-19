@@ -1,5 +1,5 @@
 import { CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import type { ViewportMessage } from 'shared';
+import type { SeatPosition, ViewportMessage } from 'shared';
 import { useEditorStore } from './editor-store';
 
 // присутність шле через той самий сокет, що й документ — useBoardSync ставить
@@ -19,7 +19,9 @@ export function setPresenceSender(fn: ((data: Uint8Array) => void) | null) {
   if (!fn) {
     cursorPublisher.cancel();
     viewportPublisher.cancel();
+    seatPublisher.cancel();
     lastViewport = null;
+    lastSeat = null;
   }
 }
 
@@ -33,6 +35,10 @@ export const CURSOR_THROTTLE_MS = 55;
 // оновлюється щокадру, курсор раз на 55мс, і вістря помітно тягнеться за
 // тим, що нібито тримає (заміряно 140мс відставання)
 export const CURSOR_DRAG_THROTTLE_MS = 16;
+
+// стілець тягнуть рукою, як і полотно: рух грубий, тому той самий темп, що
+// й у вікна. Рвучкість добирає доїзд на боці того, хто дивиться
+export const SEAT_THROTTLE_MS = 120;
 
 // ~8 на секунду — удвічі рідше за курсор. Вікно їде цілим прямокутником у
 // пів екрана завширшки, тому й кадрів треба менше; плавність добирає доїзд
@@ -104,6 +110,24 @@ const cursorPublisher = throttledPublisher<{ x: number; y: number }>(
     return frame;
   },
 );
+
+const seatPublisher = throttledPublisher<SeatPosition>(
+  () => SEAT_THROTTLE_MS,
+  (seat) => jsonFrame(SYNC_MSG.SEAT, seat),
+);
+
+export function publishSeat(seat: SeatPosition) {
+  lastSeat = seat;
+  seatPublisher.publish(seat);
+}
+
+// новачок про чуже місце нізвідки не дізнається — воно могло не мінятись
+// тиждень. Тому на кожен вхід переспівуємо своє, як виділення й замок
+let lastSeat: SeatPosition | null = null;
+
+export function republishSeat() {
+  if (lastSeat) publishSeat(lastSeat);
+}
 
 const viewportPublisher = throttledPublisher<ViewportMessage>(
   () => VIEWPORT_THROTTLE_MS,

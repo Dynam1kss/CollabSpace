@@ -203,6 +203,7 @@ export function BoardPage() {
           <>
             <Toolbar boardId={board.id} currentUserId={currentUserId} visibleCenter={visibleCenter} />
             <BoardCanvas
+              boardId={board.id}
               viewport={viewport}
               spaceHeld={spaceHeld}
               stageHandlers={stageHandlers}

@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import { publishLock, publishSelection, republishViewport, setPresenceSender } from './presence-channel';
+import {
+  publishLock,
+  publishSelection,
+  republishSeat,
+  republishViewport,
+  setPresenceSender,
+} from './presence-channel';
 import { useEditorStore } from './editor-store';
 import type {
   ChatMessageInfo,
@@ -10,12 +16,15 @@ import type {
   PresenceMember,
   RoleChangedMessage,
   RosterMessage,
+  SeatPosition,
   VoiceIceMessage,
   VoiceSdpMessage,
   VoiceStateMessage,
   ViewportMessage,
 } from 'shared';
 import { useChatStore } from './chat-store';
+import { useSeatStore } from '../voice/seat-store';
+import { useVoiceStore } from '../voice/voice-store';
 import {
   dropPeer,
   handleVoiceIce,
@@ -86,6 +95,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // присутність — ефемерна й прив'язана до цього сокета: на новій дошці
     // починаємо з порожнього списку, чужі записи зі старої кімнати не тягнемо
     usePresenceStore.getState().reset();
+    useSeatStore.getState().reset();
     resetVoice();
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${protocol}://${location.host}/ws/boards/${boardId}`);
@@ -159,6 +169,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         case SYNC_MSG.ROSTER: {
           const roster = JSON.parse(text(payload)) as RosterMessage;
           usePresenceStore.getState().setRoster(roster.you, roster.members);
+          // хто вже говорив до мого приходу — далі це живе кадрами VOICE_STATE
+          for (const member of roster.members) {
+            if (member.inVoice && member.clientId !== roster.you) {
+              useVoiceStore.getState().setPeer(member.clientId, 'connecting');
+            }
+          }
           return;
         }
         case SYNC_MSG.JOIN:
@@ -168,12 +184,14 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           publishSelection(useEditorStore.getState().selectedIds);
           publishLock(useEditorStore.getState().editingTextId);
           republishViewport();
+          republishSeat();
           return;
         case SYNC_MSG.LEAVE: {
           const { clientId } = JSON.parse(text(payload)) as LeaveMessage;
           usePresenceStore.getState().removeMember(clientId);
           // окремого «вийшов з голосу» не треба: пішов з дошки — пішов звідусіль
           dropPeer(clientId);
+          useSeatStore.getState().removeOther(clientId);
           return;
         }
         case SYNC_MSG.SELECTION: {
@@ -215,6 +233,13 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
             useEditorStore.getState().stopEditingText();
             useEditorStore.getState().clearSelection();
           }
+          return;
+        }
+
+        case SYNC_MSG.SEAT: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          const seat = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as SeatPosition;
+          useSeatStore.getState().setOther(view.getUint32(0), seat);
           return;
         }
 

@@ -253,6 +253,7 @@ boardRoomWss.on('connection', (socket) => {
       // виділення й видиме вікно шле й глядач — це не зміна вмісту, тож роль
       // тут ні до чого
       case SYNC_MSG.SELECTION:
+      case SYNC_MSG.SEAT:
       case SYNC_MSG.VIEWPORT: {
         const framed = withClientId(buf[0], client.id, buf);
         for (const [, other] of others) send(other, framed);

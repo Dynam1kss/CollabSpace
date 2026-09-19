@@ -5,3 +5,4 @@ export * from './board-objects';
 export * from './sync';
 export * from './chat';
 export * from './voice';
+export * from './seats';

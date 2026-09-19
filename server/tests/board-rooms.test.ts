@@ -451,6 +451,26 @@ describe('кімнати дошок поверх ws', () => {
     expect(await rejected(connect(boardId, editor.cookie))).toBe(404);
   });
 
+  it('стілець розсилається решті з дописаним clientId, глядачу теж можна', async () => {
+    const { boardId, owner, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    await opened(a);
+    const v = connect(boardId, viewer.cookie);
+    const rosterV = nextMessage(v);
+    await opened(v);
+    const idV = JSON.parse((await rosterV)!.subarray(1).toString()).you as number;
+    await nextMessage(a); // join
+
+    const toA = nextOfType(a, SYNC_MSG.SEAT);
+    v.send(Buffer.concat([Buffer.from([SYNC_MSG.SEAT]), Buffer.from(JSON.stringify({ x: -12.5, y: 40 }))]));
+    const got = (await toA)!;
+    expect(got.readUInt32BE(1)).toBe(idV);
+    expect(JSON.parse(got.subarray(5).toString())).toEqual({ x: -12.5, y: 40 });
+
+    // собі назад не вертається — як і решта присутності
+    expect(await nextOfType(v, SYNC_MSG.SEAT, 200)).toBeNull();
+  });
+
   it('голос: вхід у розмову переспівують новачку, а про нього кажуть решті', async () => {
     const { boardId, owner, editor, viewer } = await boardWithMembers();
     const a = connect(boardId, owner.cookie);
