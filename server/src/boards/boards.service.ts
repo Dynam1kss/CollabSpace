@@ -46,6 +46,16 @@ export function requireBoardOwner(access: BoardAccess | null): BoardAccess {
   return resolved;
 }
 
+// керування учасниками: власник і адміністратор. Кого саме можна чіпати —
+// вирішує outranks уже на місці, бо для цього треба знати роль цілі
+export function requireBoardAdmin(access: BoardAccess | null): BoardAccess {
+  const resolved = requireBoardAccess(access);
+  if (resolved.role !== 'OWNER' && resolved.role !== 'ADMIN') {
+    throw new AppError(403, 'FORBIDDEN', 'Потрібні права адміністратора дошки');
+  }
+  return resolved;
+}
+
 // глядачеві можна дивитись, але не міняти вміст
 export function requireBoardEditor(access: BoardAccess | null): BoardAccess {
   const resolved = requireBoardAccess(access);
@@ -55,12 +65,14 @@ export function requireBoardEditor(access: BoardAccess | null): BoardAccess {
   return resolved;
 }
 
-export function toBoardSummary(board: Board, userId: string): BoardSummary {
+export function toBoardSummary(board: Board, userId: string, myRole?: BoardRole): BoardSummary {
+  const isOwner = board.ownerId === userId;
   return {
     id: board.id,
     title: board.title,
     ownerId: board.ownerId,
-    isOwner: board.ownerId === userId,
+    isOwner,
+    myRole: isOwner ? 'OWNER' : (myRole ?? 'VIEWER'),
     createdAt: board.createdAt.toISOString(),
     updatedAt: board.updatedAt.toISOString(),
   };
@@ -78,5 +90,6 @@ export function toBoardDetail(
     role: m.role,
   }));
 
-  return { ...toBoardSummary(board, userId), members: memberInfos };
+  const mine = members.find((m) => m.userId === userId);
+  return { ...toBoardSummary(board, userId, mine?.role), members: memberInfos };
 }

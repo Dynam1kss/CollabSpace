@@ -149,15 +149,16 @@ describe('дошки — CRUD і права доступу', () => {
       .send({ userId: member.user.id, role: 'VIEWER' });
     expect(byStranger.status).toBe(404);
 
-    // кого нема в списку — тому й міняти нема чого; власника в списку теж нема
+    // кого нема в списку — тому й міняти нема чого
     expect(
       (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: stranger.user.id, role: 'VIEWER' }))
         .status,
     ).toBe(404);
+    // а власника не можна чіпати в принципі, і про це кажемо прямо
     expect(
       (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: owner.user.id, role: 'VIEWER' }))
         .status,
-    ).toBe(404);
+    ).toBe(403);
 
     // покручене тіло
     expect(
@@ -169,6 +170,102 @@ describe('дошки — CRUD і права доступу', () => {
     // роль учасника після всіх спроб не змінилась
     const row = await prisma.boardMember.findFirst({ where: { boardId, userId: member.user.id } });
     expect(row!.role).toBe('EDITOR');
+  });
+
+  it('адміністратор роздає ролі, але власника не чіпає й адміна не знижує', async () => {
+    const owner = await registerUser();
+    const admin = await registerUser();
+    const editor = await registerUser();
+    const other = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+
+    for (const [who, role] of [
+      [admin, 'ADMIN'],
+      [editor, 'EDITOR'],
+      [other, 'ADMIN'],
+    ] as const) {
+      const res = await owner.agent
+        .post(`/api/boards/${boardId}/members`)
+        .send({ email: who.payload.email, role });
+      expect(res.status).toBe(201);
+    }
+
+    // адмін міняє роль редактору — можна
+    expect(
+      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: editor.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(200);
+
+    // і навіть підняти його до адміністратора
+    expect(
+      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: editor.user.id, role: 'ADMIN' }))
+        .status,
+    ).toBe(200);
+
+    // а от іншого адміністратора — ні: над адміном стоїть лише власник
+    expect(
+      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: other.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: other.user.id })).status,
+    ).toBe(403);
+
+    // власника не чіпає ніхто — ні за роллю, ні виганяючи
+    expect(
+      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: owner.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: owner.user.id })).status,
+    ).toBe(403);
+
+    // власник над адміністратором — може все
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: other.user.id, role: 'EDITOR' }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await owner.agent.delete(`/api/boards/${boardId}/members`).send({ userId: admin.user.id })).status,
+    ).toBe(204);
+  });
+
+  it('редактор і глядач учасниками не керують', async () => {
+    const owner = await registerUser();
+    const editor = await registerUser();
+    const viewer = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: editor.payload.email, role: 'EDITOR' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: viewer.payload.email, role: 'VIEWER' });
+
+    for (const who of [editor, viewer]) {
+      expect(
+        (await who.agent.patch(`/api/boards/${boardId}/members`).send({ userId: viewer.user.id, role: 'ADMIN' }))
+          .status,
+      ).toBe(403);
+      expect(
+        (await who.agent.delete(`/api/boards/${boardId}/members`).send({ userId: viewer.user.id })).status,
+      ).toBe(403);
+      expect(
+        (await who.agent.post(`/api/boards/${boardId}/members`).send({ email: owner.payload.email, role: 'VIEWER' }))
+          .status,
+      ).toBe(403);
+    }
+  });
+
+  it('адміністратор пише на дошку нарівні з редактором', async () => {
+    const owner = await registerUser();
+    const admin = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
+
+    expect((await admin.agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] })).status).toBe(204);
+    // і бачить свою роль у списку дошок
+    const list = await admin.agent.get('/api/boards');
+    expect(list.body.boards[0]).toMatchObject({ isOwner: false, myRole: 'ADMIN' });
   });
 
   it('видалення учасника забирає йому доступ до дошки', async () => {

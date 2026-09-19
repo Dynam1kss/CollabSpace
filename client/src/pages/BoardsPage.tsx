@@ -125,7 +125,18 @@ export function BoardsPage() {
                 )}
               </>
             )}
-            {membersOpenId === board.id && <BoardMembers boardId={board.id} />}
+            {/* керування учасниками — власнику й адміністратору */}
+            {!board.isOwner && board.myRole === 'ADMIN' && (
+              <button
+                type="button"
+                onClick={() => setMembersOpenId(membersOpenId === board.id ? null : board.id)}
+              >
+                Учасники
+              </button>
+            )}
+            {membersOpenId === board.id && (
+              <BoardMembers boardId={board.id} myRole={board.myRole} />
+            )}
           </li>
         ))}
       </ul>

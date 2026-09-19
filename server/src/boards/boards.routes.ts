@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { outranks } from 'shared';
 import type {
   AddBoardMemberRequest,
   BoardDetail,
@@ -20,9 +21,11 @@ import {
   updateBoardSchema,
   updateMemberSchema,
 } from './boards.schema';
+import type { BoardAccess } from './boards.service';
 import {
   getBoardAccess,
   requireBoardAccess,
+  requireBoardAdmin,
   requireBoardOwner,
   toBoardDetail,
   toBoardSummary,
@@ -37,10 +40,14 @@ boardsRouter.get('/', async (req, res, next) => {
     const boards = await prisma.board.findMany({
       where: { OR: [{ ownerId: req.userId }, { members: { some: { userId: req.userId } } }] },
       orderBy: { updatedAt: 'desc' },
+      // лише свій рядок участі — щоб знати власну роль на кожній дошці
+      include: { members: { where: { userId: req.userId } } },
     });
 
     const body: BoardListResponse = {
-      boards: boards.map((board) => toBoardSummary(board, req.userId as string)),
+      boards: boards.map((board) =>
+        toBoardSummary(board, req.userId as string, board.members[0]?.role),
+      ),
     };
     res.json(body);
   } catch (err) {
@@ -113,7 +120,7 @@ boardsRouter.delete('/:id', async (req, res, next) => {
 
 boardsRouter.post('/:id/members', async (req, res, next) => {
   try {
-    const access = requireBoardOwner(await getBoardAccess(req.params.id, req.userId as string));
+    const access = requireBoardAdmin(await getBoardAccess(req.params.id, req.userId as string));
 
     const parsed = addMemberSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -147,29 +154,45 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
   }
 });
 
+// кого саме дозволено чіпати: власника — ніколи (у нього й рядка немає, але
+// кажемо про це прямо), решту — лише якщо ми вищі за неї. Адміністратор
+// адміністратора не чіпає: над ним стоїть лише власник
+async function requireCanManage(access: BoardAccess, targetUserId: string) {
+  if (targetUserId === access.board.ownerId) {
+    throw new AppError(403, 'FORBIDDEN', 'Власника дошки змінити не можна');
+  }
+  const target = await prisma.boardMember.findUnique({
+    where: { boardId_userId: { boardId: access.board.id, userId: targetUserId } },
+    select: { role: true },
+  });
+  if (!target) {
+    throw new AppError(404, 'MEMBER_NOT_FOUND', 'Такого учасника на дошці немає');
+  }
+  if (!outranks(access.role, target.role)) {
+    throw new AppError(403, 'FORBIDDEN', 'Недостатньо прав для цього учасника');
+  }
+  return target;
+}
+
 // роль наявного учасника. Шлях і тіло — як у сусіднього delete нижче
 // (userId у тілі, не в шляху), щоб три операції над учасниками виглядали
 // однаково. Міняємо рядок на місці: видалити й завести наново означало б
 // новий id учасника на кожну зміну ролі
 boardsRouter.patch('/:id/members', async (req, res, next) => {
   try {
-    const access = requireBoardOwner(await getBoardAccess(req.params.id, req.userId as string));
+    const access = requireBoardAdmin(await getBoardAccess(req.params.id, req.userId as string));
 
     const parsed = updateMemberSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Некоректні дані учасника');
     }
     const { userId, role }: UpdateBoardMemberRequest = parsed.data;
+    await requireCanManage(access, userId);
 
-    // власник у списку учасників не значиться, тому окремої перевірки на
-    // нього не треба: рядка просто нема, і це той самий 404
-    const changed = await prisma.boardMember.updateMany({
+    await prisma.boardMember.updateMany({
       where: { boardId: access.board.id, userId },
       data: { role },
     });
-    if (changed.count === 0) {
-      throw new AppError(404, 'MEMBER_NOT_FOUND', 'Такого учасника на дошці немає');
-    }
     // відкритий сокет живе з роллю, взятою на підключенні — доганяємо його
     applyRoleChange(access.board.id, userId, role);
 
@@ -187,13 +210,14 @@ boardsRouter.patch('/:id/members', async (req, res, next) => {
 
 boardsRouter.delete('/:id/members', async (req, res, next) => {
   try {
-    const access = requireBoardOwner(await getBoardAccess(req.params.id, req.userId as string));
+    const access = requireBoardAdmin(await getBoardAccess(req.params.id, req.userId as string));
 
     const parsed = removeMemberSchema.safeParse(req.body);
     if (!parsed.success) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Некоректні дані учасника');
     }
     const { userId }: RemoveBoardMemberRequest = parsed.data;
+    await requireCanManage(access, userId);
 
     await prisma.boardMember.deleteMany({ where: { boardId: access.board.id, userId } });
     // доступу вже нема — виводимо з дошки й тих, хто сидить у ній просто зараз

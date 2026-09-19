@@ -7,7 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ADMIN між власником і редактором: уміє все, що редактор, плюс роздає ролі
+// й виганяє. Власник лишається один на дошку і рядка учасника не має
 enum BoardRole {
+  ADMIN
   EDITOR
   VIEWER
 }

@@ -1,6 +1,16 @@
 import type { BoardObject } from './board-objects';
 
-export type BoardRole = 'EDITOR' | 'VIEWER';
+// порядок важливий: OWNER > ADMIN > EDITOR > VIEWER. Власник ролі не має —
+// він визначається полем ownerId дошки, тому в цьому типі його й немає
+export type BoardRole = 'ADMIN' | 'EDITOR' | 'VIEWER';
+
+// хто кого може чіпати в керуванні учасниками: власник — будь-кого,
+// адміністратор — лише тих, хто нижчий за нього
+export function outranks(actor: 'OWNER' | BoardRole, target: 'OWNER' | BoardRole) {
+  if (actor === 'OWNER') return target !== 'OWNER';
+  if (actor === 'ADMIN') return target === 'EDITOR' || target === 'VIEWER';
+  return false;
+}
 
 export interface BoardMemberInfo {
   userId: string;
@@ -14,6 +24,9 @@ export interface BoardSummary {
   title: string;
   ownerId: string;
   isOwner: boolean;
+  // моя роль саме на цій дошці — щоб список не показував дій, на які прав
+  // немає; isOwner лишаємо, бо на нього вже спирається чимало місць
+  myRole: 'OWNER' | BoardRole;
   createdAt: string;
   updatedAt: string;
 }

@@ -10,12 +10,12 @@ export const updateBoardSchema = z.object({
 
 export const addMemberSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['EDITOR', 'VIEWER']),
+  role: z.enum(['ADMIN', 'EDITOR', 'VIEWER']),
 });
 
 export const updateMemberSchema = z.object({
   userId: z.string().min(1),
-  role: z.enum(['EDITOR', 'VIEWER']),
+  role: z.enum(['ADMIN', 'EDITOR', 'VIEWER']),
 });
 
 export const removeMemberSchema = z.object({

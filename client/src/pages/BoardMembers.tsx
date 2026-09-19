@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { outranks } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
 import { addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
 
 interface Props {
   boardId: string;
+  // моя роль на цій дошці: адміністратор керує не всіма, тому кнопки й
+  // списки гасимо там, де сервер однаково відмовить
+  myRole: 'OWNER' | BoardRole;
 }
 
 // розкривна секція під дошкою у списку (лише для власника): список
 // учасників приходить окремим GET /boards/:id — у списку дошок його нема
-export function BoardMembers({ boardId }: Props) {
+export function BoardMembers({ boardId, myRole }: Props) {
+  // та сама ієрархія, що й на сервері — щоб не показувати дію, яка дасть 403
+  const canManage = (targetRole: BoardRole) => outranks(myRole, targetRole);
   const [members, setMembers] = useState<BoardMemberInfo[] | null>(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<BoardRole>('EDITOR');
@@ -73,14 +79,15 @@ export function BoardMembers({ boardId }: Props) {
               <span>{m.email}</span>
               <select
                 value={m.role}
-                disabled={busyUserId === m.userId}
+                disabled={busyUserId === m.userId || !canManage(m.role)}
                 aria-label={`Роль: ${m.email}`}
                 onChange={(e) => handleRoleChange(m.userId, e.target.value as BoardRole)}
               >
+                <option value="ADMIN">Адміністратор</option>
                 <option value="EDITOR">Редактор</option>
                 <option value="VIEWER">Глядач</option>
               </select>
-              <button type="button" onClick={() => handleRemove(m.userId)}>
+              <button type="button" disabled={!canManage(m.role)} onClick={() => handleRemove(m.userId)}>
                 Видалити
               </button>
             </li>
@@ -95,6 +102,7 @@ export function BoardMembers({ boardId }: Props) {
           placeholder="Пошта користувача"
         />
         <select value={role} onChange={(e) => setRole(e.target.value as BoardRole)}>
+          <option value="ADMIN">Адміністратор</option>
           <option value="EDITOR">Редактор</option>
           <option value="VIEWER">Глядач</option>
         </select>

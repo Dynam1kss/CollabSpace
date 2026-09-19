@@ -3,6 +3,7 @@ import { colorForUser, initialsOf } from './presence-colors';
 
 const ROLE_TEXT = {
   OWNER: 'власник',
+  ADMIN: 'адміністратор',
   EDITOR: 'редактор',
   VIEWER: 'глядач',
 };

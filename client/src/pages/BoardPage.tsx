@@ -47,9 +47,13 @@ const SYNC_STATUS_TEXT: Record<SyncStatus, string> = {
 // скільки людина бачить пояснення, перш ніж її віднесе до списку дошок
 const KICKED_REDIRECT_MS = 2500;
 
-// глядач нічого не зберігає і не змінює — сервер і так відхилить, але й пробувати не варто
+// глядач нічого не зберігає і не змінює — сервер і так відхилить, але й
+// пробувати не варто. Адміністратор для цієї перевірки — той самий редактор
 function canEdit(board: BoardDetail, userId: string) {
-  return board.isOwner || board.members.some((m) => m.userId === userId && m.role === 'EDITOR');
+  return (
+    board.isOwner ||
+    board.members.some((m) => m.userId === userId && (m.role === 'EDITOR' || m.role === 'ADMIN'))
+  );
 }
 
 export function BoardPage() {
