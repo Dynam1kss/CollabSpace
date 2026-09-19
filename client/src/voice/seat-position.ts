@@ -26,6 +26,8 @@ export interface Rect {
   y: number;
   width: number;
   height: number;
+  // обʼєкт, на який дозволено сідати, для пошуку місця не існує
+  seatsAllowed?: boolean;
 }
 
 function hitsRect(point: { x: number; y: number }, rect: Rect) {
@@ -40,7 +42,7 @@ function isFree(point: { x: number; y: number }, taken: { x: number; y: number }
   for (const seat of taken) {
     if (Math.hypot(point.x - seat.x, point.y - seat.y) < SEAT_MIN_GAP) return false;
   }
-  return !blocks.some((rect) => hitsRect(point, rect));
+  return !blocks.some((rect) => !rect.seatsAllowed && hitsRect(point, rect));
 }
 
 // куди відпустили — туди й сідаємо, якщо там вільно. Якщо ні — шукаємо

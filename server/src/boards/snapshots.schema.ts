@@ -12,6 +12,8 @@ const base = {
   zIndex: z.number(),
   createdBy: z.string(),
   createdAt: z.string(),
+  // старі знімки поля не мають — там воно просто відсутнє
+  seatsAllowed: z.boolean().optional(),
 };
 
 const point = z.object({ x: z.number(), y: z.number() });

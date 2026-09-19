@@ -8,7 +8,7 @@ import { BringFrontIcon, SendBackIcon, StrokeWidthIcon, TextIcon, TrashIcon } fr
 import { NumberField } from './NumberField';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, PALETTE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './object-defaults';
 import { fitTextBox } from './text-layout';
-import { useLockedByOthers } from './presence-store';
+import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { deleteSelected } from './selection-actions';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
@@ -36,6 +36,10 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
   // те, що зараз редагує хтось інший, панель не чіпає — так само, як її
   // цілком нема в глядача. Лишилось порожньо — панель не показуємо взагалі
   const lockedByOthers = useLockedByOthers();
+  // прапорець «сюди можна сідати» бачать лише власник і адміністратор:
+  // решті він нічого не дає, тому й не показуємо навіть вимкненим
+  const selfRole = usePresenceStore((s) => s.selfRole);
+  const canManageSeats = selfRole === 'OWNER' || selfRole === 'ADMIN';
   const selected = selectedIds
     .map((id) => objectsMap[id])
     .filter((o): o is BoardObject => !!o && !lockedByOthers.has(o.id));
@@ -76,6 +80,11 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
   const textColorObject = selected.find((o) => o.type === 'sticky' || o.type === 'text');
   const strokeObject = selected.find((o) => o.type === 'shape' || o.type === 'connector');
   const textObject = selected.find((o) => o.type === 'text');
+
+  function setSeatsAllowed(allowed: boolean) {
+    const update = useBoardStore.getState().update;
+    for (const o of selected) update(o.id, { seatsAllowed: allowed });
+  }
 
   function togglePicker(kind: PickerKind) {
     setPicker(openPicker === kind ? null : { key: selectionKey, kind });
@@ -180,6 +189,23 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
           max={FONT_SIZE_MAX}
           onCommit={setFontSize}
         />
+      )}
+
+      {canManageSeats && (
+        <>
+          <span className="ctx-sep" />
+          <label className="ctx-seats" title="Стільці учасників можна ставити просто на цей обʼєкт — зручно для намальованого дивана, стола чи килима">
+            <input
+              type="checkbox"
+              checked={selected.every((o) => o.seatsAllowed === true)}
+              onChange={(e) => setSeatsAllowed(e.target.checked)}
+            />
+            <span>
+              дозволити стільці
+              <small>місця учасників не обходитимуть цей обʼєкт</small>
+            </span>
+          </label>
+        </>
       )}
 
       <span className="ctx-sep" />

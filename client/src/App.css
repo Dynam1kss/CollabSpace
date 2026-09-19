@@ -846,3 +846,20 @@ elementFromPoint повертав би її саму замість колонк
   border-color: #f3c0d2;
   background: #fdeef3;
 }
+
+/* прапорець «сюди можна сідати» — лише для власника й адміністратора */
+.ctx-seats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ctx-seats small {
+  display: block;
+  font-size: 0.68rem;
+  opacity: 0.75;
+}

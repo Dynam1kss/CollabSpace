@@ -8,6 +8,11 @@ export interface BoardObjectBase {
   zIndex: number;
   createdBy: string;
   createdAt: string;
+  // чи можна ставити на цей обʼєкт голосові стільці. Зазвичай стілець
+  // обходить обʼєкти стороною, але для намальованого дивана чи столу це
+  // якраз заважає. Ставить власник або адміністратор; старі снепшоти поля
+  // не мають — там це просто false
+  seatsAllowed?: boolean;
 }
 
 export type StickyColumn = 'todo' | 'in-progress' | 'done';

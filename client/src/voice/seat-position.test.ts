@@ -39,6 +39,19 @@ describe('місце стільця', () => {
     expect(insideX && insideY).toBe(false);
   });
 
+  it('на обʼєкт із дозволом сідати можна', () => {
+    const sofa = { x: -50, y: -50, width: 100, height: 100, seatsAllowed: true };
+    // та сама точка, що й у попередньому тесті, але тепер обʼєкт не заважає
+    expect(nearestFreeSeat({ x: 0, y: 0 }, [], [sofa])).toEqual({ x: 0, y: 0 });
+  });
+
+  it('дозвіл на одному обʼєкті не скасовує обходу решти', () => {
+    const sofa = { x: -50, y: -50, width: 100, height: 100, seatsAllowed: true };
+    const table = { x: -50, y: -50, width: 100, height: 100 };
+    const placed = nearestFreeSeat({ x: 0, y: 0 }, [], [sofa, table]);
+    expect(placed).not.toEqual({ x: 0, y: 0 });
+  });
+
   it('коли навколо все зайняте — лишаємо там, куди поклали', () => {
     // щільна сітка точок: вільного місця в межах пошуку немає
     const taken = [];
