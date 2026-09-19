@@ -2,7 +2,15 @@ import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import { usePresenceStore } from '../canvas/presence-store';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
 import { startVoice, stopVoice, voiceIsFull } from './voice-mesh';
+import type { PeerInfo } from './voice-store';
 import { useVoiceStore } from './voice-store';
+
+function describe(peer: PeerInfo) {
+  if (peer.phase === 'failed') return 'звʼязок не вдався';
+  if (peer.phase !== 'live') return 'підключається';
+  if (peer.volume === 0) return 'надто далеко, не чути';
+  return `чути на ${Math.round(peer.volume * 100)}%`;
+}
 
 // вхід у розмову й хто в ній зараз. Кружечки ті самі, що в списку присутніх,
 // тим самим кольором — щоб голос і полотно читались як одна людина
@@ -35,9 +43,14 @@ export function VoicePanel() {
             return (
               <span
                 key={clientId}
-                className={`voice-peer ${peers[clientId]}`}
-                style={{ background: colorForUser(member.userId) }}
-                title={`${member.displayName} — ${peers[clientId] === 'live' ? 'у розмові' : peers[clientId] === 'failed' ? "звʼязок не вдався" : 'підключається'}`}
+                className={`voice-peer ${peers[clientId].phase}`}
+                style={{
+                  background: colorForUser(member.userId),
+                  // видно, кого зараз чути: далекий стілець — блідий кружечок
+                  opacity: peers[clientId].phase === 'live' ? 0.25 + peers[clientId].volume * 0.75 : undefined,
+                }}
+                data-volume={Math.round(peers[clientId].volume * 100)}
+                title={`${member.displayName} — ${describe(peers[clientId])}`}
               >
                 {initialsOf(member.displayName)}
               </span>

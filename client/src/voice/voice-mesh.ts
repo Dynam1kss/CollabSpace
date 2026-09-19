@@ -2,6 +2,8 @@ import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import type { IceConfigResponse, VoiceIceMessage, VoiceSdpMessage } from 'shared';
 import { fetchIceConfig } from '../api/boards';
 import { usePresenceStore } from '../canvas/presence-store';
+import { useSeatStore } from './seat-store';
+import { seatDistance, spatialGain } from './spatial-gain';
 import { publishVoiceState, sendVoiceIce, sendVoiceSdp } from './voice-channel';
 import { useVoiceStore } from './voice-store';
 
@@ -12,7 +14,12 @@ import { useVoiceStore } from './voice-store';
 
 interface Peer {
   pc: RTCPeerConnection;
+  // елемент лишається, але мовчить: звук іде графом web audio, щоб між
+  // потоком і колонками стояв регулятор гучності. Відчепити його зовсім не
+  // можна — chromium не віддає віддалений потік у web audio, поки той не
+  // прикріплений до медіаелемента
   audio: HTMLAudioElement;
+  gain: GainNode | null;
   // кандидати, що прийшли раніше за опис зʼєднання — їх не можна додавати
   // до setRemoteDescription, інакше браузер лається й губить їх
   pendingIce: VoiceIceMessage[];
@@ -21,6 +28,18 @@ interface Peer {
 const peers = new Map<number, Peer>();
 let localStream: MediaStream | null = null;
 let iceConfig: IceConfigResponse | null = null;
+let audioCtx: AudioContext | null = null;
+// поки триває розмова, стежимо за стільцями: посунув свій чи чужий — гучність
+// має поїхати одразу, а не після перепідключення
+let unsubscribeSeats: (() => void) | null = null;
+
+// різку зміну підсилення чути як тріск, тому доводимо плавно
+const GAIN_RAMP_SECONDS = 0.08;
+
+function context() {
+  audioCtx ??= new AudioContext();
+  return audioCtx;
+}
 
 function selfId() {
   return usePresenceStore.getState().selfClientId;
@@ -54,7 +73,7 @@ function createPeer(clientId: number) {
     iceServers: iceConfig.iceServers,
     iceTransportPolicy: iceConfig.iceTransportPolicy,
   });
-  const peer: Peer = { pc, audio: attachAudio(), pendingIce: [] };
+  const peer: Peer = { pc, audio: attachAudio(), gain: null, pendingIce: [] };
   peers.set(clientId, peer);
   useVoiceStore.getState().setPeer(clientId, 'connecting');
 
@@ -71,11 +90,20 @@ function createPeer(clientId: number) {
   };
 
   pc.ontrack = ({ streams }) => {
-    peer.audio.srcObject = streams[0] ?? null;
-    void peer.audio.play().catch(() => {
-      // автовідтворення без жесту: вхід у розмову сам по собі жест, тому
-      // сюди доходить хіба що на дуже суворих налаштуваннях
-    });
+    const stream = streams[0] ?? null;
+    peer.audio.srcObject = stream;
+    // сам елемент мовчить — грає граф нижче
+    peer.audio.muted = true;
+    void peer.audio.play().catch(() => {});
+    if (!stream) return;
+
+    const ctx = context();
+    void ctx.resume().catch(() => {});
+    const gain = ctx.createGain();
+    gain.gain.value = 1;
+    ctx.createMediaStreamSource(stream).connect(gain).connect(ctx.destination);
+    peer.gain = gain;
+    applySpatialGain();
   };
 
   pc.onconnectionstatechange = () => {
@@ -85,6 +113,19 @@ function createPeer(clientId: number) {
   };
 
   return peer;
+}
+
+// гучність кожного співрозмовника з відстані між нашими стільцями. Відстань
+// у координатах дошки, тому зум ні на що не впливає
+export function applySpatialGain() {
+  const { mine, others } = useSeatStore.getState();
+  for (const [clientId, peer] of peers) {
+    const theirs = others[clientId];
+    const volume = mine && theirs ? spatialGain(seatDistance(mine, theirs)) : 1;
+    useVoiceStore.getState().setVolume(clientId, volume);
+    if (!peer.gain || !audioCtx) continue;
+    peer.gain.gain.setTargetAtTime(volume, audioCtx.currentTime, GAIN_RAMP_SECONDS);
+  }
 }
 
 async function offerTo(clientId: number) {
@@ -145,6 +186,8 @@ export function dropPeer(clientId: number) {
   peer.pc.ontrack = null;
   peer.pc.onconnectionstatechange = null;
   peer.pc.close();
+  peer.gain?.disconnect();
+  peer.gain = null;
   peer.audio.srcObject = null;
   peer.audio.remove();
   useVoiceStore.getState().removePeer(clientId);
@@ -165,6 +208,7 @@ export async function startVoice() {
   }
   useVoiceStore.getState().setStarting(false);
   useVoiceStore.getState().setInVoice(true);
+  unsubscribeSeats ??= useSeatStore.subscribe(applySpatialGain);
   // сервер у відповідь переспіває нам тих, хто вже в розмові, і розкаже
   // про нас решті — далі напрямок пропозицій вирішує shouldOffer
   publishVoiceState(true);
@@ -173,6 +217,8 @@ export async function startVoice() {
 export function stopVoice() {
   if (!useVoiceStore.getState().inVoice) return;
   publishVoiceState(false);
+  unsubscribeSeats?.();
+  unsubscribeSeats = null;
   for (const clientId of [...peers.keys()]) dropPeer(clientId);
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
@@ -181,6 +227,8 @@ export function stopVoice() {
 
 // зміна дошки чи розрив сокета: розмову тут не продовжити
 export function resetVoice() {
+  unsubscribeSeats?.();
+  unsubscribeSeats = null;
   for (const clientId of [...peers.keys()]) dropPeer(clientId);
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
