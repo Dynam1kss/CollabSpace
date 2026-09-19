@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PresenceMember } from 'shared';
+import type { PresenceMember, ViewportMessage } from 'shared';
 
 // хто зараз на дошці. Стан суто ефемерний: живе, поки відкрита вкладка, у
 // Y.Doc і в базу не потрапляє. Джерело правди — сервер: він шле список при
@@ -20,12 +20,15 @@ interface PresenceState {
   // хто який обʼєкт зараз редагує (clientId → id обʼєкта). Щонайбільше один
   // на людину, тому не масив
   locks: Record<number, string>;
+  // видиме вікно тих, хто зайшов з тача — замість курсора, якого в них нема
+  viewports: Record<number, ViewportMessage>;
   setRoster: (selfClientId: number, members: PresenceMember[]) => void;
   addMember: (member: PresenceMember) => void;
   removeMember: (clientId: number) => void;
   setCursor: (clientId: number, point: CursorPoint) => void;
   setSelection: (clientId: number, selectedIds: string[]) => void;
   setLock: (clientId: number, objectId: string | null) => void;
+  setViewport: (clientId: number, rect: ViewportMessage) => void;
   reset: () => void;
 }
 
@@ -35,6 +38,7 @@ export const usePresenceStore = create<PresenceState>((set) => ({
   cursors: {},
   selections: {},
   locks: {},
+  viewports: {},
 
   setRoster: (selfClientId, members) =>
     set({
@@ -43,6 +47,7 @@ export const usePresenceStore = create<PresenceState>((set) => ({
       cursors: {},
       selections: {},
       locks: {},
+      viewports: {},
     }),
 
   addMember: (member) => set((state) => ({ members: { ...state.members, [member.clientId]: member } })),
@@ -57,11 +62,13 @@ export const usePresenceStore = create<PresenceState>((set) => ({
       // замок зникає разом із людиною — саме тому окремий таймаут не потрібен:
       // вкладка, яка впала, лишає по собі LEAVE, а з ним і звільнений обʼєкт
       const locks = { ...state.locks };
+      const viewports = { ...state.viewports };
       delete members[clientId];
       delete cursors[clientId];
       delete selections[clientId];
       delete locks[clientId];
-      return { members, cursors, selections, locks };
+      delete viewports[clientId];
+      return { members, cursors, selections, locks, viewports };
     }),
 
   setCursor: (clientId, point) => set((state) => ({ cursors: { ...state.cursors, [clientId]: point } })),
@@ -77,7 +84,11 @@ export const usePresenceStore = create<PresenceState>((set) => ({
       return { locks };
     }),
 
-  reset: () => set({ selfClientId: null, members: {}, cursors: {}, selections: {}, locks: {} }),
+  setViewport: (clientId, rect) =>
+    set((state) => ({ viewports: { ...state.viewports, [clientId]: rect } })),
+
+  reset: () =>
+    set({ selfClientId: null, members: {}, cursors: {}, selections: {}, locks: {}, viewports: {} }),
 }));
 
 // усі, крім мене — саме їх показуємо в списку й малюємо на полотні

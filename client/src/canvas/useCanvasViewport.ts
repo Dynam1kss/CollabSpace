@@ -123,6 +123,11 @@ function cancelObjectDrags() {
 export function useCanvasViewport(initial: Viewport) {
   const [viewport, setViewport] = useState<Viewport>(initial);
   const [spaceHeld, setSpaceHeld] = useState(false);
+  // з чого працюють — з тача чи з миші. Окремого детектора не заводимо: тач
+  // видає себе тим самим touchstart, з якого вже живуть пан і щипок. Назад у
+  // «мишу» не вертаємось: телефон мишею не стане, а гібридний ноут тут надто
+  // рідкісний, щоб платити за нього ще одним евристичним перемикачем
+  const [touchInput, setTouchInput] = useState(false);
 
   const panRef = useRef<{ active: boolean; lastX: number; lastY: number } | null>(null);
   const pinchRef = useRef<{ distance: number; midpoint: Point2 } | null>(null);
@@ -327,6 +332,7 @@ export function useCanvasViewport(initial: Viewport) {
   const handleTouchStart = useCallback((e: KonvaEventObject<TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    setTouchInput(true);
     const touches = e.evt.touches;
 
     if (touches.length === 1) {
@@ -410,6 +416,7 @@ export function useCanvasViewport(initial: Viewport) {
   return {
     viewport,
     spaceHeld,
+    touchInput,
     zoomIn,
     zoomOut,
     resetView,

@@ -86,6 +86,16 @@ function toMember(client: Client): PresenceMember {
   };
 }
 
+// виділення, замок, вікно й sync-запит ідуть далі однаково: сервер лише
+// дописує спереду id відправника, у тіло не заглядаючи
+function withClientId(type: number, clientId: number, buf: Buffer) {
+  const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
+  framed[0] = type;
+  framed.writeUInt32BE(clientId, 1);
+  buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
+  return framed;
+}
+
 function toBuffer(data: RawData) {
   if (Buffer.isBuffer(data)) return data;
   if (Array.isArray(data)) return Buffer.concat(data);
@@ -144,12 +154,11 @@ boardRoomWss.on('connection', (socket) => {
         return;
       }
 
-      case SYNC_MSG.SELECTION: {
-        // виділяти можна й глядачу — це не зміна вмісту, тож роль тут ні до чого
-        const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
-        framed[0] = SYNC_MSG.SELECTION;
-        framed.writeUInt32BE(client.id, 1);
-        buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
+      // виділення й видиме вікно шле й глядач — це не зміна вмісту, тож роль
+      // тут ні до чого
+      case SYNC_MSG.SELECTION:
+      case SYNC_MSG.VIEWPORT: {
+        const framed = withClientId(buf[0], client.id, buf);
         for (const [, other] of others) send(other, framed);
         return;
       }
@@ -158,10 +167,7 @@ boardRoomWss.on('connection', (socket) => {
         // на відміну від виділення, замок обмежує інших — глядачу, який і так
         // не редагує, нема чого його ставити
         if (client.role === 'VIEWER') return;
-        const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
-        framed[0] = SYNC_MSG.LOCK;
-        framed.writeUInt32BE(client.id, 1);
-        buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
+        const framed = withClientId(SYNC_MSG.LOCK, client.id, buf);
         for (const [, other] of others) send(other, framed);
         return;
       }
@@ -181,11 +187,7 @@ boardRoomWss.on('connection', (socket) => {
           send(socket, Buffer.from([SYNC_MSG.SYNC_REPLY]));
           return;
         }
-        const framed = Buffer.alloc(1 + SYNC_REQUESTER_ID_BYTES + buf.length - 1);
-        framed[0] = SYNC_MSG.SYNC_REQUEST;
-        framed.writeUInt32BE(client.id, 1);
-        buf.copy(framed, 1 + SYNC_REQUESTER_ID_BYTES, 1);
-        send(responder[1], framed);
+        send(responder[1], withClientId(SYNC_MSG.SYNC_REQUEST, client.id, buf));
         return;
       }
 

@@ -5,15 +5,16 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { Grid } from './Grid';
 import { TextEditOverlay } from './TextEditOverlay';
 import { useBoardStore } from './board-store';
-import { screenToBoard } from './coordinates';
+import { getVisibleBoardRect, screenToBoard } from './coordinates';
 import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { ObjectRenderer } from './objects/ObjectRenderer';
 import { RemoteCursors } from './objects/RemoteCursors';
 import { RemoteLocks } from './objects/RemoteLocks';
 import { RemoteSelections } from './objects/RemoteSelections';
+import { RemoteViewports } from './objects/RemoteViewports';
 import { SelectionOverlay } from './objects/SelectionOverlay';
-import { publishCursor } from './presence-channel';
+import { publishCursor, publishViewport } from './presence-channel';
 import { useObjectInteractions } from './useObjectInteractions';
 
 interface StageHandlers {
@@ -30,6 +31,7 @@ interface Props {
   viewport: Viewport;
   spaceHeld: boolean;
   stageHandlers: StageHandlers;
+  touchInput: boolean;
   onSizeChange: (size: { width: number; height: number }) => void;
   currentUserId: string;
 }
@@ -37,7 +39,14 @@ interface Props {
 // суто відображення — пан/зум живуть у useCanvasViewport, обʼєкти й
 // виділення — у useObjectInteractions + board-store/editor-store; цей
 // компонент лише міряє розмір, малює Stage і зводить усі обробники разом
-export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, currentUserId }: Props) {
+export function BoardCanvas({
+  viewport,
+  spaceHeld,
+  stageHandlers,
+  touchInput,
+  onSizeChange,
+  currentUserId,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // екранна точка з останнього mousemove — щоб переспівати курсор при пані/зумі
   const lastPointer = useRef<Point | null>(null);
@@ -122,6 +131,9 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
   // кінця жесту. Заразом переспівуємо останню точку на зміну viewport — під
   // час пану трекпадом миша стоїть, а точка дошки під нею вже інша
   useEffect(() => {
+    // з тача курсор не шлемо взагалі: там його малює не браузер, а наш кадр
+    // вікна нижче, і вістря спалахувало б лише в мить тапу
+    if (touchInput) return;
     if (lastPointer.current) publishCursor(screenToBoard(lastPointer.current, viewport));
     function handleMouseMove(e: MouseEvent) {
       const el = containerRef.current;
@@ -133,7 +145,21 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
     }
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [viewport]);
+  }, [touchInput, viewport]);
+
+  // своя видима область: на тачі возимо її решті замість курсора, а заразом
+  // по ній тримаємо чужі шильдики в полі зору
+  const visibleRect = useMemo(
+    () => getVisibleBoardRect(viewport, size.width, size.height),
+    [viewport, size.width, size.height],
+  );
+
+  // ефект ловить і пан, і щипок, і поворот екрана — усе це міняє viewport або
+  // size; частоту тримає presence-channel, сюди прилітає щокадру
+  useEffect(() => {
+    if (!touchInput || size.width === 0 || size.height === 0) return;
+    publishViewport(visibleRect);
+  }, [touchInput, visibleRect, size.width, size.height]);
 
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
 
@@ -184,8 +210,9 @@ export function BoardCanvas({ viewport, spaceHeld, stageHandlers, onSizeChange, 
             {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}
           </Layer>
 
-          {/* чужі курсори — поверх обʼєктів, але під трансформером */}
+          {/* чужа присутність — поверх обʼєктів, але під трансформером */}
           <Layer listening={false}>
+            <RemoteViewports viewportScale={viewport.scale} visible={visibleRect} />
             <RemoteCursors viewportScale={viewport.scale} />
           </Layer>
 

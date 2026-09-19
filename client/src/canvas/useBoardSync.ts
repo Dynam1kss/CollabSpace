@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import { publishLock, publishSelection, setPresenceSender } from './presence-channel';
+import { publishLock, publishSelection, republishViewport, setPresenceSender } from './presence-channel';
 import { useEditorStore } from './editor-store';
-import type { LeaveMessage, LockMessage, PresenceMember, RosterMessage } from 'shared';
+import type { LeaveMessage, LockMessage, PresenceMember, RosterMessage, ViewportMessage } from 'shared';
 import { resetBoardDoc } from './board-store';
 import { usePresenceStore } from './presence-store';
 
@@ -137,10 +137,11 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         }
         case SYNC_MSG.JOIN:
           usePresenceStore.getState().addMember(JSON.parse(text(payload)) as PresenceMember);
-          // новачок про чуже виділення й замок нізвідки не дізнається — вони
-          // могли не мінятись годину. Тому на кожен вхід переспівуємо своє
+          // новачок про чуже виділення, замок і вікно нізвідки не дізнається —
+          // вони могли не мінятись годину. Тому на кожен вхід переспівуємо своє
           publishSelection(useEditorStore.getState().selectedIds);
           publishLock(useEditorStore.getState().editingTextId);
+          republishViewport();
           return;
         case SYNC_MSG.LEAVE:
           usePresenceStore.getState().removeMember((JSON.parse(text(payload)) as LeaveMessage).clientId);
@@ -164,6 +165,13 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           if (body.objectId && body.objectId === editing && me !== null && owner < me) {
             useEditorStore.getState().stopEditingText();
           }
+          return;
+        }
+
+        case SYNC_MSG.VIEWPORT: {
+          const view = new DataView(data.buffer, data.byteOffset + 1);
+          const rect = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as ViewportMessage;
+          usePresenceStore.getState().setViewport(view.getUint32(0), rect);
           return;
         }
 

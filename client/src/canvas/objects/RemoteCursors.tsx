@@ -105,6 +105,7 @@ interface Props {
 export function RemoteCursors({ viewportScale }: Props) {
   const members = usePresenceStore((s) => s.members);
   const cursors = usePresenceStore((s) => s.cursors);
+  const viewports = usePresenceStore((s) => s.viewports);
   const selfClientId = usePresenceStore((s) => s.selfClientId);
 
   // useState, а не useRef: обʼєкт той самий на весь час життя компонента, але
@@ -133,8 +134,10 @@ export function RemoteCursors({ viewportScale }: Props) {
       {Object.entries(cursors).map(([key]) => {
         const clientId = Number(key);
         const member = members[clientId];
-        // курсор без запису в списку — людина вже вийшла, а кадр був у дорозі
-        if (!member || clientId === selfClientId) return null;
+        // курсор без запису в списку — людина вже вийшла, а кадр був у дорозі.
+        // а хто вже прислав своє вікно, той на тачі — рамка замість вістря,
+        // і обидва разом виглядали б як дві різні людини
+        if (!member || clientId === selfClientId || clientId in viewports) return null;
         const color = colorForUser(member.userId);
         const width = member.displayName.length * 6.5 + LABEL_PADDING * 2;
 

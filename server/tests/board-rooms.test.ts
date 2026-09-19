@@ -254,6 +254,32 @@ describe('кімнати дошок поверх ws', () => {
     expect(await nextMessage(a, 200)).toBeNull();
   });
 
+  it('видиме вікно: сервер дописує clientId і шле решті, глядача пускає', async () => {
+    const { boardId, owner, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    const me = JSON.parse((await rosterA)!.subarray(1).toString()).you as number;
+    // саме глядач возить вікном — присутність за роллю не гейтиться
+    const v = connect(boardId, viewer.cookie);
+    const rosterV = nextMessage(v);
+    await opened(v);
+    const him = JSON.parse((await rosterV)!.subarray(1).toString()).you as number;
+    await nextMessage(a); // join
+
+    const rect = { x: -120.5, y: 40, width: 390, height: 780 };
+    const toA = nextMessage(a);
+    v.send(Buffer.concat([Buffer.from([SYNC_MSG.VIEWPORT]), Buffer.from(JSON.stringify(rect))]));
+    const got = (await toA)!;
+    expect(got[0]).toBe(SYNC_MSG.VIEWPORT);
+    expect(got.readUInt32BE(1)).toBe(him);
+    expect(JSON.parse(got.subarray(5).toString())).toEqual(rect);
+    expect(me).not.toBe(him);
+
+    // собі назад не прилітає
+    expect(await nextMessage(v, 150)).toBeNull();
+  });
+
   it('мертвий сокет не блокує sync-запит іншим', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     // найстарший редактор у кімнаті — і саме він зараз «помре»

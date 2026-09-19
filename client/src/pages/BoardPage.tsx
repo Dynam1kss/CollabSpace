@@ -68,11 +68,12 @@ export function BoardPage() {
     return () => setCanEdit(false);
   }, [editable, setCanEdit]);
 
-  const { viewport, spaceHeld, zoomIn, zoomOut, resetView, setViewport, stageHandlers } = useCanvasViewport({
-    x: 0,
-    y: 0,
-    scale: 1,
-  });
+  const { viewport, spaceHeld, touchInput, zoomIn, zoomOut, resetView, setViewport, stageHandlers } =
+    useCanvasViewport({
+      x: 0,
+      y: 0,
+      scale: 1,
+    });
 
   useEffect(() => {
     if (!id) return;
@@ -173,6 +174,7 @@ export function BoardPage() {
               viewport={viewport}
               spaceHeld={spaceHeld}
               stageHandlers={stageHandlers}
+              touchInput={touchInput}
               onSizeChange={setCanvasSize}
               currentUserId={currentUserId}
             />
