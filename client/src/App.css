@@ -783,3 +783,16 @@ elementFromPoint повертав би її саму замість колонк
 .board-back:hover {
   color: var(--text);
 }
+
+/* скасувати/повторити стоять окремою групою внизу панелі — риска показує,
+що це дії над зробленим, а не ще один інструмент */
+.tool-divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--panel-border);
+}
+
+.tool-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

@@ -80,11 +80,29 @@ const DISCRETE_CAPTURE_MS = 500;
 // відкочуємо лише свої правки: trackedOrigins — це null, тобто транзакції без
 // позначки. REMOTE_ORIGIN (чуже з мережі, useBoardSync) і APP_ORIGIN повз
 // нього, бо ctrl+z не має відкочувати сусідові його ж роботу
+// чи є що скасовувати/повторювати — для кнопок у панелі. Окремий крихітний
+// стор, бо сам UndoManager не реактивний: він лише шле події про свій стек
+export const useUndoState = create<{ canUndo: boolean; canRedo: boolean }>(() => ({
+  canUndo: false,
+  canRedo: false,
+}));
+
+function refreshUndoState() {
+  useUndoState.setState({
+    canUndo: boardUndo.undoStack.length > 0,
+    canRedo: boardUndo.redoStack.length > 0,
+  });
+}
+
 function createUndo() {
-  return new Y.UndoManager(yObjects, {
+  const undo = new Y.UndoManager(yObjects, {
     trackedOrigins: new Set([null]),
     captureTimeout: DISCRETE_CAPTURE_MS,
   });
+  undo.on('stack-item-added', refreshUndoState);
+  undo.on('stack-item-popped', refreshUndoState);
+  undo.on('stack-cleared', refreshUndoState);
+  return undo;
 }
 
 export let boardUndo = createUndo();
@@ -189,6 +207,7 @@ export function resetBoardDoc() {
   yObjects = boardDoc.getMap<BoardObject>('objects');
   yObjects.observe(mirror);
   boardUndo = createUndo();
+  refreshUndoState();
   emptiedBy = null;
   useBoardStore.setState({ objects: {} });
   return boardDoc;

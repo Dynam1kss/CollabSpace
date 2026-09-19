@@ -3,7 +3,19 @@ import type { ReactNode } from 'react';
 import type { Point } from './coordinates';
 import { useEditorStore } from './editor-store';
 import type { ToolId } from './editor-store';
-import { ConnectorIcon, EllipseIcon, ImageIcon, RectIcon, SelectIcon, StickyIcon, TextIcon } from './icons';
+import {
+  ConnectorIcon,
+  EllipseIcon,
+  ImageIcon,
+  RectIcon,
+  RedoIcon,
+  SelectIcon,
+  StickyIcon,
+  TextIcon,
+  UndoIcon,
+} from './icons';
+import { useUndoState } from './board-store';
+import { redoBoard, undoBoard } from './board-undo';
 import { placeImageFromFile } from './place-image';
 
 const TOOLS: { id: ToolId; label: string; hotkey: string; icon: ReactNode }[] = [
@@ -36,6 +48,8 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
   const canEdit = useEditorStore((s) => s.canEdit);
   // глядачу — лише «вибір», інструментів створення не показуємо
   const tools = canEdit ? TOOLS : TOOLS.filter((t) => t.id === 'select');
+  const canUndo = useUndoState((s) => s.canUndo);
+  const canRedo = useUndoState((s) => s.canRedo);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +123,34 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
           >
             <ImageIcon />
           </button>
+        )}
+        {/* скасувати/повторити — окрема група внизу, відділена рискою: це не
+        інструменти, а дії над тим, що вже зроблено. Для телефона це ще й
+        ЄДИНИЙ спосіб скасувати — клавіатури там нема */}
+        {canEdit && (
+          <>
+            <span className="tool-divider" />
+            <button
+              type="button"
+              className="tool-button"
+              title="Скасувати (Ctrl+Z)"
+              aria-label="Скасувати"
+              disabled={!canUndo}
+              onClick={() => undoBoard()}
+            >
+              <UndoIcon />
+            </button>
+            <button
+              type="button"
+              className="tool-button"
+              title="Повторити (Ctrl+Shift+Z)"
+              aria-label="Повторити"
+              disabled={!canRedo}
+              onClick={() => redoBoard()}
+            >
+              <RedoIcon />
+            </button>
+          </>
         )}
         {canEdit && (
           <input
