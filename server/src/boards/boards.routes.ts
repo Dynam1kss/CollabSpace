@@ -6,17 +6,19 @@ import type {
   BoardListResponse,
   BoardSummary,
   CreateBoardRequest,
+  ForceVoiceRequest,
   RemoveBoardMemberRequest,
   UpdateBoardMemberRequest,
   UpdateBoardRequest,
 } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
-import { applyRoleChange, kickMember } from './board-rooms';
+import { applyRoleChange, kickMember, setForcedVoice } from './board-rooms';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import {
   addMemberSchema,
   createBoardSchema,
+  forceVoiceSchema,
   removeMemberSchema,
   updateBoardSchema,
   updateMemberSchema,
@@ -203,6 +205,29 @@ boardsRouter.patch('/:id/members', async (req, res, next) => {
 
     const body: BoardDetail = toBoardDetail(access.board, members, req.userId as string);
     res.json(body);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// примусове вимкнення мікрофона чи звуку учаснику. Тіло як у сусідніх ручок
+// керування учасниками, і та сама ієрархія: власника не чіпає ніхто,
+// адміністратор — лише нижчих за себе
+boardsRouter.patch('/:id/voice', async (req, res, next) => {
+  try {
+    const access = requireBoardAdmin(await getBoardAccess(req.params.id, req.userId as string));
+    const parsed = forceVoiceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Некоректні дані');
+    }
+    const { userId, mute, deafen }: ForceVoiceRequest = parsed.data;
+    await requireCanManage(access, userId);
+
+    setForcedVoice(access.board.id, userId, {
+      ...(mute === undefined ? {} : { mute }),
+      ...(deafen === undefined ? {} : { deafen }),
+    });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

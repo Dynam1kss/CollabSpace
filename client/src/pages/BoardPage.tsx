@@ -16,6 +16,7 @@ import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { ChatPanel } from '../canvas/ChatPanel';
 import { VoicePanel } from '../voice/VoicePanel';
+import { setSelfUserId } from '../voice/voice-mesh';
 import { Participants } from '../canvas/Participants';
 import { usePresenceStore } from '../canvas/presence-store';
 import { diag } from '../canvas/diag';
@@ -88,6 +89,11 @@ export function BoardPage() {
 
   // монтування й розмонтування самої сторінки дошки — крайні точки всього
   // життєвого циклу, від них і читається решта журналу
+  // голос має знати, хто я: примусове вимкнення адресується за userId
+  useEffect(() => {
+    setSelfUserId(currentUserId);
+  }, [currentUserId]);
+
   useEffect(() => {
     diag('сторінку дошки змонтовано', { boardId: id });
     return () => diag('сторінку дошки розмонтовано', { boardId: id });
@@ -242,7 +248,7 @@ export function BoardPage() {
         <Participants />
         {/* чат і голос не залежать від того, що показано — полотно чи канбан */}
         <ChatPanel boardId={board.id} />
-        <VoicePanel />
+        <VoicePanel boardId={board.id} currentUserId={currentUserId} />
         <div className={`board-island sync-status ${syncStatus}`}>{SYNC_STATUS_TEXT[syncStatus]}</div>
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>

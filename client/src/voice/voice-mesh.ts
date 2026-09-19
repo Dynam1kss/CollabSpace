@@ -151,10 +151,35 @@ export function applySpatialGain() {
 // доріжку не знімаємо й не перепідключаємо — лише глушимо. Тому вмикається
 // вона миттєво й без переговорів
 export function setMicMuted(muted: boolean) {
+  useVoiceStore.getState().setMicMuted(muted);
+  applyMuteToTracks();
+}
+
+// чинний стан мікрофона на доріжки, які зараз є. Вимкненим він вважається і
+// коли людина сама вимкнула, і коли вимкнув адміністратор
+function applyMuteToTracks() {
+  const state = useVoiceStore.getState();
+  const muted = state.micMuted || (state.forced[selfUserId]?.mute ?? false);
   localStream?.getAudioTracks().forEach((track) => {
     track.enabled = !muted;
   });
-  useVoiceStore.getState().setMicMuted(muted);
+}
+
+// адміністратор примусово вимкнув мікрофон або звук. Вмикаємо одразу;
+// знімаючи заборону, НЕ вмикаємо назад самі — лише повертаємо людині кнопку,
+// як це й робить дискорд
+export function applyForcedVoice(userId: string, patch: { mute?: boolean; deafen?: boolean }) {
+  useVoiceStore.getState().setForced(userId, patch);
+  if (userId !== selfUserId) return;
+  if (patch.mute) setMicMuted(true);
+  if (patch.deafen) setDeafened(true);
+}
+
+// хто я — треба, щоб відрізнити «вимкнули мене» від «вимкнули когось»
+let selfUserId = '';
+
+export function setSelfUserId(userId: string) {
+  selfUserId = userId;
 }
 
 // як у дискорді: «не чую» тягне за собою й «не говорю», а на виході
@@ -304,6 +329,8 @@ async function replaceLocalTrack() {
   }
   localStream?.getTracks().forEach((t) => t.stop());
   localStream = fresh;
+  // нова доріжка приходить увімкненою — повертаємо їй чинний стан
+  applyMuteToTracks();
 }
 
 // повернення вкладки на очі — єдиний момент, коли це можна полагодити.
@@ -337,6 +364,10 @@ export async function startVoice() {
   }
   useVoiceStore.getState().setStarting(false);
   useVoiceStore.getState().setInVoice(true);
+  // щойно взята доріжка завжди ввімкнена, тому чинний стан накладаємо
+  // заново: інакше перезахід у розмову знімав би і власний мьют, і
+  // примусовий, виставлений адміністратором ще до входу
+  applyMuteToTracks();
   unsubscribeSeats ??= useSeatStore.subscribe(applySpatialGain);
   watchVisibility();
   // сервер у відповідь переспіває нам тих, хто вже в розмові, і розкаже

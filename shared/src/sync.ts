@@ -58,6 +58,13 @@ import type { BoardRole } from './boards';
 //             clientId: [16][clientId:u32][json]. Де людина «сидить» на
 //             дошці. Сама позиція зберігається в базі окремим rest-запитом —
 //             тут лише живе перетягування, як і в решти присутності
+//   FORCE_MUTE   [17][json ForceVoiceMessage]
+//   FORCE_DEAFEN [18][json ForceVoiceMessage]
+//             сервер → УСІМ у кімнаті: адміністратор примусово вимкнув
+//             комусь мікрофон або звук. Усім — бо решта має бачити замочок
+//             на тій людині; сам адресат ще й виконує. Стан живе на сервері
+//             й переживає перезавантаження сторінки: інакше примусовий мьют
+//             знімався б простим F5
 // Хто в кімнаті — знає сам сервер, тому роздає це він, а не клієнти
 // здогадуються з чужого трафіку. Присутність ефемерна: у Y.Doc і в базу не
 // потрапляє, з розривом сокета просто зникає. Глядач присутній нарівні з
@@ -86,6 +93,8 @@ export const SYNC_MSG = {
   VOICE_SDP: 14,
   VOICE_ICE: 15,
   SEAT: 16,
+  FORCE_MUTE: 17,
+  FORCE_DEAFEN: 18,
 } as const;
 
 export const SYNC_REQUESTER_ID_BYTES = 4;
@@ -104,6 +113,16 @@ export interface PresenceMember {
   // чи людина вже в голосовій розмові на момент, коли я зайшов на дошку.
   // Далі це живе окремим кадром VOICE_STATE, а тут — лише початковий знімок
   inVoice: boolean;
+  // примусово вимкнені адміністратором — теж знімок на момент входу
+  forcedMute: boolean;
+  forcedDeafen: boolean;
+}
+
+// кого саме примусово вимкнули. userId, а не clientId: вкладок може бути
+// кілька, а заборона одна на людину
+export interface ForceVoiceMessage {
+  userId: string;
+  on: boolean;
 }
 
 export interface RosterMessage {

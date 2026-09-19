@@ -27,6 +27,9 @@ interface VoiceState {
   // яким був мікрофон до того, як я заглушив усіх: щоб повернути саме його
   // стан, а не просто увімкнути
   micMutedBeforeDeafen: boolean;
+  // кого адміністратор примусово вимкнув, за userId. Потрібне і щоб малювати
+  // замочок на інших, і щоб заблокувати власні кнопки
+  forced: Record<string, { mute: boolean; deafen: boolean }>;
   setInVoice: (value: boolean) => void;
   setStarting: (value: boolean) => void;
   setPeer: (clientId: number, phase: PeerPhase) => void;
@@ -35,6 +38,7 @@ interface VoiceState {
   setError: (message: string | null) => void;
   setMicMuted: (muted: boolean) => void;
   setDeafened: (on: boolean, micMutedBefore: boolean) => void;
+  setForced: (userId: string, patch: { mute?: boolean; deafen?: boolean }) => void;
   reset: () => void;
 }
 
@@ -46,6 +50,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   micMuted: false,
   deafened: false,
   micMutedBeforeDeafen: false,
+  forced: {},
 
   setInVoice: (value) => set({ inVoice: value, error: value ? null : undefined }),
   setStarting: (value) => set({ starting: value }),
@@ -69,6 +74,16 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setError: (message) => set({ error: message }),
   setMicMuted: (micMuted) => set({ micMuted }),
   setDeafened: (deafened, micMutedBeforeDeafen) => set({ deafened, micMutedBeforeDeafen }),
+
+  setForced: (userId, patch) =>
+    set((state) => {
+      const current = state.forced[userId] ?? { mute: false, deafen: false };
+      const next = { ...current, ...patch };
+      const forced = { ...state.forced };
+      if (!next.mute && !next.deafen) delete forced[userId];
+      else forced[userId] = next;
+      return { forced };
+    }),
   reset: () =>
     set({
       inVoice: false,
@@ -78,5 +93,6 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       micMuted: false,
       deafened: false,
       micMutedBeforeDeafen: false,
+  forced: {},
     }),
 }));

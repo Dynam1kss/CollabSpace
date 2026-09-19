@@ -18,6 +18,12 @@ export const updateMemberSchema = z.object({
   role: z.enum(['ADMIN', 'EDITOR', 'VIEWER']),
 });
 
+export const forceVoiceSchema = z.object({
+  userId: z.string().min(1),
+  mute: z.boolean().optional(),
+  deafen: z.boolean().optional(),
+});
+
 export const removeMemberSchema = z.object({
   userId: z.string().min(1),
 });

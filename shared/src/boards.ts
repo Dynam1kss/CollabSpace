@@ -59,6 +59,14 @@ export interface UpdateBoardMemberRequest {
   role: BoardRole;
 }
 
+// примусове вимкнення мікрофона/звуку учаснику. Обидва поля необовʼязкові:
+// адміністратор міняє те, що натиснув
+export interface ForceVoiceRequest {
+  userId: string;
+  mute?: boolean;
+  deafen?: boolean;
+}
+
 export interface RemoveBoardMemberRequest {
   userId: string;
 }

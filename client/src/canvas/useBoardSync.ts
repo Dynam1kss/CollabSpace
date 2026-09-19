@@ -14,6 +14,7 @@ import type {
   LeaveMessage,
   LockMessage,
   PresenceMember,
+  ForceVoiceMessage,
   RoleChangedMessage,
   RosterMessage,
   SeatPosition,
@@ -26,6 +27,7 @@ import { useChatStore } from './chat-store';
 import { useSeatStore } from '../voice/seat-store';
 import { useVoiceStore } from '../voice/voice-store';
 import {
+  applyForcedVoice,
   dropPeer,
   handleVoiceIce,
   handleVoiceSdp,
@@ -186,6 +188,11 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
             if (member.inVoice && member.clientId !== roster.you) {
               useVoiceStore.getState().setPeer(member.clientId, 'connecting');
             }
+            if (member.forcedMute || member.forcedDeafen) {
+              useVoiceStore
+                .getState()
+                .setForced(member.userId, { mute: member.forcedMute, deafen: member.forcedDeafen });
+            }
           }
           return;
         }
@@ -254,6 +261,18 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           const view = new DataView(data.buffer, data.byteOffset + 1);
           const seat = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as SeatPosition;
           useSeatStore.getState().setOther(view.getUint32(0), seat);
+          return;
+        }
+
+        case SYNC_MSG.FORCE_MUTE: {
+          const { userId, on } = JSON.parse(text(payload)) as ForceVoiceMessage;
+          applyForcedVoice(userId, { mute: on });
+          return;
+        }
+
+        case SYNC_MSG.FORCE_DEAFEN: {
+          const { userId, on } = JSON.parse(text(payload)) as ForceVoiceMessage;
+          applyForcedVoice(userId, { deafen: on });
           return;
         }
 

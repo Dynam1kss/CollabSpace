@@ -1,6 +1,8 @@
 import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import { usePresenceStore } from '../canvas/presence-store';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
+import { forceVoice } from '../api/boards';
+import { outranks } from 'shared';
 import { setDeafened, setMicMuted, startVoice, stopVoice, voiceIsFull } from './voice-mesh';
 import {
   HeadphonesIcon,
@@ -20,7 +22,12 @@ function describe(peer: PeerInfo) {
 
 // вхід у розмову й хто в ній зараз. Кружечки ті самі, що в списку присутніх,
 // тим самим кольором — щоб голос і полотно читались як одна людина
-export function VoicePanel() {
+interface Props {
+  boardId: string;
+  currentUserId: string;
+}
+
+export function VoicePanel({ boardId, currentUserId }: Props) {
   const inVoice = useVoiceStore((s) => s.inVoice);
   const starting = useVoiceStore((s) => s.starting);
   const peers = useVoiceStore((s) => s.peers);
@@ -28,6 +35,10 @@ export function VoicePanel() {
   const micMuted = useVoiceStore((s) => s.micMuted);
   const deafened = useVoiceStore((s) => s.deafened);
   const members = usePresenceStore((s) => s.members);
+  const selfRole = usePresenceStore((s) => s.selfRole);
+  const forced = useVoiceStore((s) => s.forced);
+  // мене самого вимкнули примусово — кнопки замкнені, поки не знімуть
+  const myForced = forced[currentUserId] ?? { mute: false, deafen: false };
 
   const peerIds = Object.keys(peers).map(Number);
   const full = !inVoice && voiceIsFull();
@@ -48,9 +59,10 @@ export function VoicePanel() {
           <button
             type="button"
             className={micMuted ? 'voice-toggle off' : 'voice-toggle'}
-            title={micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
+            title={myForced.mute ? 'Мікрофон вимкнув адміністратор' : micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
             aria-label={micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
             aria-pressed={micMuted}
+            disabled={myForced.mute}
             onClick={() => setMicMuted(!micMuted)}
           >
             {micMuted ? <MicOffIcon /> : <MicIcon />}
@@ -58,9 +70,10 @@ export function VoicePanel() {
           <button
             type="button"
             className={deafened ? 'voice-toggle off' : 'voice-toggle'}
-            title={deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
+            title={myForced.deafen ? 'Звук вимкнув адміністратор' : deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
             aria-label={deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
             aria-pressed={deafened}
+            disabled={myForced.deafen}
             onClick={() => setDeafened(!deafened)}
           >
             {deafened ? <HeadphonesOffIcon /> : <HeadphonesIcon />}
@@ -73,19 +86,68 @@ export function VoicePanel() {
           {peerIds.map((clientId) => {
             const member = members[clientId];
             if (!member) return null;
+            const theirForced = forced[member.userId] ?? { mute: false, deafen: false };
+            // керувати чужим мікрофоном може лише той, хто вищий за людину
+            const canForce = selfRole ? outranks(selfRole, member.role) : false;
             return (
-              <span
-                key={clientId}
-                className={`voice-peer ${peers[clientId].phase}`}
-                style={{
-                  background: colorForUser(member.userId),
-                  // видно, кого зараз чути: далекий стілець — блідий кружечок
-                  opacity: peers[clientId].phase === 'live' ? 0.25 + peers[clientId].volume * 0.75 : undefined,
-                }}
-                data-volume={Math.round(peers[clientId].volume * 100)}
-                title={`${member.displayName} — ${describe(peers[clientId])}`}
-              >
-                {initialsOf(member.displayName)}
+              <span key={clientId} className="voice-peer-row">
+                <span
+                  className={`voice-peer ${peers[clientId].phase}`}
+                  style={{
+                    background: colorForUser(member.userId),
+                    opacity:
+                      peers[clientId].phase === 'live' ? 0.25 + peers[clientId].volume * 0.75 : undefined,
+                  }}
+                  data-volume={Math.round(peers[clientId].volume * 100)}
+                  title={`${member.displayName} — ${describe(peers[clientId])}`}
+                >
+                  {initialsOf(member.displayName)}
+                </span>
+                {(theirForced.mute || theirForced.deafen) && (
+                  <span
+                    className="voice-locked"
+                    title={
+                      theirForced.mute && theirForced.deafen
+                        ? 'адміністратор вимкнув мікрофон і звук'
+                        : theirForced.mute
+                          ? 'адміністратор вимкнув мікрофон'
+                          : 'адміністратор вимкнув звук'
+                    }
+                  >
+                    🔒
+                  </span>
+                )}
+                {canForce && (
+                  <>
+                    <button
+                      type="button"
+                      className={theirForced.mute ? 'voice-force on' : 'voice-force'}
+                      title={theirForced.mute ? 'Повернути мікрофон' : 'Вимкнути мікрофон учаснику'}
+                      aria-label={`Мікрофон: ${member.displayName}`}
+                      onClick={() =>
+                        void forceVoice(boardId, { userId: member.userId, mute: !theirForced.mute }).catch(
+                          () => {},
+                        )
+                      }
+                    >
+                      {theirForced.mute ? <MicOffIcon /> : <MicIcon />}
+                    </button>
+                    <button
+                      type="button"
+                      className={theirForced.deafen ? 'voice-force on' : 'voice-force'}
+                      title={theirForced.deafen ? 'Повернути звук' : 'Вимкнути звук учаснику'}
+                      aria-label={`Звук: ${member.displayName}`}
+                      onClick={() =>
+                        void forceVoice(boardId, {
+                          userId: member.userId,
+                          deafen: !theirForced.deafen,
+                        }).catch(() => {})
+                      }
+                    >
+                      {theirForced.deafen ? <HeadphonesOffIcon /> : <HeadphonesIcon />}
+                    </button>
+                  </>
+                )}
               </span>
             );
           })}

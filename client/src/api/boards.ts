@@ -9,6 +9,7 @@ import type {
   ChatHistoryResponse,
   CreateBoardRequest,
   IceConfigResponse,
+  ForceVoiceRequest,
   RemoveBoardMemberRequest,
   SaveSeatRequest,
   SaveSnapshotRequest,
@@ -125,6 +126,16 @@ export async function saveMySeat(boardId: string, seat: SaveSeatRequest) {
     body: JSON.stringify(seat),
   });
   if (!res.ok) throw new Error('Не вдалося зберегти місце');
+}
+
+// примусово вимкнути учаснику мікрофон чи звук — лише власнику й адміну
+export async function forceVoice(boardId: string, patch: ForceVoiceRequest) {
+  const res = await fetch(`/api/boards/${boardId}/voice`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error('Не вдалося змінити стан мікрофона учасника');
 }
 
 // куди стукати браузеру, щоб пробити NAT. Тягнемо на вхід у розмову, а не

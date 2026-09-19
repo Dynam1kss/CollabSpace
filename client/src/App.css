@@ -818,3 +818,31 @@ elementFromPoint повертав би її саму замість колонк
   border-color: #f3c0d2;
   background: #fdeef3;
 }
+
+/* рядок учасника голосу: кружечок, замочок і кнопки адміністратора */
+.voice-peer-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.voice-locked {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.voice-force {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.voice-force.on {
+  color: #c2255c;
+  border-color: #f3c0d2;
+  background: #fdeef3;
+}

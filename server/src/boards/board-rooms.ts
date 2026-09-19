@@ -24,6 +24,22 @@ interface Client {
   inVoice: boolean;
 }
 
+// примусові заборони від адміністратора. Ключ — дошка й людина, а не сокет:
+// інакше перезавантаження сторінки знімало б їх саме собою. Памʼять процесу,
+// без бази: це модераторська дія «тут і зараз», і переживати перезапуск
+// сервера їй не обовʼязково
+interface ForcedVoice {
+  mute: boolean;
+  deafen: boolean;
+}
+
+const forcedVoice = new Map<string, ForcedVoice>();
+const forcedKey = (boardId: string, userId: string) => `${boardId}:${userId}`;
+
+function forcedFor(boardId: string, userId: string): ForcedVoice {
+  return forcedVoice.get(forcedKey(boardId, userId)) ?? { mute: false, deafen: false };
+}
+
 // той самий журнал, що й у клієнта: коли обʼєкти зникають, послідовність
 // треба читати з обох боків одночасно
 function diag(event: string, data: Record<string, unknown>) {
@@ -130,6 +146,8 @@ function toMember(client: Client): PresenceMember {
     displayName: client.displayName,
     role: client.role,
     inVoice: client.inVoice,
+    forcedMute: forcedFor(client.boardId, client.userId).mute,
+    forcedDeafen: forcedFor(client.boardId, client.userId).deafen,
   };
 }
 
@@ -198,6 +216,25 @@ async function relayChat(client: Client, buf: Buffer) {
 // зрозуміє, чому її раптом викинуло; тому спершу кадр, і вже по ньому
 // закриття. close() шле кадр закриття після всього, що вже стало в чергу,
 // тож повідомлення встигає піти
+// адміністратор примусово вимкнув комусь мікрофон або звук. Розсилаємо всім
+// у кімнаті: адресат виконує, решта малює замочок
+export function setForcedVoice(boardId: string, userId: string, patch: Partial<ForcedVoice>) {
+  const next = { ...forcedFor(boardId, userId), ...patch };
+  if (!next.mute && !next.deafen) forcedVoice.delete(forcedKey(boardId, userId));
+  else forcedVoice.set(forcedKey(boardId, userId), next);
+
+  const room = rooms.get(boardId);
+  if (!room) return;
+  if (patch.mute !== undefined) {
+    const frame = jsonFrame(SYNC_MSG.FORCE_MUTE, { userId, on: next.mute });
+    for (const [, socket] of room) send(socket, frame);
+  }
+  if (patch.deafen !== undefined) {
+    const frame = jsonFrame(SYNC_MSG.FORCE_DEAFEN, { userId, on: next.deafen });
+    for (const [, socket] of room) send(socket, frame);
+  }
+}
+
 export function kickMember(boardId: string, userId: string) {
   diag('учасника виводять з дошки', { boardId, userId });
   for (const socket of socketsOfUser(boardId, userId)) {
@@ -238,6 +275,15 @@ boardRoomWss.on('connection', (socket) => {
   missedPings.set(socket, 0);
   socket.on('pong', () => missedPings.set(socket, 0));
   send(socket, jsonFrame(SYNC_MSG.ROSTER, roster));
+  // після перезавантаження сторінки заборона має лишитись — тому переспівуємо
+  // її новому сокету окремо, а не покладаємось на roster, який лише знімок
+  const forced = forcedFor(client.boardId, client.userId);
+  if (forced.mute) {
+    send(socket, jsonFrame(SYNC_MSG.FORCE_MUTE, { userId: client.userId, on: true }));
+  }
+  if (forced.deafen) {
+    send(socket, jsonFrame(SYNC_MSG.FORCE_DEAFEN, { userId: client.userId, on: true }));
+  }
 
   socket.on('message', (data) => {
     const buf = toBuffer(data);
