@@ -8,6 +8,7 @@ import { BringFrontIcon, SendBackIcon, StrokeWidthIcon, TextIcon, TrashIcon } fr
 import { NumberField } from './NumberField';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, PALETTE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './object-defaults';
 import { fitTextBox } from './text-layout';
+import { useLockedByOthers } from './presence-store';
 import { deleteSelected } from './selection-actions';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
@@ -32,7 +33,12 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const interacting = useEditorStore((s) => s.interacting);
   const objectsMap = useBoardStore((s) => s.objects);
-  const selected = selectedIds.map((id) => objectsMap[id]).filter((o): o is BoardObject => !!o);
+  // те, що зараз редагує хтось інший, панель не чіпає — так само, як її
+  // цілком нема в глядача. Лишилось порожньо — панель не показуємо взагалі
+  const lockedByOthers = useLockedByOthers();
+  const selected = selectedIds
+    .map((id) => objectsMap[id])
+    .filter((o): o is BoardObject => !!o && !lockedByOthers.has(o.id));
   const selectionKey = selectedIds.join(',');
   const ref = useRef<HTMLDivElement>(null);
   // відкрита палітра привʼязана до виділення — нове виділення її закриває

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import type { PresenceMember, ViewportMessage } from 'shared';
 
@@ -94,6 +95,21 @@ export const usePresenceStore = create<PresenceState>((set) => ({
 // усі, крім мене — саме їх показуємо в списку й малюємо на полотні
 export function otherMembers(state: PresenceState) {
   return Object.values(state.members).filter((m) => m.clientId !== state.selfClientId);
+}
+
+// обʼєкти, які зараз тримає хтось інший. Поки людина в обʼєкті друкує, решта
+// його не чіпає взагалі — ні стилем, ні розміром, ні видаленням: інакше можна
+// змінити колір чи знести стікер просто з-під того, хто в ньому пише
+export function useLockedByOthers() {
+  const locks = usePresenceStore((s) => s.locks);
+  const selfClientId = usePresenceStore((s) => s.selfClientId);
+  return useMemo(() => {
+    const ids = new Set<string>();
+    for (const [key, objectId] of Object.entries(locks)) {
+      if (Number(key) !== selfClientId) ids.add(objectId);
+    }
+    return ids;
+  }, [locks, selfClientId]);
 }
 
 // хто тримає обʼєкт зайнятим — не рахуючи мене самого: свій же замок

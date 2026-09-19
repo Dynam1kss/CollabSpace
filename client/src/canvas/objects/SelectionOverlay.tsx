@@ -94,13 +94,21 @@ interface Props {
   // і forceUpdate нижче міряв би ще старі вузли (так і виглядав баг з рамкою)
   objects: Record<string, BoardObject>;
   selectedIds: string[];
+  // те, що зараз редагує хтось інший — ручок розміру й повороту на ньому не даємо
+  lockedByOthers: Set<string>;
 }
 
 // маркери зміни розміру/повороту — вбудований Konva Transformer (сам тримає
 // консистентний розмір ручок незалежно від зуму). Конектор, виділений сам,
 // сюди не потрапляє — його точки тягаються кружечками в ConnectorShape; у
 // групі з іншими він звичайний учасник
-export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selectedIds }: Props) {
+export function SelectionOverlay({
+  nodesByIdRef,
+  nodesVersion,
+  objects,
+  selectedIds,
+  lockedByOthers,
+}: Props) {
   const transformerRef = useRef<Konva.Transformer>(null);
   const updateObject = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
@@ -128,7 +136,9 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
     };
   }, []);
 
-  const selectedObjects = selectedIds.map((id) => objects[id]).filter((o): o is BoardObject => !!o);
+  const selectedObjects = selectedIds
+    .map((id) => objects[id])
+    .filter((o): o is BoardObject => !!o && !lockedByOthers.has(o.id));
   const soleText =
     selectedObjects.length === 1 && selectedObjects[0].type === 'text'
       ? (selectedObjects[0] as TextObject)
@@ -150,7 +160,7 @@ export function SelectionOverlay({ nodesByIdRef, nodesVersion, objects, selected
     transformerRef.current?.forceUpdate();
     transformerRef.current?.getLayer()?.batchDraw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds.join(','), shiftHeld, nodesVersion, objects, interacting]);
+  }, [selectedIds.join(','), shiftHeld, nodesVersion, objects, interacting, lockedByOthers]);
 
   // на кожному кадрі тягання scale вузла одразу запікається в його розмір,
   // тож нода ніколи не несе scale: обведення не сплющується по осях (konva

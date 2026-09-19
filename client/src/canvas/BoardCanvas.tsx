@@ -15,6 +15,7 @@ import { RemoteSelections } from './objects/RemoteSelections';
 import { RemoteViewports } from './objects/RemoteViewports';
 import { SelectionOverlay } from './objects/SelectionOverlay';
 import { publishCursor, publishViewport } from './presence-channel';
+import { useLockedByOthers } from './presence-store';
 import { useObjectInteractions } from './useObjectInteractions';
 
 interface StageHandlers {
@@ -116,8 +117,10 @@ export function BoardCanvas({
     }
   }, [objectsMap]);
 
-  // глядачу тягати не можна ніколи, незалежно від інструмента
+  // глядачу тягати не можна ніколи, незалежно від інструмента; зайняте кимось
+  // іншим — теж, поки він не вийде
   const draggableObjects = canEdit && activeTool === 'select';
+  const lockedByOthers = useLockedByOthers();
 
   function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
     stageHandlers.onMouseDown(e);
@@ -197,7 +200,7 @@ export function BoardCanvas({
                 object={object}
                 isSelected={selectedIds.includes(object.id)}
                 isEditing={editingTextId === object.id}
-                draggable={draggableObjects}
+                draggable={draggableObjects && !lockedByOthers.has(object.id)}
                 viewportScale={viewport.scale}
                 registerRef={getRegisterRef(object.id)}
               />
@@ -225,6 +228,7 @@ export function BoardCanvas({
                 nodesVersion={nodesVersion}
                 objects={objectsMap}
                 selectedIds={selectedIds}
+                lockedByOthers={lockedByOthers}
               />
             </Layer>
           )}
