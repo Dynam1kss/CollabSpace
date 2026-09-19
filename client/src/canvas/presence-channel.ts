@@ -121,6 +121,14 @@ export function publishLock(objectId: string | null) {
   sendFrame(jsonFrame(SYNC_MSG.LOCK, { objectId }));
 }
 
+// чат кадрів не тротлить і нічого не тримає: людина шле повідомлення руками,
+// частіше за раз на секунду це не буває. Автора й час призначає сервер —
+// звідси й прилетить готове повідомлення, разом із копією для самого автора
+export function publishChat(text: string) {
+  if (!sendFrame) return;
+  sendFrame(jsonFrame(SYNC_MSG.CHAT, { text }));
+}
+
 // останнє надіслане вікно — щоб переспівати його новачкові: він міг зайти
 // тоді, коли телефон уже хвилину лежить нерухомо, і кадру не буде ще довго
 let lastViewport: ViewportMessage | null = null;

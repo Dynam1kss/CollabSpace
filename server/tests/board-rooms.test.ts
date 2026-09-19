@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { SYNC_MSG } from 'shared';
+import { CHAT_MAX_LENGTH, SYNC_MSG } from 'shared';
 import { app } from '../src/app';
 import { roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
 import { prisma } from '../src/prisma';
@@ -278,6 +278,71 @@ describe('кімнати дошок поверх ws', () => {
 
     // собі назад не прилітає
     expect(await nextMessage(v, 150)).toBeNull();
+  });
+
+  it('чат: сервер зберігає і розсилає всім, включно з автором; глядачу можна', async () => {
+    const { boardId, owner, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    const me = JSON.parse((await rosterA)!.subarray(1).toString()).you as number;
+    const v = connect(boardId, viewer.cookie);
+    await opened(v);
+    await nextMessage(a); // join
+
+    const chat = (ws: WebSocket, text: string) =>
+      ws.send(Buffer.concat([Buffer.from([SYNC_MSG.CHAT]), Buffer.from(JSON.stringify({ text }))]));
+
+    // пише саме глядач — чат за роллю не гейтиться
+    const toA = nextMessage(a);
+    const toV = nextMessage(v);
+    chat(v, '  привіт усім  ');
+
+    const gotA = (await toA)!;
+    expect(gotA[0]).toBe(SYNC_MSG.CHAT);
+    const message = JSON.parse(gotA.subarray(1).toString());
+    // пробіли по краях сервер зрізає, автора бере з сокета, не з тіла
+    expect(message).toMatchObject({ text: 'привіт усім', displayName: 'Тест' });
+    expect(typeof message.id).toBe('string');
+    expect(typeof message.createdAt).toBe('string');
+    expect(message.authorId).not.toBe('');
+
+    // на відміну від присутності, авторові його ж повідомлення вертається
+    const echoed = (await toV)!;
+    expect(JSON.parse(echoed.subarray(1).toString())).toEqual(message);
+    expect(me).not.toBe(0);
+
+    // і воно лягло в базу
+    const stored = await prisma.chatMessage.findMany({ where: { boardId } });
+    expect(stored).toHaveLength(1);
+    expect(stored[0].text).toBe('привіт усім');
+  });
+
+  it('чат: порожнє, надто довге й покручене не проходить і в базу не лягає', async () => {
+    const { boardId, owner, editor } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    await opened(a);
+    const b = connect(boardId, editor.cookie);
+    await opened(b);
+    await nextMessage(a); // join
+
+    const raw = (ws: WebSocket, body: string) =>
+      ws.send(Buffer.concat([Buffer.from([SYNC_MSG.CHAT]), Buffer.from(body)]));
+
+    raw(b, JSON.stringify({ text: '   ' }));
+    raw(b, JSON.stringify({ text: 'x'.repeat(CHAT_MAX_LENGTH + 1) }));
+    raw(b, JSON.stringify({ text: 42 }));
+    raw(b, 'це не json');
+    raw(b, JSON.stringify({ nope: 'так' }));
+
+    expect(await nextMessage(a, 400)).toBeNull();
+    expect(await prisma.chatMessage.count({ where: { boardId } })).toBe(0);
+
+    // рівно на межі — проходить
+    raw(b, JSON.stringify({ text: 'y'.repeat(CHAT_MAX_LENGTH) }));
+    const got = (await nextMessage(a))!;
+    expect(JSON.parse(got.subarray(1).toString()).text).toHaveLength(CHAT_MAX_LENGTH);
+    expect(await prisma.chatMessage.count({ where: { boardId } })).toBe(1);
   });
 
   it('мертвий сокет не блокує sync-запит іншим', async () => {

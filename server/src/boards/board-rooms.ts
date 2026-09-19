@@ -2,11 +2,12 @@ import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
-import { CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
+import { CHAT_MAX_LENGTH, CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
 import type { PresenceMember, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getDisplayName } from './boards.service';
+import { saveChatMessage } from './chat.service';
 import type { BoardAccess } from './boards.service';
 
 // кімната = дошка; сервер не тримає Y.Doc і не декодує yjs — лише
@@ -102,6 +103,39 @@ function toBuffer(data: RawData) {
   return Buffer.from(data);
 }
 
+// з json-тіла кадру дістаємо текст повідомлення; усе, що не схоже на текст
+// або довше за дозволене, просто викидаємо. Розмір перевіряємо ДО розбору,
+// щоб зіпсований клієнт не змусив парсити мегабайт
+function readChatText(buf: Buffer) {
+  if (buf.length > CHAT_MAX_LENGTH * 6 + 64) return null;
+  try {
+    const body: unknown = JSON.parse(buf.subarray(1).toString('utf8'));
+    if (typeof body !== 'object' || body === null) return null;
+    const { text } = body as { text?: unknown };
+    if (typeof text !== 'string') return null;
+    const trimmed = text.trim();
+    if (!trimmed || trimmed.length > CHAT_MAX_LENGTH) return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
+
+// єдиний кадр, який сервер зберігає, а не ретранслює: спершу база призначає
+// id і час, і вже готове повідомлення йде всім у кімнаті — разом із автором,
+// бо саме з цієї відповіді він і побачить своє повідомлення
+async function relayChat(client: Client, buf: Buffer) {
+  const text = readChatText(buf);
+  if (!text) return;
+  const saved = await saveChatMessage(client.boardId, client.userId, text);
+  const frame = jsonFrame(SYNC_MSG.CHAT, saved);
+  // кімнату беремо наново: поки писали в базу, вона могла спорожніти й
+  // зникнути, а та, що в замиканні, лишилась би від старого складу
+  const room = rooms.get(client.boardId);
+  if (!room) return;
+  for (const [, socket] of room) send(socket, frame);
+}
+
 boardRoomWss.on('connection', (socket) => {
   const client = clients.get(socket);
   if (!client) {
@@ -171,6 +205,13 @@ boardRoomWss.on('connection', (socket) => {
         for (const [, other] of others) send(other, framed);
         return;
       }
+
+      case SYNC_MSG.CHAT:
+        // чат — не вміст дошки, тому за роллю не гейтимо: глядач пише й читає
+        // нарівні з усіма, як і в присутності. Обробник асинхронний (запис у
+        // базу), тому промис відпускаємо — далі черга кадрів не чекає
+        void relayChat(client, buf).catch(() => {});
+        return;
 
       case SYNC_MSG.SYNC_REQUEST: {
         // новачок просить історію — відповідає найстарший живий редактор (глядач

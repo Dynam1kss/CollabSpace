@@ -3,7 +3,15 @@ import * as Y from 'yjs';
 import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
 import { publishLock, publishSelection, republishViewport, setPresenceSender } from './presence-channel';
 import { useEditorStore } from './editor-store';
-import type { LeaveMessage, LockMessage, PresenceMember, RosterMessage, ViewportMessage } from 'shared';
+import type {
+  ChatMessageInfo,
+  LeaveMessage,
+  LockMessage,
+  PresenceMember,
+  RosterMessage,
+  ViewportMessage,
+} from 'shared';
+import { useChatStore } from './chat-store';
 import { resetBoardDoc } from './board-store';
 import { usePresenceStore } from './presence-store';
 
@@ -167,6 +175,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           }
           return;
         }
+
+        case SYNC_MSG.CHAT:
+          // сюди долітає і власне повідомлення — сервер шле його всім, бо id
+          // і час призначає база
+          useChatStore.getState().addMessage(JSON.parse(text(payload)) as ChatMessageInfo);
+          return;
 
         case SYNC_MSG.VIEWPORT: {
           const view = new DataView(data.buffer, data.byteOffset + 1);

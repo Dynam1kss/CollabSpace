@@ -10,6 +10,12 @@ export interface ChatMessageInfo {
   createdAt: string;
 }
 
+// клієнт → серверу: лише текст. Автора сервер бере з сокета, а не з тіла —
+// інакше можна було б підписатись чужим імʼям
+export interface ChatSendMessage {
+  text: string;
+}
+
 export interface ChatHistoryResponse {
   messages: ChatMessageInfo[];
 }
