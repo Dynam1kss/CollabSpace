@@ -74,8 +74,8 @@ export function StickyNoteShape({ object, isSelected, isEditing, draggable, regi
         text={object.text}
         x={10}
         y={10}
-        width={object.width - 20}
-        height={object.height - 20}
+        width={Math.max(0, object.width - 20)}
+        height={Math.max(0, object.height - 20)}
         fontSize={16}
         fontFamily={TEXT_FONT_FAMILY}
         lineHeight={TEXT_LINE_HEIGHT}

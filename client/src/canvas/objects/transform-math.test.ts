@@ -13,11 +13,14 @@ describe('нижня межа розміру', () => {
     expect(out.height).toBe(80);
   });
 
-  it('вироджений кадр відкидає, лишаючи попередній', () => {
+  // кадр більше не відкидаємо: підтягуємо сторону до порога на тому боці,
+  // де зараз курсор. Відкинутий кадр лишав фігуру стояти, поки курсор ішов
+  // далі, і жест накопичував розбіжність
+  it('вироджений кадр не відкидає, а кладе на поріг', () => {
     const prev = box(200, 80);
-    expect(limitBoxSize(prev, box(3, 80))).toBe(prev);
-    expect(limitBoxSize(prev, box(-3, 80))).toBe(prev);
-    expect(limitBoxSize(prev, box(200, -2))).toBe(prev);
+    expect(limitBoxSize(prev, box(3, 80))).toMatchObject({ width: MIN_SIZE, height: 80, x: 0 });
+    expect(limitBoxSize(prev, box(-3, 80))).toMatchObject({ width: MIN_SIZE, height: 80, x: -MIN_SIZE });
+    expect(limitBoxSize(prev, box(200, -2))).toMatchObject({ width: 200, height: MIN_SIZE, y: -MIN_SIZE });
   });
 });
 
@@ -75,9 +78,14 @@ describe('товщина обведення при зміні розміру', (
 // Два дзеркалення поспіль — і активною стає ручка, що мала стояти нерухомо
 describe('різкий мах через нуль', () => {
   const fixed = { x: 429, y: 349 };
+  // тягнуть правий нижній кут: початок рамки стоїть на нерухомому куті,
+  // а ширина/висота — це відстань до курсора зі знаком. Саме так konva
+  // і віддає рамку в цьому випадку, тому oldBox беремо з тим самим початком
+  const atFixed = (w: number, h: number) => ({ ...box(w, h), x: fixed.x, y: fixed.y });
+  const held = atFixed(262, 162);
 
   it('велику відʼємну рамку не відкидає, а нормалізує', () => {
-    const out = limitBoxSize(box(262, 162), { ...box(-300, -180), x: fixed.x, y: fixed.y });
+    const out = limitBoxSize(held, atFixed(-300, -180));
     expect(out.width).toBe(300);
     expect(out.height).toBe(180);
     // початок переїхав на справжній лівий верхній кут
@@ -86,12 +94,11 @@ describe('різкий мах через нуль', () => {
   });
 
   it('нерухомий кут лишається на місці й туди, і назад', () => {
-    // мах за протилежний кут…
-    const a = limitBoxSize(box(262, 162), { ...box(-300, -180), x: fixed.x, y: fixed.y });
+    const a = limitBoxSize(held, atFixed(-300, -180));
     expect(a.x + a.width).toBeCloseTo(fixed.x, 6);
     expect(a.y + a.height).toBeCloseTo(fixed.y, 6);
-    // …і різко назад: конва знову дає відʼємну рамку, вже від нової точки
-    const b = limitBoxSize(a, { ...box(-300, -180), x: fixed.x + 300, y: fixed.y + 180 });
+    // і різко назад у плюс — початок рамки там само, на нерухомому куті
+    const b = limitBoxSize(a, atFixed(300, 180));
     expect(b.x).toBeCloseTo(fixed.x, 6);
     expect(b.y).toBeCloseTo(fixed.y, 6);
     expect(b.width).toBe(300);
@@ -99,39 +106,112 @@ describe('різкий мах через нуль', () => {
   });
 
   it('десять різких махів поспіль не зсувають нерухомий кут', () => {
-    let prev = box(262, 162);
+    let prev = held;
     for (let i = 0; i < 10; i++) {
-      const out = limitBoxSize(prev, { ...box(-300, -180), x: fixed.x, y: fixed.y });
-      expect(out.x + out.width).toBeCloseTo(fixed.x, 6);
-      expect(out.y + out.height).toBeCloseTo(fixed.y, 6);
-      expect(out.width).toBe(300);
-      prev = out;
+      const back = limitBoxSize(prev, atFixed(-300, -180));
+      expect(back.x + back.width).toBeCloseTo(fixed.x, 6);
+      expect(back.y + back.height).toBeCloseTo(fixed.y, 6);
+      expect(back.width).toBe(300);
+      const forth = limitBoxSize(back, atFixed(300, 180));
+      expect(forth.x).toBeCloseTo(fixed.x, 6);
+      expect(forth.width).toBe(300);
+      prev = forth;
     }
   });
 
   // саме цей інваріант і ламав подвійне дзеркалення
   it('назовні ніколи не виходить рамка з відʼємною стороною', () => {
-    for (const w of [-900, -300, -9, 9, 300, 900]) {
-      for (const h of [-900, -180, -9, 9, 180, 900]) {
-        const out = limitBoxSize(box(262, 162), { ...box(w, h), x: 429, y: 349 });
-        expect(out.width).toBeGreaterThan(0);
-        expect(out.height).toBeGreaterThan(0);
+    for (const w of [-900, -300, -9, -1, 1, 9, 300, 900]) {
+      for (const h of [-900, -180, -9, -1, 1, 9, 180, 900]) {
+        const out = limitBoxSize(held, atFixed(w, h));
+        expect(out.width).toBeGreaterThanOrEqual(MIN_SIZE);
+        expect(out.height).toBeGreaterThanOrEqual(MIN_SIZE);
       }
     }
   });
 
   it('при повороті зсув іде вздовж осей самої рамки', () => {
     // повернуто на 90°: відʼємна ширина тягне початок уздовж осі y
-    const out = limitBoxSize(box(262, 162), {
-      x: 100, y: 200, width: -300, height: 180, rotation: Math.PI / 2,
-    });
+    const turned = { x: 100, y: 200, width: 262, height: 180, rotation: Math.PI / 2 };
+    const out = limitBoxSize(turned, { ...turned, width: -300 });
     expect(out.width).toBe(300);
     expect(out.x).toBeCloseTo(100, 6);
     expect(out.y).toBeCloseTo(-100, 6);
   });
 
-  it('вироджену рамку відкидає й на великій дельті', () => {
-    const prev = box(262, 162);
-    expect(limitBoxSize(prev, { ...box(-3, -180), x: 429, y: 349 })).toBe(prev);
+  it('вироджену сторону кладе на поріг і на великій дельті', () => {
+    const out = limitBoxSize(held, atFixed(-3, -180));
+    expect(out.width).toBe(MIN_SIZE);
+    expect(out.height).toBe(180);
+    // нерухомий кут на місці, фігура стоїть порогом ліворуч від нього
+    expect(out.x + out.width).toBeCloseTo(fixed.x, 6);
+  });
+});
+
+// поведінка як у miro: розмір — чиста функція від того, де курсор ЗАРАЗ
+// відносно нерухомого кінця. box() тут — рамка з нерухомим ПОЧАТКОМ (так
+// konva віддає її, коли тягнуть праву/нижню ручку), тому newBox.width і є
+// та сама відстань зі знаком
+describe('приніжна зона й миттєве дзеркалення', () => {
+  const prev = box(200, 80);
+  const widthAt = (d: number) => limitBoxSize(prev, box(d, 80)).width;
+  // де починається сторона — від цього видно, на якому боці стоїть фігура
+  const startAt = (d: number) => limitBoxSize(prev, box(d, 80)).x;
+
+  it('у приніжній зоні розмір не міняється, хоч як водити курсором', () => {
+    for (const d of [7.9, 6, 4, 2, 0.5]) expect(widthAt(d)).toBe(MIN_SIZE);
+    // і назад тією ж зоною — так само нічого
+    for (const d of [0.5, 3, 5, 7.9]) expect(widthAt(d)).toBe(MIN_SIZE);
+  });
+
+  it('те саме дзеркально, з іншого боку нерухомого кінця', () => {
+    for (const d of [-7.9, -5, -2, -0.5]) expect(widthAt(d)).toBe(MIN_SIZE);
+    // і стоїть вона весь час на тому боці, а не на початковому
+    for (const d of [-7.9, -5, -0.5]) expect(startAt(d)).toBe(-MIN_SIZE);
+  });
+
+  it('перехід через нерухомий кінець одразу перекидає фігуру на інший бік', () => {
+    expect(startAt(0.5)).toBe(0);
+    expect(startAt(-0.5)).toBe(-MIN_SIZE);
+    expect(widthAt(0.5)).toBe(widthAt(-0.5));
+  });
+
+  it('за порогом розмір іде за курсором без відставання', () => {
+    for (const d of [9, 20, 75, 240]) {
+      expect(widthAt(d)).toBe(d);
+      expect(widthAt(-d)).toBe(d);
+      expect(startAt(-d)).toBe(-d);
+    }
+  });
+
+  // саме це й просили: перескочити нуль одразу далеко і побачити той розмір,
+  // а не поріг, з якого фігура ще мала б доростати
+  it('стрибок одразу далеко за нуль дає повний розмір тієї ж миті', () => {
+    expect(widthAt(-240)).toBe(240);
+    expect(startAt(-240)).toBe(-240);
+  });
+
+  it('нерухомий кінець не рухається ні в зоні, ні за нею', () => {
+    for (const d of [200, 40, 8, 3, 0.5, -0.5, -3, -8, -40, -200]) {
+      const out = limitBoxSize(prev, box(d, 80));
+      const fixedEnd = d >= 0 ? out.x : out.x + out.width;
+      expect(fixedEnd).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('коли нерухомий ДАЛЬНІЙ кінець (тягнуть ліву ручку), усе дзеркально', () => {
+    // початок рамки зрушив — отже тягнуть лівий бік, нерухомий кінець правий
+    const moved = (d: number) => limitBoxSize(box(200, 80), { ...box(d, 80), x: 200 - d });
+    const near = moved(3);
+    expect(near.width).toBe(MIN_SIZE);
+    expect(near.x + near.width).toBeCloseTo(200, 6);
+    // курсор перейшов кінець — фігура вже з іншого боку, того ж розміру
+    const over = moved(-3);
+    expect(over.width).toBe(MIN_SIZE);
+    expect(over.x).toBeCloseTo(200, 6);
+    // і далеко за ним — розмір рівно за курсором
+    const far = moved(-120);
+    expect(far.width).toBe(120);
+    expect(far.x).toBeCloseTo(200, 6);
   });
 });

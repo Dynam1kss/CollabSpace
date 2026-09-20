@@ -376,7 +376,12 @@ function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObje
   const width = bakedSide(box?.width() ?? obj.width, sx);
   const height = bakedSide(box?.height() ?? obj.height, sy);
   box?.setAttrs({ width, height });
-  text?.setAttrs({ width: width - STICKY_PADDING * 2, height: height - STICKY_PADDING * 2 });
+  // на мінімальному розмірі відступи більші за сам стікер — але відʼємної
+  // ширини konva-тексту давати не можна
+  text?.setAttrs({
+    width: Math.max(0, width - STICKY_PADDING * 2),
+    height: Math.max(0, height - STICKY_PADDING * 2),
+  });
   return { width, height };
 }
 
