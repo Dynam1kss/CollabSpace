@@ -84,6 +84,12 @@ header {
   padding: 0.25rem 0;
 }
 
+/* імʼя не дає рядку розповзтись, коли пошта довга */
+.member-who {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .member-add-form {
   flex-direction: row;
   gap: 0.5rem;

@@ -102,7 +102,11 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
         <ul className="member-list">
           {members.map((m) => (
             <li key={m.userId}>
-              <span>{m.email}</span>
+              {/* імʼя і пошта поруч: імена бувають однакові, пошта — ні */}
+              <span className="member-who">
+                {m.displayName}
+                <span className="board-role"> {m.email}</span>
+              </span>
               <select
                 value={m.role}
                 disabled={busyUserId === m.userId || !canManage(m)}

@@ -70,7 +70,10 @@ export function BoardsPage() {
   return (
     <div>
       <header>
-        <span>{user?.displayName}</span>
+        <span>
+          {user?.displayName}
+          <span className="board-role"> {user?.email}</span>
+        </span>
         <button type="button" onClick={handleLogout}>
           Вийти
         </button>
