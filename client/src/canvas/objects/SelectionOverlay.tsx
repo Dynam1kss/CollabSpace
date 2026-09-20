@@ -6,11 +6,11 @@ import type { RefObject } from 'react';
 import type { BoardObject, BoardPoint, ImageObject, ShapeObject, StickyObject, TextObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
-import { FONT_SIZE_MAX, FONT_SIZE_MIN, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from '../object-defaults';
+import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
 import { fitTextBox } from '../text-layout';
 import { flattenPoints, withPoints } from './connector-geometry';
+import { MIN_SIZE, bakedSide, limitBoxSize, scaledStrokeWidth } from './transform-math';
 
-const MIN_SIZE = 8;
 const STICKY_PADDING = 10; // те саме, що відступ тексту в StickyNoteShape
 const ANCHOR_SIZE = 12;
 // ширина невидимої смужки захвату вздовж ребра текстового блоку (px екрана)
@@ -110,6 +110,8 @@ export function SelectionOverlay({
   lockedByOthers,
 }: Props) {
   const transformerRef = useRef<Konva.Transformer>(null);
+  // розмір і обведення на початку жесту — база для scaledStrokeWidth
+  const strokeStartRef = useRef<Record<string, { strokeWidth: number; width: number; height: number }>>({});
   const updateObject = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const setInteracting = useEditorStore((s) => s.setInteracting);
@@ -162,6 +164,19 @@ export function SelectionOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds.join(','), shiftHeld, nodesVersion, objects, interacting, lockedByOthers]);
 
+  // обведення рахуємо від того, що було на ПОЧАТКУ жесту, а не від
+  // попереднього кадру: інакше кожен кадр множить попередній результат, і
+  // один прохід біля нуля (де розмір лягає на поріг) розганяє товщину до
+  // максимуму за два-три перетини
+  function rememberTransformStart() {
+    const start: Record<string, { strokeWidth: number; width: number; height: number }> = {};
+    for (const o of selectedObjects) {
+      if (o.type === 'shape') start[o.id] = { strokeWidth: o.strokeWidth, width: o.width, height: o.height };
+    }
+    strokeStartRef.current = start;
+    setInteracting(true);
+  }
+
   // на кожному кадрі тягання scale вузла одразу запікається в його розмір,
   // тож нода ніколи не несе scale: обведення не сплющується по осях (konva
   // масштабує stroke тією ж матрицею), стікер переносить текст наживо, у
@@ -176,7 +191,7 @@ export function SelectionOverlay({
       if (!obj) continue;
       if (obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image') {
         const size = bakeScale(node, obj);
-        if (obj.type === 'shape') node.setAttrs({ strokeWidth: scaledStrokeWidth(obj, size) });
+        if (obj.type === 'shape') node.setAttrs({ strokeWidth: scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, size) });
       } else if (obj.type === 'text' && soleText && isEdgeAnchor(anchor)) {
         resizeTextLive(node as Konva.Group, anchor, soleText.minHeight);
       } else if (obj.type === 'text') {
@@ -198,6 +213,7 @@ export function SelectionOverlay({
   function handleTransformEnd() {
     commitNodes();
     flushUpdates();
+    strokeStartRef.current = {};
     setInteracting(false);
   }
 
@@ -231,7 +247,7 @@ export function SelectionOverlay({
       // handleTransform уже запік scale у розмір — тут лише дочитуємо його з вузла
       const { width, height } = bakeScale(node, obj);
       if (obj.type === 'shape') {
-        const strokeWidth = scaledStrokeWidth(obj, { width, height });
+        const strokeWidth = scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, { width, height });
         if (obj.shapeKind === 'ellipse') {
           // Ellipse позиціюється від центру — модель тримає top-left
           updateObject(obj.id, {
@@ -254,11 +270,12 @@ export function SelectionOverlay({
   return (
     <Transformer
       ref={transformerRef}
+      boundBoxFunc={limitBoxSize}
       enabledAnchors={soleText ? TEXT_ANCHORS : soleImage ? CORNER_ANCHORS : ALL_ANCHORS}
       anchorStyleFunc={soleText ? styleTextAnchor : undefined}
       keepRatio={soleText || soleImage ? true : shiftHeld}
       rotateEnabled
-      onTransformStart={() => setInteracting(true)}
+      onTransformStart={rememberTransformStart}
       onTransform={handleTransform}
       onTransformEnd={handleTransformEnd}
       anchorSize={ANCHOR_SIZE}
@@ -332,38 +349,39 @@ function bakeConnectorTransform(node: Konva.Group): BoardPoint[] {
 }
 
 // переносить scale вузла в його справжній розмір (width/height, радіуси,
-// діти групи стікера) і повертає новий розмір у координатах дошки
+// діти групи стікера) і повертає новий розмір у координатах дошки.
+// відʼємний scale у конви означає дзеркалення: розмір беремо за модулем, а
+// знак переводимо в позицію — вузол із початком у лівому верхньому куті
+// їде на власну ширину, бо додатна ширина малюється в інший бік. Еліпс не
+// зсуваємо: він малюється від центру, і дзеркалення його не рухає
 function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObject) {
   const sx = node.scaleX();
   const sy = node.scaleY();
   node.scale({ x: 1, y: 1 });
   if (obj.type === 'shape' && obj.shapeKind === 'ellipse') {
     const ellipse = node as Konva.Ellipse;
-    const radiusX = Math.max(MIN_SIZE / 2, ellipse.radiusX() * sx);
-    const radiusY = Math.max(MIN_SIZE / 2, ellipse.radiusY() * sy);
+    const radiusX = Math.max(MIN_SIZE / 2, Math.abs(ellipse.radiusX() * sx));
+    const radiusY = Math.max(MIN_SIZE / 2, Math.abs(ellipse.radiusY() * sy));
     ellipse.setAttrs({ radiusX, radiusY });
     return { width: radiusX * 2, height: radiusY * 2 };
   }
   if (obj.type === 'shape' || obj.type === 'image') {
-    const width = Math.max(MIN_SIZE, node.width() * sx);
-    const height = Math.max(MIN_SIZE, node.height() * sy);
+    const width = bakedSide(node.width(), sx);
+    const height = bakedSide(node.height(), sy);
     node.setAttrs({ width, height });
+    if (sx < 0) node.x(node.x() - width);
+    if (sy < 0) node.y(node.y() - height);
     return { width, height };
   }
   const box = (node as Konva.Group).findOne<Konva.Rect>('.box');
   const text = (node as Konva.Group).findOne<Konva.Text>('.text');
-  const width = Math.max(MIN_SIZE, (box?.width() ?? obj.width) * sx);
-  const height = Math.max(MIN_SIZE, (box?.height() ?? obj.height) * sy);
+  const width = bakedSide(box?.width() ?? obj.width, sx);
+  const height = bakedSide(box?.height() ?? obj.height, sy);
   box?.setAttrs({ width, height });
   text?.setAttrs({ width: width - STICKY_PADDING * 2, height: height - STICKY_PADDING * 2 });
+  if (sx < 0) node.x(node.x() - width);
+  if (sy < 0) node.y(node.y() - height);
   return { width, height };
-}
-
-// обведення масштабуємо разом з фігурою (середнє по осях), інакше після
-// resize воно лишається фіксованим у px і візуально "худне" на збільшеній фігурі
-function scaledStrokeWidth(obj: ShapeObject, size: { width: number; height: number }) {
-  const ratio = (size.width / obj.width + size.height / obj.height) / 2;
-  return clamp(Math.round(obj.strokeWidth * ratio), STROKE_WIDTH_MIN, STROKE_WIDTH_MAX);
 }
 
 // тягання ребра тексту: скидаємо scale одразу і задаємо ширину — konva

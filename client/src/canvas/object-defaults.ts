@@ -29,10 +29,7 @@ export const DEFAULT_STROKE_COLOR = PALETTE[7];
 export const DEFAULT_TEXT_COLOR = '#1f2937';
 
 // межі для полів панелі властивостей і для перерахунку при трансформації
-export const STROKE_WIDTH_MIN = 1;
-export const STROKE_WIDTH_MAX = 20;
-export const FONT_SIZE_MIN = 8;
-export const FONT_SIZE_MAX = 200;
+export { FONT_SIZE_MAX, FONT_SIZE_MIN, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './limits';
 
 const STICKY_SIZE = { width: 160, height: 120 };
 // довша сторона щойно вставленої картинки — щоб фото з телефону не накрило всю дошку
