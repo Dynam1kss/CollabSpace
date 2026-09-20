@@ -14,6 +14,8 @@ import { useVoiceStore } from './voice-store';
 // він позначка людини, а не обʼєкт дошки
 const RADIUS = 18;
 const RING = 2.5;
+// наскільки кільце «говорить» виступає за кружечок
+const SPEAK_RING = 4;
 
 interface Props {
   viewportScale: number;
@@ -34,6 +36,8 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
   const others = useSeatStore((s) => s.others);
   const voicePeers = useVoiceStore((s) => s.peers);
   const inVoice = useVoiceStore((s) => s.inVoice);
+  const speaking = useVoiceStore((s) => s.speaking);
+  const selfSpeaking = useVoiceStore((s) => s.selfSpeaking);
 
   const k = 1 / viewportScale;
 
@@ -82,6 +86,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
               initials={initialsOf(member.displayName)}
               name={member.displayName}
               inVoice={!!voicePeers[clientId]}
+              speaking={!!speaking[clientId]}
               k={k}
             />
           </Group>
@@ -109,6 +114,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
             initials={initialsOf(members[selfClientId].displayName)}
             name={`${members[selfClientId].displayName} (я)`}
             inVoice={inVoice}
+            speaking={selfSpeaking}
             k={k}
           />
         </Group>
@@ -122,15 +128,22 @@ interface BodyProps {
   initials: string;
   name: string;
   inVoice: boolean;
+  speaking: boolean;
   k: number;
 }
 
 // поки людина не в розмові, стілець блідий: місце за нею лишається, але на
 // гучність воно ще ні на що не впливає (крок C)
-function SeatBody({ color, initials, name, inVoice, k }: BodyProps) {
+function SeatBody({ color, initials, name, inVoice, speaking, k }: BodyProps) {
   const r = RADIUS * k;
   return (
     <>
+      {/* кільце «говорить» — те саме зелене, що й у панелі голосу, щоб це
+      читалось як один сигнал у двох місцях. Малюємо ПІД кружечком і ширшим
+      за нього, тому воно лишається видним і коли стілець блідий */}
+      {speaking && (
+        <Circle radius={r + SPEAK_RING * k} fill="#22c55e" opacity={0.9} listening={false} />
+      )}
       <Circle
         radius={r}
         fill={color}

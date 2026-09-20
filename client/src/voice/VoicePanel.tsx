@@ -46,6 +46,9 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
   const members = usePresenceStore((s) => s.members);
   const selfRole = usePresenceStore((s) => s.selfRole);
   const forced = useVoiceStore((s) => s.forced);
+  const speaking = useVoiceStore((s) => s.speaking);
+  const selfSpeaking = useVoiceStore((s) => s.selfSpeaking);
+  const selfClientId = usePresenceStore((s) => s.selfClientId);
   // мене самого вимкнули примусово — кнопки замкнені, поки не знімуть
   const myForced = forced[currentUserId] ?? { mute: false, deafen: false };
 
@@ -104,6 +107,19 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
         </div>
       )}
 
+      {inVoice && selfClientId !== null && members[selfClientId] && (
+        <div className="voice-peers">
+          <span
+            className={selfSpeaking ? 'voice-chip self speaking' : 'voice-chip self'}
+            title={`${members[selfClientId].displayName} (я)${selfSpeaking ? ' — говорить' : ''}`}
+          >
+            <span className="voice-peer" style={{ background: colorForUser(members[selfClientId].userId) }}>
+              {initialsOf(members[selfClientId].displayName)}
+            </span>
+          </span>
+        </div>
+      )}
+
       {peerIds.length > 0 && (
         <div className="voice-peers">
           {peerIds.map((clientId) => {
@@ -115,16 +131,20 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
             return (
               <span key={clientId} className="voice-peer-row">
                 <span
-                  className={`voice-peer ${peers[clientId].phase}`}
-                  style={{
-                    background: colorForUser(member.userId),
-                    opacity:
-                      peers[clientId].phase === 'live' ? 0.25 + peers[clientId].volume * 0.75 : undefined,
-                  }}
-                  data-volume={Math.round(peers[clientId].volume * 100)}
-                  title={`${member.displayName} — ${describe(peers[clientId])}`}
+                  className={speaking[clientId] ? 'voice-chip speaking' : 'voice-chip'}
+                  title={`${member.displayName} — ${describe(peers[clientId])}${speaking[clientId] ? ', говорить' : ''}`}
                 >
-                  {initialsOf(member.displayName)}
+                  <span
+                    className={`voice-peer ${peers[clientId].phase}`}
+                    style={{
+                      background: colorForUser(member.userId),
+                      opacity:
+                        peers[clientId].phase === 'live' ? 0.25 + peers[clientId].volume * 0.75 : undefined,
+                    }}
+                    data-volume={Math.round(peers[clientId].volume * 100)}
+                  >
+                    {initialsOf(member.displayName)}
+                  </span>
                 </span>
                 {(theirForced.mute || theirForced.deafen) && (
                   <span

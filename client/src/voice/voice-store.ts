@@ -30,6 +30,12 @@ interface VoiceState {
   // кого адміністратор примусово вимкнув, за userId. Потрібне і щоб малювати
   // замочок на інших, і щоб заблокувати власні кнопки
   forced: Record<string, { mute: boolean; deafen: boolean }>;
+  // хто зараз говорить, за clientId. Пишеться лише на ЗМІНУ стану, не
+  // щокадру — інакше кілька співрозмовників перемальовували б панель
+  // і стільці по 60 разів на секунду ні для чого
+  speaking: Record<number, boolean>;
+  // себе тримаємо окремо: свого clientId у присутності може ще не бути
+  selfSpeaking: boolean;
   setInVoice: (value: boolean) => void;
   setStarting: (value: boolean) => void;
   setPeer: (clientId: number, phase: PeerPhase) => void;
@@ -39,6 +45,8 @@ interface VoiceState {
   setMicMuted: (muted: boolean) => void;
   setDeafened: (on: boolean, micMutedBefore: boolean) => void;
   setForced: (userId: string, patch: { mute?: boolean; deafen?: boolean }) => void;
+  setSpeaking: (clientId: number, speaking: boolean) => void;
+  setSelfSpeaking: (speaking: boolean) => void;
   reset: () => void;
 }
 
@@ -51,6 +59,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   deafened: false,
   micMutedBeforeDeafen: false,
   forced: {},
+  speaking: {},
+  selfSpeaking: false,
 
   setInVoice: (value) => set({ inVoice: value, error: value ? null : undefined }),
   setStarting: (value) => set({ starting: value }),
@@ -69,11 +79,22 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     set((state) => {
       const peers = { ...state.peers };
       delete peers[clientId];
-      return { peers };
+      const speaking = { ...state.speaking };
+      delete speaking[clientId];
+      return { peers, speaking };
     }),
   setError: (message) => set({ error: message }),
   setMicMuted: (micMuted) => set({ micMuted }),
   setDeafened: (deafened, micMutedBeforeDeafen) => set({ deafened, micMutedBeforeDeafen }),
+
+  setSpeaking: (clientId, speaking) =>
+    set((state) =>
+      state.speaking[clientId] === speaking
+        ? state
+        : { speaking: { ...state.speaking, [clientId]: speaking } },
+    ),
+  setSelfSpeaking: (selfSpeaking) =>
+    set((state) => (state.selfSpeaking === selfSpeaking ? state : { selfSpeaking })),
 
   setForced: (userId, patch) =>
     set((state) => {
@@ -93,6 +114,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       micMuted: false,
       deafened: false,
       micMutedBeforeDeafen: false,
-  forced: {},
+      forced: {},
+      speaking: {},
+      selfSpeaking: false,
     }),
 }));

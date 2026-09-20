@@ -4,6 +4,13 @@ import { fetchIceConfig } from '../api/boards';
 import { usePresenceStore } from '../canvas/presence-store';
 import { useSeatStore } from './seat-store';
 import { seatDistance, spatialGain } from './spatial-gain';
+import {
+  ANALYSER_FFT_SIZE,
+  IDLE_SPEAKING,
+  nextSpeakingState,
+  rmsLevel,
+} from './speaking-detector';
+import type { SpeakingState } from './speaking-detector';
 import { publishVoiceState, sendVoiceIce, sendVoiceSdp } from './voice-channel';
 import { useVoiceStore } from './voice-store';
 
@@ -20,6 +27,11 @@ interface Peer {
   // прикріплений до медіаелемента
   audio: HTMLAudioElement;
   gain: GainNode | null;
+  // окрема гілка від того самого джерела, ЛИШЕ для вимірювання: вона не
+  // йде в колонки, тому просторова гучність і «не чую нікого» на неї не
+  // впливають. Видно, що людина говорить, навіть коли вона далеко й
+  // нечутна, — так само, як у дискорді
+  meter: AnalyserNode | null;
   // потрібен, щоб зібрати граф наново, якщо контекст доведеться перестворити
   stream: MediaStream | null;
   // кандидати, що прийшли раніше за опис зʼєднання — їх не можна додавати
@@ -79,9 +91,16 @@ function wireAudio(peer: Peer) {
   const ctx = context();
   void ctx.resume().catch(() => {});
   peer.gain?.disconnect();
+  peer.meter?.disconnect();
+  const source = ctx.createMediaStreamSource(peer.stream);
   const gain = ctx.createGain();
   gain.gain.value = 1;
-  ctx.createMediaStreamSource(peer.stream).connect(gain).connect(ctx.destination);
+  source.connect(gain).connect(ctx.destination);
+  // друга гілка від ТОГО САМОГО джерела, до регулятора гучності. Нікуди далі
+  // не веде: AnalyserNode міряє те, що в нього входить, і без виходу
+  peer.meter = ctx.createAnalyser();
+  peer.meter.fftSize = ANALYSER_FFT_SIZE;
+  source.connect(peer.meter);
   peer.gain = gain;
 }
 
@@ -94,7 +113,7 @@ function createPeer(clientId: number) {
     iceServers: iceConfig.iceServers,
     iceTransportPolicy: iceConfig.iceTransportPolicy,
   });
-  const peer: Peer = { pc, audio: attachAudio(), gain: null, stream: null, pendingIce: [] };
+  const peer: Peer = { pc, audio: attachAudio(), gain: null, meter: null, stream: null, pendingIce: [] };
   peers.set(clientId, peer);
   useVoiceStore.getState().setPeer(clientId, 'connecting');
 
@@ -129,6 +148,77 @@ function createPeer(clientId: number) {
   };
 
   return peer;
+}
+
+// --- індикатор «говорить» -------------------------------------------------
+//
+// Один спільний цикл на всіх: по аналізатору на кожного співрозмовника плюс
+// свій мікрофон. Читання — 512 байтів на учасника за кадр, це дрібниця; а от
+// у СТОР пишемо лише коли булеве значення справді змінилось, інакше кілька
+// людей, що говорять одночасно, перемальовували б панель і стільці щокадру
+
+let selfMeter: AnalyserNode | null = null;
+let selfMeterSource: MediaStreamAudioSourceNode | null = null;
+let meterFrame: number | null = null;
+const speakingState = new Map<number | 'self', SpeakingState>();
+
+// свій мікрофон міряємо так само, але джерело НІКУДИ не підключаємо далі —
+// інакше почуємо себе у власних колонках
+function wireSelfMeter() {
+  if (!localStream) return;
+  const ctx = context();
+  selfMeterSource?.disconnect();
+  selfMeter?.disconnect();
+  selfMeterSource = ctx.createMediaStreamSource(localStream);
+  selfMeter = ctx.createAnalyser();
+  selfMeter.fftSize = ANALYSER_FFT_SIZE;
+  selfMeterSource.connect(selfMeter);
+}
+
+function dropSelfMeter() {
+  selfMeterSource?.disconnect();
+  selfMeter?.disconnect();
+  selfMeterSource = null;
+  selfMeter = null;
+}
+
+function readMeter(key: number | 'self', meter: AnalyserNode, buffer: Uint8Array<ArrayBuffer>, now: number) {
+  meter.getByteTimeDomainData(buffer);
+  const prev = speakingState.get(key) ?? IDLE_SPEAKING;
+  const next = nextSpeakingState(prev, rmsLevel(buffer), now);
+  speakingState.set(key, next);
+  if (next.speaking === prev.speaking) return;
+  const store = useVoiceStore.getState();
+  if (key === 'self') store.setSelfSpeaking(next.speaking);
+  else store.setSpeaking(key, next.speaking);
+}
+
+function meterTick() {
+  const now = performance.now();
+  const buffer = new Uint8Array(ANALYSER_FFT_SIZE);
+  for (const [clientId, peer] of peers) {
+    if (peer.meter) readMeter(clientId, peer.meter, buffer, now);
+  }
+  // вимкнений мікрофон сам дає тишу (track.enabled = false), тому окремої
+  // перевірки на мьют тут не треба
+  if (selfMeter) readMeter('self', selfMeter, buffer, now);
+  else if (speakingState.get('self')?.speaking) {
+    speakingState.set('self', IDLE_SPEAKING);
+    useVoiceStore.getState().setSelfSpeaking(false);
+  }
+  meterFrame = requestAnimationFrame(meterTick);
+}
+
+function startMeters() {
+  if (meterFrame !== null) return;
+  meterFrame = requestAnimationFrame(meterTick);
+}
+
+function stopMeters() {
+  if (meterFrame !== null) cancelAnimationFrame(meterFrame);
+  meterFrame = null;
+  speakingState.clear();
+  dropSelfMeter();
 }
 
 // гучність кожного співрозмовника з відстані між нашими стільцями. Відстань
@@ -257,6 +347,9 @@ export function dropPeer(clientId: number) {
   peer.pc.close();
   peer.gain?.disconnect();
   peer.gain = null;
+  peer.meter?.disconnect();
+  peer.meter = null;
+  speakingState.delete(clientId);
   peer.audio.srcObject = null;
   peer.audio.remove();
   useVoiceStore.getState().removePeer(clientId);
@@ -329,6 +422,8 @@ async function replaceLocalTrack() {
   }
   localStream?.getTracks().forEach((t) => t.stop());
   localStream = fresh;
+  // джерело для вимірювання прив'язане до старого потоку — перевішуємо
+  wireSelfMeter();
   // нова доріжка приходить увімкненою — повертаємо їй чинний стан
   applyMuteToTracks();
 }
@@ -369,6 +464,8 @@ export async function startVoice() {
   // примусовий, виставлений адміністратором ще до входу
   applyMuteToTracks();
   unsubscribeSeats ??= useSeatStore.subscribe(applySpatialGain);
+  wireSelfMeter();
+  startMeters();
   watchVisibility();
   // сервер у відповідь переспіває нам тих, хто вже в розмові, і розкаже
   // про нас решті — далі напрямок пропозицій вирішує shouldOffer
@@ -382,6 +479,7 @@ export function stopVoice() {
   unsubscribeSeats = null;
   unsubscribeVisibility?.();
   unsubscribeVisibility = null;
+  stopMeters();
   for (const clientId of [...peers.keys()]) dropPeer(clientId);
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
@@ -394,6 +492,7 @@ export function resetVoice() {
   unsubscribeSeats = null;
   unsubscribeVisibility?.();
   unsubscribeVisibility = null;
+  stopMeters();
   for (const clientId of [...peers.keys()]) dropPeer(clientId);
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
