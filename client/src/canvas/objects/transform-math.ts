@@ -1,4 +1,5 @@
 import type { Box } from 'konva/lib/shapes/Transformer';
+import type { Point } from '../coordinates';
 import { MIN_SIZE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from '../limits';
 
 export { MIN_SIZE };
@@ -7,68 +8,103 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(min, value), max);
 }
 
-// початок рамки вважаємо нерухомим, якщо він не зрушив. konva віддає тут
-// рівно нуль (заміряно), запас — суто на похибку float
-const FIXED_END_EPS = 0.01;
+// кут, на який спирається весь жест: протилежний до взятої ручки. Беремо
+// його ОДИН раз, на першому кадрі, поки рамка ще не чіпана, і далі весь
+// жест рахуємо від нього.
+//
+// Спокуса шукати нерухомий кінець щокадру (по тому, який край рамки не
+// зрушив) виглядає рівноцінною, але не є: _getNodeRect віддає рамку РАЗОМ
+// З обведенням, тож щокадру набігає піваобведення. Поки фігура більша за
+// поріг, це нічого не значить, а в приніжній зоні, де розмір задаємо ми
+// самі, ця похибка тягне «нерухомий» кут за курсором — і курсор не може
+// його наздогнати, щоб перетнути. Зовні це виглядало так, ніби фігура
+// цілком їде за мишею, не дзеркалячись
+export function fixedCornerOf(box: Box, anchor: string | null): Point {
+  const cos = Math.cos(box.rotation);
+  const sin = Math.sin(box.rotation);
+  const name = anchor ?? '';
+  // тягнуть лівий бік — отже нерухомий правий, і навпаки
+  const alongU = name.includes('left') ? box.width : 0;
+  const alongV = name.includes('top') ? box.height : 0;
+  return {
+    x: box.x + alongU * cos - alongV * sin,
+    y: box.y + alongU * sin + alongV * cos,
+  };
+}
 
-// одна вісь рамки, незалежно від другої.
-//
-// originShift — на скільки поїхав ПОЧАТОК рамки вздовж цієї осі. Якщо він
-// на місці, нерухомий кінець — сам початок (тягнуть правий чи нижній бік);
-// якщо поїхав — нерухомий дальній кінець (тягнуть лівий чи верхній). Обидва
-// випадки трапляються одночасно на одній рамці: у ручки «правий верхній»
-// ширина рахується від початку, а висота — від дальнього кінця.
-//
-// Далі все просто: беремо відстань від нерухомого кінця до курсора ЗІ ЗНАКОМ.
-// Модуль дає розмір (не менший за поріг), знак — бік, на якому стоїть фігура.
-// Ніякої памʼяті між кадрами: розмір — чиста функція від того, де курсор
-// ЗАРАЗ. Звідси три речі одразу. Поки курсор ближче за поріг, модуль завжди
-// дорівнює порогу — фігура стоїть і на рух не реагує. Щойно курсор перейшов
-// нерухомий кінець, знак міняється — і фігура дзеркалиться тієї ж миті, вже
-// в розмірі, що відповідає новій відстані, без відставання. І назад із
-// приніжної зони вона рушає рівно тоді, коли відстань знову переростає поріг
-function clampAxis(originShift: number, side: number) {
-  const fixedAtOrigin = Math.abs(originShift) < FIXED_END_EPS;
-  const fixedEnd = fixedAtOrigin ? 0 : side;
-  const distance = fixedAtOrigin ? side : -side;
-  const limited = Math.abs(distance) < MIN_SIZE ? Math.sign(distance || 1) * MIN_SIZE : distance;
-  // сторона рамки завжди додатна: знак уже врахований зсувом початку
-  return { offset: fixedEnd + Math.min(0, limited), length: Math.abs(limited) };
+export function isResizeAnchor(anchor: string | null) {
+  return !!anchor && anchor !== 'rotater';
+}
+
+// кутова ручка тягне обидві осі; ребро — лише одну
+export function isCornerAnchor(anchor: string | null) {
+  const name = anchor ?? '';
+  return (name.includes('top') || name.includes('bottom')) && (name.includes('left') || name.includes('right'));
+}
+
+// з двох кінців сторони рухомий той, що ДАЛІ від нерухомого кута (обидва
+// тут — уже відстані від нього). Ближній і є сам кут. По осі, яку ця ручка
+// не змінює, дальній кінець — протилежний бік рамки, і сторона лишається
+// такою, як була
+function movingEnd(nearSide: number, farSide: number) {
+  return Math.abs(nearSide) >= Math.abs(farSide) ? nearSide : farSide;
+}
+
+// розмір по одній осі: модуль відстані, але не менший за поріг; знак лишаємо,
+// бо саме він каже, на якому боці від нерухомого кута стоїть фігура
+function limitDistance(distance: number) {
+  if (Math.abs(distance) >= MIN_SIZE) return distance;
+  return Math.sign(distance || 1) * MIN_SIZE;
 }
 
 // поріг розміру й дзеркалення — обидва тут, у координатах конви, ДО того як
 // вона застосує трансформацію.
 //
-// Поріг саме тут, а не після (як колись Math.max у bakeScale), бо інакше
-// вузол і те, що конва про нього думає, розʼїжджаються: фігура залипала на
-// 8px і далі просто їздила за курсором.
+// Рамку будуємо від нерухомого кута й відстані до курсора:
 //
-// А знак не віддаємо конві взагалі. Побачивши відʼємну ширину, _fitNodesInto
+//     розмір = max(ПОРІГ, |відстань|),  бік = знак(відстань)
+//
+// Від попередніх кадрів не залежить нічого: ні памʼяті, ні порівнянь із
+// минулою рамкою. Тому в приніжній зоні рамка збігається сама з собою до
+// пікселя — не міняється ні розмір, ні ПОЛОЖЕННЯ, хоч як водити курсором.
+// Щойно знак відстані міняється, фігура дзеркалиться тієї ж миті, вже в
+// розмірі під курсор.
+//
+// Знак не віддаємо конві взагалі. Побачивши відʼємну ширину, _fitNodesInto
 // перейменовує активну ручку (right → left) І віддає відʼємний scale, який
 // decompose() перетворює на поворот 180°. Поворот перекладає ручки місцями
 // ще раз — виходить подвійне дзеркалення, після якого імʼя активної ручки
-// вказує на ТУ, ЩО МАЛА СТОЯТИ НЕРУХОМО. Далі конва тягне нерухомий кут за
-// курсором, і розмір подвоюється щомаху. На повільному жесті цього не видно,
-// бо рамка не встигає стати відʼємною; різкий мах перестрибує приніжну зону
-// за одну подію. Ми лишаємо перейменування ручки (воно правильне: після
-// дзеркалення тягнуть уже інший кут) без повороту — одне дзеркалення замість
-// двох.
-//
-// Кадр більше не відкидаємо ніколи. Відкинутий кадр означав, що фігура стоїть,
-// а курсор іде далі — і жест накопичував розбіжність між ними
-export function limitBoxSize(oldBox: Box, newBox: Box): Box {
+// вказує на ту, що мала стояти нерухомо, і розмір подвоюється щомаху
+export function limitBoxSize(fixed: Point, newBox: Box, lockedRatio = false): Box {
   const cos = Math.cos(newBox.rotation);
   const sin = Math.sin(newBox.rotation);
-  const dx = newBox.x - oldBox.x;
-  const dy = newBox.y - oldBox.y;
-  const across = clampAxis(dx * cos + dy * sin, newBox.width);
-  const down = clampAxis(-dx * sin + dy * cos, newBox.height);
+  // початок рамки відносно нерухомого кута, у її власних осях
+  const relX = newBox.x - fixed.x;
+  const relY = newBox.y - fixed.y;
+  const originU = relX * cos + relY * sin;
+  const originV = -relX * sin + relY * cos;
+
+  const across = movingEnd(originU, originU + newBox.width);
+  const down = movingEnd(originV, originV + newBox.height);
+  const limitedAcross = limitDistance(across);
+  const limitedDown = limitDistance(down);
+  // із заблокованою пропорцією осі не живуть окремо: коли одна лягла на
+  // поріг, друга вже теж там (вони міняються разом). Кладемо на поріг
+  // обидві — інакше konva довертає рамку по гіпотенузі, узятій ще на
+  // натисканні, і розмір дрібно гуляє замість того, щоб завмерти
+  const atFloor =
+    lockedRatio && (Math.abs(limitedAcross) <= MIN_SIZE || Math.abs(limitedDown) <= MIN_SIZE);
+  const acrossValue = atFloor ? Math.sign(across || 1) * MIN_SIZE : limitedAcross;
+  const downValue = atFloor ? Math.sign(down || 1) * MIN_SIZE : limitedDown;
+  const acrossStart = Math.min(0, acrossValue);
+  const downStart = Math.min(0, downValue);
+
   return {
     ...newBox,
-    x: newBox.x + across.offset * cos - down.offset * sin,
-    y: newBox.y + across.offset * sin + down.offset * cos,
-    width: across.length,
-    height: down.length,
+    x: fixed.x + acrossStart * cos - downStart * sin,
+    y: fixed.y + acrossStart * sin + downStart * cos,
+    width: Math.abs(acrossValue),
+    height: Math.abs(downValue),
   };
 }
 

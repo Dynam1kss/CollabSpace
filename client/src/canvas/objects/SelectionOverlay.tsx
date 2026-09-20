@@ -4,12 +4,22 @@ import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { RefObject } from 'react';
 import type { BoardObject, BoardPoint, ImageObject, ShapeObject, StickyObject, TextObject } from 'shared';
+import type { Box } from 'konva/lib/shapes/Transformer';
+import type { Point } from '../coordinates';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
 import { fitTextBox } from '../text-layout';
 import { flattenPoints, withPoints } from './connector-geometry';
-import { MIN_SIZE, bakedSide, limitBoxSize, scaledStrokeWidth } from './transform-math';
+import {
+  MIN_SIZE,
+  bakedSide,
+  fixedCornerOf,
+  isCornerAnchor,
+  isResizeAnchor,
+  limitBoxSize,
+  scaledStrokeWidth,
+} from './transform-math';
 
 const STICKY_PADDING = 10; // те саме, що відступ тексту в StickyNoteShape
 const ANCHOR_SIZE = 12;
@@ -112,6 +122,24 @@ export function SelectionOverlay({
   const transformerRef = useRef<Konva.Transformer>(null);
   // розмір і обведення на початку жесту — база для scaledStrokeWidth
   const strokeStartRef = useRef<Record<string, { strokeWidth: number; width: number; height: number }>>({});
+  // ручка, за яку взялись, і протилежний їй кут. Кут беремо на першому кадрі
+  // жесту (там рамка ще не чіпана) і тримаємо до кінця — на нього спирається
+  // вся рамка, і саме тому в приніжній зоні вона не зсувається
+  const grabbedAnchorRef = useRef<string | null>(null);
+  const fixedCornerRef = useRef<Point | null>(null);
+
+  // konva перейменовує активну ручку, щойно сторона стає відʼємною, тому
+  // питати її імʼя тут, посеред жесту, вже не можна — беремо запамʼятоване
+  function limitBox(oldBox: Box, newBox: Box): Box {
+    if (!isResizeAnchor(grabbedAnchorRef.current)) return newBox;
+    if (!fixedCornerRef.current) {
+      fixedCornerRef.current = fixedCornerOf(oldBox, grabbedAnchorRef.current);
+    }
+    // пропорція заблокована лише на кутах: ребром тягнуть одну вісь, і
+    // друга тут ні до чого
+    const locked = keepRatio && isCornerAnchor(grabbedAnchorRef.current);
+    return limitBoxSize(fixedCornerRef.current, newBox, locked);
+  }
   const updateObject = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const setInteracting = useEditorStore((s) => s.setInteracting);
@@ -148,6 +176,8 @@ export function SelectionOverlay({
   const soleConnector = selectedObjects.length === 1 && selectedObjects[0].type === 'connector';
   // картинку саму по собі тягнемо лише пропорційно, інакше вона сплющується
   const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
+  // пропорція заблокована для тексту й картинки завжди, для решти — з shift
+  const keepRatio = soleText || soleImage ? true : shiftHeld;
 
   useEffect(() => {
     if (interacting) return;
@@ -174,6 +204,8 @@ export function SelectionOverlay({
       if (o.type === 'shape') start[o.id] = { strokeWidth: o.strokeWidth, width: o.width, height: o.height };
     }
     strokeStartRef.current = start;
+    grabbedAnchorRef.current = transformerRef.current?.getActiveAnchor() ?? null;
+    fixedCornerRef.current = null;
     setInteracting(true);
   }
 
@@ -214,6 +246,8 @@ export function SelectionOverlay({
     commitNodes();
     flushUpdates();
     strokeStartRef.current = {};
+    grabbedAnchorRef.current = null;
+    fixedCornerRef.current = null;
     setInteracting(false);
   }
 
@@ -270,10 +304,10 @@ export function SelectionOverlay({
   return (
     <Transformer
       ref={transformerRef}
-      boundBoxFunc={limitBoxSize}
+      boundBoxFunc={limitBox}
       enabledAnchors={soleText ? TEXT_ANCHORS : soleImage ? CORNER_ANCHORS : ALL_ANCHORS}
       anchorStyleFunc={soleText ? styleTextAnchor : undefined}
-      keepRatio={soleText || soleImage ? true : shiftHeld}
+      keepRatio={keepRatio}
       rotateEnabled
       onTransformStart={rememberTransformStart}
       onTransform={handleTransform}
