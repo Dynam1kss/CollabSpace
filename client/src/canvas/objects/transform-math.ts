@@ -68,6 +68,11 @@ export function handlePoint(rect: Rect, handle: string): Point {
   };
 }
 
+// кутова ручка тягне обидві осі, ребро — лише одну
+export function isCornerHandle(handle: string) {
+  return (handle.includes('top') || handle.includes('bottom')) && (handle.includes('left') || handle.includes('right'));
+}
+
 export interface ResizeResult extends Rect {
   mirroredX: boolean;
   mirroredY: boolean;
@@ -83,7 +88,15 @@ function rotateAround(p: Point, pivot: Point, angle: number): Point {
 }
 
 // серце всього: нова рамка з нерухомої точки й поточного курсора
-export function resizeFromPointer(grip: ResizeGrip, pointer: Point, lockRatio: boolean): ResizeResult {
+export function resizeFromPointer(
+  grip: ResizeGrip,
+  pointer: Point,
+  lockRatio: boolean,
+  // у тексту свій, менший поріг: його мінімум задають розмір шрифту й вміст,
+  // а не MIN_SIZE. Із загальним порогом дрібний текст не можна було б
+  // зменшити взагалі — 40px були б більші за його власну висоту
+  minSide = MIN_SIZE,
+): ResizeResult {
   const rad = (grip.rotation * Math.PI) / 180;
   // рахуємо у власних осях обʼєкта, тому курсор довертаємо назад навколо
   // нерухомої точки; наприкінці кут повертаємо на місце
@@ -102,14 +115,14 @@ export function resizeFromPointer(grip: ResizeGrip, pointer: Point, lockRatio: b
     const scale = Math.max(
       Math.abs(rawW) / grip.startWidth,
       Math.abs(rawH) / grip.startHeight,
-      MIN_SIZE / grip.startWidth,
-      MIN_SIZE / grip.startHeight,
+      minSide / grip.startWidth,
+      minSide / grip.startHeight,
     );
     width = grip.startWidth * scale;
     height = grip.startHeight * scale;
   } else {
-    width = Math.max(MIN_SIZE, Math.abs(rawW));
-    height = Math.max(MIN_SIZE, Math.abs(rawH));
+    width = Math.max(minSide, Math.abs(rawW));
+    height = Math.max(minSide, Math.abs(rawH));
   }
 
   // лівий верхній кут — або сама нерухома точка, або на ширину лівіше від неї.

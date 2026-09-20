@@ -15,6 +15,7 @@ import { flattenPoints, withPoints } from './connector-geometry';
 import {
   MIN_SIZE,
   gripFor,
+  isCornerHandle,
   handlePoint,
   mapIntoBox,
   resizeFromPointer,
@@ -31,6 +32,14 @@ function isRectObject(obj: BoardObject): obj is RectObject {
   return obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image';
 }
 
+interface TextStart {
+  fontSize: number;
+  minHeight: number;
+  autoWidth: boolean;
+  width: number;
+  height: number;
+}
+
 interface ResizeGesture {
   grip: ResizeGrip;
   // рамка виділення на початку жесту
@@ -39,6 +48,9 @@ interface ResizeGesture {
   // на скільки курсор схибив повз ручку на натисканні
   grabOffset: Point;
   items: { id: string; start: Rect; flipX: boolean; flipY: boolean }[];
+  // жест над одиноким текстом: у нього розмір — це шрифт і перенос
+  handle: string;
+  text: TextStart | null;
 }
 
 // рамка виділення в координатах дошки — обʼєднання всіх узятих обʼєктів
@@ -257,10 +269,34 @@ export function SelectionOverlay({
     const handle = tr?.getActiveAnchor();
     // поворот іде своїм шляхом, і текст із конектором теж
     if (!tr || !handle || handle === 'rotater') return null;
-    const rects = selectedObjects.filter(isRectObject);
-    if (rects.length === 0 || rects.length !== selectedObjects.length) return null;
     const pointer = tr.getStage()?.getRelativePointerPosition();
     if (!pointer) return null;
+
+    // одинокий текст веде та сама математика, але з власним тлумаченням
+    // результату: кут — це шрифт, ребро — ширина переносу
+    if (soleText) {
+      const from = { x: soleText.x, y: soleText.y, width: soleText.width, height: soleText.height };
+      const grabbed = handlePoint(from, handle);
+      return {
+        grip: gripFor(from, soleText.rotation, handle),
+        from,
+        // кутом тягнемо шрифт — там обидві осі разом; ребром лише одну
+        lockRatio: isCornerHandle(handle),
+        grabOffset: { x: pointer.x - grabbed.x, y: pointer.y - grabbed.y },
+        items: [{ id: soleText.id, start: from, flipX: false, flipY: false }],
+        handle,
+        text: {
+          fontSize: soleText.fontSize,
+          minHeight: soleText.minHeight,
+          autoWidth: soleText.autoWidth,
+          width: soleText.width,
+          height: soleText.height,
+        },
+      };
+    }
+
+    const rects = selectedObjects.filter(isRectObject);
+    if (rects.length === 0 || rects.length !== selectedObjects.length) return null;
 
     const from = unionRect(rects);
     // поворот враховуємо лише для одинокого обʼєкта: у групи в рамки свій кут
@@ -277,6 +313,8 @@ export function SelectionOverlay({
         flipX: o.type === 'image' ? (o.flipX ?? false) : false,
         flipY: o.type === 'image' ? (o.flipY ?? false) : false,
       })),
+      handle,
+      text: null,
     };
   }
 
@@ -290,7 +328,20 @@ export function SelectionOverlay({
     const raw = stage.getRelativePointerPosition();
     if (!raw) return;
     const pointer = { x: raw.x - gesture.grabOffset.x, y: raw.y - gesture.grabOffset.y };
-    const box = resizeFromPointer(gesture.grip, pointer, gesture.lockRatio);
+    const box = resizeFromPointer(
+      gesture.grip,
+      pointer,
+      gesture.lockRatio,
+      gesture.text ? MIN_BOX_SIDE : MIN_SIZE,
+    );
+
+    if (gesture.text) {
+      resizeTextToBox(gesture, box);
+      flushUpdates();
+      tr.forceUpdate();
+      tr.getLayer()?.batchDraw();
+      return;
+    }
 
     for (const item of gesture.items) {
       const obj = objects[item.id];
@@ -303,6 +354,60 @@ export function SelectionOverlay({
     flushUpdates();
     tr.forceUpdate();
     tr.getLayer()?.batchDraw();
+  }
+
+  // Текст читає ту саму рамку, але тлумачить її по-своєму, і з двома
+  // власними правилами.
+  //
+  // Перше: вміст НІКОЛИ не малюється дзеркально. Тому тут ніде немає ні
+  // відʼємного scale, ні повороту — гліфи завжди йдуть зліва направо й
+  // верхом угору. Горизонтально сама РАМКА переїхати за нерухому точку
+  // може (це звичайний resize у протилежний бік), а от літери в ній — ні.
+  //
+  // Друге: по вертикалі текст не перевертається взагалі, навіть коли
+  // фігура на його місці перевернулась би. Тому верхній край завжди беремо
+  // з «нормального» боку нерухомої точки, а mirroredY просто ігноруємо —
+  // по висоті лишається звичайна поведінка тексту (мінімум під вміст)
+  function resizeTextToBox(gesture: ResizeGesture, box: ResizeResult) {
+    const start = gesture.text;
+    const obj = objects[gesture.items[0].id];
+    const node = nodesByIdRef.current?.[gesture.items[0].id];
+    if (!start || !obj || obj.type !== 'text' || !node) return;
+    const group = node as Konva.Group;
+    const boxRect = group.findOne<Konva.Rect>('.box');
+    const textNode = group.findOne<Konva.Text>('.text');
+    if (!boxRect || !textNode) return;
+
+    let patch: Partial<TextObject>;
+    if (gesture.handle === 'bottom-center') {
+      patch = { minHeight: box.height };
+    } else if (isEdgeAnchor(gesture.handle)) {
+      patch = { width: box.width, autoWidth: false };
+    } else {
+      // кут: рамка тягне розмір шрифту. Множник один на обидві осі, бо для
+      // тексту resizeFromPointer викликано з заблокованою пропорцією
+      const scale = box.width / start.width;
+      patch = {
+        fontSize: clamp(Math.round(start.fontSize * scale), FONT_SIZE_MIN, FONT_SIZE_MAX),
+        width: start.autoWidth ? obj.width : Math.max(MIN_SIZE, start.width * scale),
+        minHeight: start.minHeight * scale,
+      };
+    }
+    const size = fitTextBox({ ...obj, ...patch });
+
+    // горизонталь: рамка стоїть тим боком нерухомої точки, у який пішов
+    // курсор. Вертикаль: завжди «нормальним» боком — дзеркалення немає
+    const grip = gesture.grip;
+    const extendsRight = box.x >= grip.x - 1e-9;
+    const x = extendsRight ? grip.x : grip.x - size.width;
+    const y = grip.signY > 0 ? grip.y : grip.y - size.height;
+
+    group.scale({ x: 1, y: 1 });
+    group.setAttrs({ x, y });
+    textNode.fontSize(patch.fontSize ?? obj.fontSize);
+    if (!(patch.autoWidth ?? obj.autoWidth)) textNode.width(size.width);
+    boxRect.setAttrs(size);
+    updateObject(obj.id, { x, y, ...patch, ...size });
   }
 
   // вузол приводимо рівно до порахованого. scale завжди лишається 1 — його
@@ -373,6 +478,10 @@ export function SelectionOverlay({
         // ці рахує resizeToPointer за курсором; konva тут не бере участі
         continue;
       }
+      if (obj.type === 'text' && gestureRef.current?.text) {
+        // одинокий текст веде resizeTextToBox за курсором
+        continue;
+      }
       if (obj.type === 'text' && soleText && isEdgeAnchor(anchor)) {
         resizeTextLive(node as Konva.Group, anchor, soleText.minHeight);
       } else if (obj.type === 'text') {
@@ -429,10 +538,14 @@ export function SelectionOverlay({
       const common = { x: node.x(), y: node.y(), rotation: node.rotation() };
 
       if (obj.type === 'text') {
-        updateObject(obj.id, {
-          ...common,
-          ...textPatch(obj, node as Konva.Group, tr.getActiveAnchor(), !!soleText),
-        });
+        // одинокий текст уже записав resizeTextToBox; у групі його й далі
+        // веде konva, тому там дочитуємо з вузла як раніше
+        if (!gestureRef.current?.text) {
+          updateObject(obj.id, {
+            ...common,
+            ...textPatch(obj, node as Konva.Group, tr.getActiveAnchor(), !!soleText),
+          });
+        }
         continue;
       }
 
