@@ -10,7 +10,9 @@ export interface Viewport {
   scale: number;
 }
 
-export const MIN_SCALE = 0.1;
+// 0.02, а не 0.1: на мінімумі видно вп'ятеро ширшу й вищу ділянку дошки.
+// Наближення не чіпаємо — це лише про те, як далеко можна відʼїхати
+export const MIN_SCALE = 0.02;
 export const MAX_SCALE = 4;
 
 export function clampScale(scale: number, min = MIN_SCALE, max = MAX_SCALE): number {
