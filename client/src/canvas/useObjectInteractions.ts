@@ -267,6 +267,11 @@ export function useObjectInteractions(
         return;
       }
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+      // ctrl+v зі своїм буфером обʼєктів порожнім віддаємо браузеру. preventDefault
+      // на keydown скасовує саму команду вставки — і події 'paste' не буде, а
+      // саме з неї use-image-drop бере картинку з системного буфера. Через це
+      // вставка скріншота не працювала взагалі, хоча кидання файла працювало
+      if (e.code === 'KeyV' && useEditorStore.getState().clipboard.length === 0) return;
       // по коду клавіші, а не по e.key — в українській розкладці ctrl+c дає 'с'.
       // глядачу — лише виділити все й скопіювати, решта міняє вміст
       const action = {
