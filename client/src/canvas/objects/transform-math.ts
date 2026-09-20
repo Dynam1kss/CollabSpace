@@ -57,6 +57,22 @@ function limitDistance(distance: number) {
   return Math.sign(distance || 1) * MIN_SIZE;
 }
 
+// на якому боці від нерухомого кута стоїть готова рамка. Початок рамки
+// збігається з кутом, поки бік додатний, і відʼїжджає за нього, коли
+// фігуру віддзеркалило — тому знак проекції початку й відповідає на питання.
+// Потрібне тільки для вмісту, що має верх і низ (картинка): самі
+// x/y/width/height від цього не залежать
+export function mirroredAxes(fixed: Point, box: Box) {
+  const cos = Math.cos(box.rotation);
+  const sin = Math.sin(box.rotation);
+  const relX = box.x - fixed.x;
+  const relY = box.y - fixed.y;
+  return {
+    x: relX * cos + relY * sin < -1e-6,
+    y: -relX * sin + relY * cos < -1e-6,
+  };
+}
+
 // поріг розміру й дзеркалення — обидва тут, у координатах конви, ДО того як
 // вона застосує трансформацію.
 //

@@ -71,6 +71,11 @@ export interface ConnectorObject extends BoardObjectBase {
 export interface ImageObject extends BoardObjectBase {
   type: 'image';
   url: string;
+  // віддзеркалення вмісту. Необовʼязкові, як seatsAllowed: старі знімки їх
+  // просто не мають, і це читається як false. На x/y/width/height не
+  // впливають — це суто про те, як намальовано растр
+  flipX?: boolean;
+  flipY?: boolean;
 }
 
 export type BoardObject = StickyObject | TextObject | ShapeObject | ConnectorObject | ImageObject;

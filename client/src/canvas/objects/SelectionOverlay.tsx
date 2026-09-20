@@ -9,6 +9,7 @@ import type { Point } from '../coordinates';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
+import { MIN_BOX_SIDE } from '../limits';
 import { fitTextBox } from '../text-layout';
 import { flattenPoints, withPoints } from './connector-geometry';
 import {
@@ -17,6 +18,7 @@ import {
   fixedCornerOf,
   isCornerAnchor,
   isResizeAnchor,
+  mirroredAxes,
   limitBoxSize,
   scaledStrokeWidth,
 } from './transform-math';
@@ -127,6 +129,12 @@ export function SelectionOverlay({
   // вся рамка, і саме тому в приніжній зоні вона не зсувається
   const grabbedAnchorRef = useRef<string | null>(null);
   const fixedCornerRef = useRef<Point | null>(null);
+  // чи рамка зараз по той бік нерухомого кута — тобто чи вміст віддзеркалено
+  // ВІДНОСНО ПОЧАТКУ жесту. Порівнюємо саме з початком, а не перемикаємо
+  // щоразу: тоді зайвий кадр нічого не зіпсує, і повернення назад само
+  // повертає вміст у вихідний бік
+  const mirroredRef = useRef({ x: false, y: false });
+  const flipStartRef = useRef<Record<string, { x: boolean; y: boolean }>>({});
 
   // konva перейменовує активну ручку, щойно сторона стає відʼємною, тому
   // питати її імʼя тут, посеред жесту, вже не можна — беремо запамʼятоване
@@ -138,7 +146,9 @@ export function SelectionOverlay({
     // пропорція заблокована лише на кутах: ребром тягнуть одну вісь, і
     // друга тут ні до чого
     const locked = keepRatio && isCornerAnchor(grabbedAnchorRef.current);
-    return limitBoxSize(fixedCornerRef.current, newBox, locked);
+    const out = limitBoxSize(fixedCornerRef.current, newBox, locked);
+    mirroredRef.current = mirroredAxes(fixedCornerRef.current, out);
+    return out;
   }
   const updateObject = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
@@ -206,6 +216,12 @@ export function SelectionOverlay({
     strokeStartRef.current = start;
     grabbedAnchorRef.current = transformerRef.current?.getActiveAnchor() ?? null;
     fixedCornerRef.current = null;
+    mirroredRef.current = { x: false, y: false };
+    const flips: Record<string, { x: boolean; y: boolean }> = {};
+    for (const o of selectedObjects) {
+      if (o.type === 'image') flips[o.id] = { x: o.flipX ?? false, y: o.flipY ?? false };
+    }
+    flipStartRef.current = flips;
     setInteracting(true);
   }
 
@@ -248,6 +264,7 @@ export function SelectionOverlay({
     strokeStartRef.current = {};
     grabbedAnchorRef.current = null;
     fixedCornerRef.current = null;
+    flipStartRef.current = {};
     setInteracting(false);
   }
 
@@ -295,6 +312,19 @@ export function SelectionOverlay({
         } else {
           updateObject(obj.id, { ...common, width, height, strokeWidth });
         }
+        continue;
+      }
+      if (obj.type === 'image') {
+        // дзеркалення відносно початку жесту накладаємо на те, що було
+        // раніше: два перетини по одній осі повертають картинку як була
+        const start = flipStartRef.current[obj.id] ?? { x: obj.flipX ?? false, y: obj.flipY ?? false };
+        updateObject(obj.id, {
+          ...common,
+          width,
+          height,
+          flipX: start.x !== mirroredRef.current.x,
+          flipY: start.y !== mirroredRef.current.y,
+        });
         continue;
       }
       updateObject(obj.id, { ...common, width, height });
@@ -432,10 +462,10 @@ function resizeTextLive(node: Konva.Group, anchor: string | null, minHeight: num
   // у 0, і рамка виділення стає виродженою. Далі конва бачить нульову
   // сторону, кидає весь кадр своєю ж перевіркою — і блок залипає назавжди
   if (anchor === 'bottom-center') {
-    box.height(Math.max(height, text.height(), MIN_SIZE));
+    box.height(Math.max(height, text.height(), MIN_BOX_SIDE));
   } else {
     box.width(width);
     text.setAttrs({ width, wrap: 'word' });
-    box.height(Math.max(text.height(), minHeight, MIN_SIZE));
+    box.height(Math.max(text.height(), minHeight, MIN_BOX_SIDE));
   }
 }

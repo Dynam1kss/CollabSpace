@@ -37,6 +37,11 @@ function dragFrames(anchor: string, start: Box, cursors: number[], inflate = 0) 
   return { frames, fixed };
 }
 
+// відстані в тестах — частки порога, а не голі числа: сам поріг рахується
+// від розміру вікна й може бути будь-яким
+const inZone = (k: number) => MIN_SIZE * k;
+const wide = 5 * MIN_SIZE;
+
 const same = (a: Box, b: Box) =>
   Math.abs(a.x - b.x) < 1e-6 &&
   Math.abs(a.y - b.y) < 1e-6 &&
@@ -57,7 +62,8 @@ describe('приніжна зона: завмирає ВСЯ рамка, не л
   // саме цього бракувало: старі перевірки дивились тільки на width/height,
   // і зсув рамки проходив повз них
   it('тягнучи правий нижній кут — позиція теж не міняється', () => {
-    const { frames } = dragFrames('bottom-right', box(0, 200), [7, 3, 6, 1, 5, 2, 7.9]);
+    const zone = [0.9, 0.4, 0.75, 0.1, 0.6, 0.25, 0.99].map(inZone);
+    const { frames } = dragFrames('bottom-right', box(0, wide), zone);
     for (const f of frames) {
       expect(f.width).toBe(MIN_SIZE);
       expect(f.x).toBe(0);
@@ -66,10 +72,11 @@ describe('приніжна зона: завмирає ВСЯ рамка, не л
   });
 
   it('тягнучи ЛІВИЙ верхній — так само (саме тут воно і їхало)', () => {
-    const { frames } = dragFrames('top-left', box(0, 200), [195, 197, 193, 199, 194, 198]);
+    const zone = [0.9, 0.4, 0.75, 0.1, 0.6, 0.25].map((k) => wide - inZone(k));
+    const { frames } = dragFrames('top-left', box(0, wide), zone);
     for (const f of frames) {
       expect(f.width).toBe(MIN_SIZE);
-      expect(f.x + f.width).toBeCloseTo(200, 6);
+      expect(f.x + f.width).toBeCloseTo(wide, 6);
     }
     expect(frames.every((f) => same(f, frames[0]))).toBe(true);
   });
@@ -77,11 +84,12 @@ describe('приніжна зона: завмирає ВСЯ рамка, не л
   // з обведенням: у продакшені konva додає його до рамки щокадру
   it('не їде навіть коли рамка приходить роздутою обведенням', () => {
     for (const anchor of ['bottom-right', 'top-left']) {
+      const steps = [0.9, 0.75, 0.6, 0.45, 0.3, 0.2, 0.1, 0.2, 0.3, 0.45, 0.6, 0.75, 0.9];
       const cursors =
         anchor === 'bottom-right'
-          ? [7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6, 7]
-          : [193, 194, 195, 196, 197, 198, 199, 198, 197, 196, 195, 194, 193];
-      const { frames, fixed } = dragFrames(anchor, box(0, 200), cursors, 1);
+          ? steps.map(inZone)
+          : steps.map((k) => wide - inZone(k));
+      const { frames, fixed } = dragFrames(anchor, box(0, wide), cursors, 1);
       expect(frames.every((f) => same(f, frames[0]))).toBe(true);
       // і спирається саме на свій нерухомий кут
       const edge = anchor.includes('right') ? frames[0].x : frames[0].x + frames[0].width;
@@ -92,8 +100,8 @@ describe('приніжна зона: завмирає ВСЯ рамка, не л
   // довгий повільний підхід по 1px: раніше тут набігали десятки пікселів
   it('сто дрібних кроків усередині зони не зсувають рамку ні на піксель', () => {
     const cursors: number[] = [];
-    for (let i = 0; i < 100; i++) cursors.push(195 + (i % 5));
-    const { frames, fixed } = dragFrames('top-left', box(0, 200), cursors, 1);
+    for (let i = 0; i < 100; i++) cursors.push(wide - inZone(0.1 + (i % 5) * 0.15));
+    const { frames, fixed } = dragFrames('top-left', box(0, wide), cursors, 1);
     expect(frames.every((f) => same(f, frames[0]))).toBe(true);
     const last = frames[frames.length - 1];
     expect(last.x + last.width).toBeCloseTo(fixed.x, 6);
@@ -102,28 +110,32 @@ describe('приніжна зона: завмирає ВСЯ рамка, не л
 
 describe('перетин нерухомого кута', () => {
   it('щойно курсор перейшов кут — фігура вже з іншого боку', () => {
-    const { frames } = dragFrames('bottom-right', box(0, 200), [3, -3]);
+    const { frames } = dragFrames('bottom-right', box(0, wide), [inZone(0.3), -inZone(0.3)]);
     expect(frames[0]).toMatchObject({ x: 0, width: MIN_SIZE });
     expect(frames[1]).toMatchObject({ x: -MIN_SIZE, width: MIN_SIZE });
   });
 
   it('стрибок одразу далеко за кут дає повний розмір тієї ж миті', () => {
-    const [f] = dragFrames('bottom-right', box(0, 200), [-240]).frames;
+    const [f] = dragFrames('bottom-right', box(0, wide), [-240]).frames;
     expect(f.width).toBe(240);
     expect(f.x).toBe(-240);
   });
 
   it('те саме для лівої ручки', () => {
-    const { frames } = dragFrames('top-left', box(0, 200), [197, 203, 320]);
+    const { frames } = dragFrames('top-left', box(0, wide), [
+      wide - inZone(0.3),
+      wide + inZone(0.3),
+      wide + 120,
+    ]);
     expect(frames[0]).toMatchObject({ width: MIN_SIZE });
-    expect(frames[0].x + frames[0].width).toBeCloseTo(200, 6);
-    expect(frames[1]).toMatchObject({ width: MIN_SIZE, x: 200 });
-    expect(frames[2]).toMatchObject({ width: 120, x: 200 });
+    expect(frames[0].x + frames[0].width).toBeCloseTo(wide, 6);
+    expect(frames[1]).toMatchObject({ width: MIN_SIZE, x: wide });
+    expect(frames[2]).toMatchObject({ width: 120, x: wide });
   });
 
   it('далі за кутом розмір іде за курсором без відставання', () => {
-    const cursors = [-9, -20, -75, -240];
-    const { frames } = dragFrames('bottom-right', box(0, 200), cursors);
+    const cursors = [-(MIN_SIZE + 1), -(MIN_SIZE * 2), -120, -240];
+    const { frames } = dragFrames('bottom-right', box(0, wide), cursors);
     frames.forEach((f, i) => {
       expect(f.width).toBeCloseTo(Math.abs(cursors[i]), 6);
       expect(f.x).toBeCloseTo(cursors[i], 6);
@@ -132,7 +144,7 @@ describe('перетин нерухомого кута', () => {
 
   it('нерухомий кут стоїть на місці на всьому жесті — і до, і після перетину', () => {
     const cursors = [200, 120, 40, 12, 8, 4, 1, -1, -4, -8, -12, -40, -120, -200];
-    const { frames, fixed } = dragFrames('bottom-right', box(0, 200), cursors, 1);
+    const { frames, fixed } = dragFrames('bottom-right', box(0, wide), cursors, 1);
     for (const f of frames) {
       const fixedEnd = f.x < fixed.x ? f.x + f.width : f.x;
       expect(fixedEnd).toBeCloseTo(fixed.x, 6);
