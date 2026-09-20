@@ -73,15 +73,22 @@ export function createAtPoint(tool: CreatableTool, point: Point, meta: CreationM
   }
 }
 
-// протягування для фігури — розмір одразу з drag-прямокутника
+// протягування для фігури — розмір одразу з drag-прямокутника. А от клік без
+// протягування — це не «фігура 0x0»: замість крихти в кілька пікселів даємо
+// стандартний розмір, як і клік стікером. Куток лишається там, де натиснули:
+// саме так лягла б і протягнута фігура (модель тримає x/y як лівий верхній
+// кут bbox — для еліпса теж, до центру його переводить уже ShapeNode)
 export function createShapeFromRect(
   kind: ShapeKind,
   rect: { x: number; y: number; width: number; height: number },
   meta: CreationMeta,
 ): ShapeObject {
-  const width = Math.max(MIN_DRAWN_SIZE, Math.abs(rect.width));
-  const height = Math.max(MIN_DRAWN_SIZE, Math.abs(rect.height));
-  return createShape(kind, rect.x, rect.y, width, height, meta);
+  const width = Math.abs(rect.width);
+  const height = Math.abs(rect.height);
+  if (width < MIN_DRAWN_SIZE && height < MIN_DRAWN_SIZE) {
+    return createShape(kind, rect.x, rect.y, SHAPE_SIZE.width, SHAPE_SIZE.height, meta);
+  }
+  return createShape(kind, rect.x, rect.y, Math.max(MIN_DRAWN_SIZE, width), Math.max(MIN_DRAWN_SIZE, height), meta);
 }
 
 // протягування для зʼєднувача — кінці саме там, де відпустили/натиснули палець/курсор
