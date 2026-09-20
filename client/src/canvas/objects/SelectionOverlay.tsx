@@ -328,8 +328,8 @@ function scaleTextLive(node: Konva.Group, autoWidth: boolean) {
   const sy = node.scaleY();
   node.scale({ x: 1, y: 1 });
   text.fontSize(clamp(text.fontSize() * sy, FONT_SIZE_MIN, FONT_SIZE_MAX));
-  const width = Math.max(MIN_SIZE, box.width() * sx);
-  box.setAttrs({ width, height: Math.max(MIN_SIZE, box.height() * sy) });
+  const width = bakedSide(box.width(), sx);
+  box.setAttrs({ width, height: bakedSide(box.height(), sy) });
   if (!autoWidth) text.width(width);
 }
 
@@ -350,10 +350,10 @@ function bakeConnectorTransform(node: Konva.Group): BoardPoint[] {
 
 // переносить scale вузла в його справжній розмір (width/height, радіуси,
 // діти групи стікера) і повертає новий розмір у координатах дошки.
-// відʼємний scale у конви означає дзеркалення: розмір беремо за модулем, а
-// знак переводимо в позицію — вузол із початком у лівому верхньому куті
-// їде на власну ширину, бо додатна ширина малюється в інший бік. Еліпс не
-// зсуваємо: він малюється від центру, і дзеркалення його не рухає
+// знак тут уже не зустрічається: limitBoxSize нормалізує рамку ще в
+// координатах конви, тому scale приходить лише додатний. modulo в bakedSide
+// лишається як страховка — краще зайвий раз узяти модуль, ніж отримати
+// відʼємну ширину у вузлі
 function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObject) {
   const sx = node.scaleX();
   const sy = node.scaleY();
@@ -369,8 +369,6 @@ function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObje
     const width = bakedSide(node.width(), sx);
     const height = bakedSide(node.height(), sy);
     node.setAttrs({ width, height });
-    if (sx < 0) node.x(node.x() - width);
-    if (sy < 0) node.y(node.y() - height);
     return { width, height };
   }
   const box = (node as Konva.Group).findOne<Konva.Rect>('.box');
@@ -379,8 +377,6 @@ function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObje
   const height = bakedSide(box?.height() ?? obj.height, sy);
   box?.setAttrs({ width, height });
   text?.setAttrs({ width: width - STICKY_PADDING * 2, height: height - STICKY_PADDING * 2 });
-  if (sx < 0) node.x(node.x() - width);
-  if (sy < 0) node.y(node.y() - height);
   return { width, height };
 }
 
@@ -390,14 +386,17 @@ function resizeTextLive(node: Konva.Group, anchor: string | null, minHeight: num
   const box = node.findOne<Konva.Rect>('.box');
   const text = node.findOne<Konva.Text>('.text');
   if (!box || !text) return;
-  const width = Math.max(MIN_SIZE, box.width() * node.scaleX());
-  const height = box.height() * node.scaleY();
+  const width = bakedSide(box.width(), node.scaleX());
+  const height = bakedSide(box.height(), node.scaleY());
   node.scale({ x: 1, y: 1 });
+  // висота теж не нижче порога: у вузькому блоці konva міряє порожній текст
+  // у 0, і рамка виділення стає виродженою. Далі конва бачить нульову
+  // сторону, кидає весь кадр своєю ж перевіркою — і блок залипає назавжди
   if (anchor === 'bottom-center') {
-    box.height(Math.max(height, text.height()));
+    box.height(Math.max(height, text.height(), MIN_SIZE));
   } else {
     box.width(width);
     text.setAttrs({ width, wrap: 'word' });
-    box.height(Math.max(text.height(), minHeight));
+    box.height(Math.max(text.height(), minHeight, MIN_SIZE));
   }
 }

@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import type { TextObject } from 'shared';
+import { MIN_SIZE } from './limits';
 
 // один шрифт і для konva, і для textarea редагування — інакше переноси
 // рядків у редакторі й на полотні не збігаються
@@ -26,6 +27,7 @@ export function fitTextBox(
   });
   return {
     width: obj.autoWidth ? Math.max(MIN_TEXT_WIDTH, measurer.width()) : obj.width,
-    height: Math.max(obj.minHeight, measurer.height()),
+    // нуль тут не можна: виродженою стороною давиться трансформер
+    height: Math.max(obj.minHeight, measurer.height(), MIN_SIZE),
   };
 }
