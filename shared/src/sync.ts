@@ -110,6 +110,8 @@ export interface PresenceMember {
   userId: string;
   displayName: string;
   role: 'OWNER' | BoardRole;
+  // потрібне, щоб панель голосу застосовувала ту саму ієрархію, що й сервер
+  roleGrantedBy: string | null;
   // чи людина вже в голосовій розмові на момент, коли я зайшов на дошку.
   // Далі це живе окремим кадром VOICE_STATE, а тут — лише початковий знімок
   inVoice: boolean;

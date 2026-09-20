@@ -12,11 +12,29 @@ export function outranks(actor: 'OWNER' | BoardRole, target: 'OWNER' | BoardRole
   return false;
 }
 
+// над адміністратором стоїть не завжди лише власник: того, кого підняв інший
+// адміністратор, може зняти будь-який адміністратор. А от підняти адміном
+// когось власноруч — це вже рішення власника, і скасовує його теж власник
+export function canManageMember(
+  actor: 'OWNER' | BoardRole,
+  target: { role: 'OWNER' | BoardRole; roleGrantedBy?: string | null },
+  boardOwnerId: string,
+) {
+  if (target.role === 'OWNER') return false;
+  if (actor === 'OWNER') return true;
+  if (actor !== 'ADMIN') return false;
+  if (target.role !== 'ADMIN') return true;
+  return target.roleGrantedBy !== boardOwnerId;
+}
+
 export interface BoardMemberInfo {
   userId: string;
   email: string;
   displayName: string;
   role: BoardRole;
+  // хто дав цю роль — від цього залежить, чи зможе цього адміністратора
+  // зняти інший адміністратор (див. canManageMember)
+  roleGrantedBy: string | null;
 }
 
 export interface BoardSummary {

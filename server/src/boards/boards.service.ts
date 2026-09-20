@@ -6,6 +6,8 @@ import { prisma } from '../prisma';
 export interface BoardAccess {
   board: Board;
   role: 'OWNER' | BoardRole;
+  // у власника ролі ніхто не давав — тому null
+  roleGrantedBy: string | null;
 }
 
 // єдине місце, де вирішується, чи має юзер доступ до дошки і з якою роллю
@@ -15,11 +17,11 @@ export async function getBoardAccess(boardId: string, userId: string): Promise<B
     include: { members: { where: { userId } } },
   });
   if (!board) return null;
-  if (board.ownerId === userId) return { board, role: 'OWNER' };
+  if (board.ownerId === userId) return { board, role: 'OWNER', roleGrantedBy: null };
 
   const membership = board.members[0];
   if (!membership) return null;
-  return { board, role: membership.role };
+  return { board, role: membership.role, roleGrantedBy: membership.roleGrantedBy };
 }
 
 // імʼя для списку присутніх. Окремим запитом і раз на коннект: getBoardAccess
@@ -47,7 +49,8 @@ export function requireBoardOwner(access: BoardAccess | null): BoardAccess {
 }
 
 // керування учасниками: власник і адміністратор. Кого саме можна чіпати —
-// вирішує outranks уже на місці, бо для цього треба знати роль цілі
+// вирішує canManageMember уже на місці, бо для цього треба знати роль цілі
+// й того, хто ту роль дав
 export function requireBoardAdmin(access: BoardAccess | null): BoardAccess {
   const resolved = requireBoardAccess(access);
   if (resolved.role !== 'OWNER' && resolved.role !== 'ADMIN') {
@@ -88,6 +91,7 @@ export function toBoardDetail(
     email: m.user.email,
     displayName: m.user.displayName,
     role: m.role,
+    roleGrantedBy: m.roleGrantedBy,
   }));
 
   const mine = members.find((m) => m.userId === userId);

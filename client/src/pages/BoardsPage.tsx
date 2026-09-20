@@ -135,7 +135,7 @@ export function BoardsPage() {
               </button>
             )}
             {membersOpenId === board.id && (
-              <BoardMembers boardId={board.id} myRole={board.myRole} />
+              <BoardMembers boardId={board.id} myRole={board.myRole} ownerId={board.ownerId} />
             )}
           </li>
         ))}

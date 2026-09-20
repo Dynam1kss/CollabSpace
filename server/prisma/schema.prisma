@@ -49,6 +49,11 @@ model BoardMember {
   userId  String
   user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   role    BoardRole
+  // хто дав цю роль. Потрібне лише для адміністраторів: піднятого власником
+  // знімає тільки власник, піднятого іншим адміністратором — будь-який
+  // адміністратор. Без звʼязку й без каскаду: це слід, а не посилання —
+  // коли той, хто роздавав, сам піде з дошки, слід має лишитись
+  roleGrantedBy String?
 
   @@unique([boardId, userId])
 }

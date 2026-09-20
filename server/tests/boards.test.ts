@@ -359,6 +359,105 @@ describe('дошки — CRUD і права доступу', () => {
     ).toBe(400);
   });
 
+  // над адміністратором стоїть не завжди лише власник — залежить від того,
+  // хто його підняв
+  it('адміністратора, якого підняв інший адміністратор, знімає будь-який адміністратор', async () => {
+    const owner = await registerUser();
+    const adminA = await registerUser();
+    const adminB = await registerUser();
+    const promoted = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+
+    // цих двох підняв власник — вони недоторканні один для одного
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminB.payload.email, role: 'ADMIN' });
+    // а цього підняв adminA
+    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+
+    const detail = await owner.agent.get(`/api/boards/${boardId}`);
+    const infoOf = (userId: string) =>
+      detail.body.members.find((m: { userId: string }) => m.userId === userId);
+    expect(infoOf(adminA.user.id).roleGrantedBy).toBe(owner.user.id);
+    expect(infoOf(promoted.user.id).roleGrantedBy).toBe(adminA.user.id);
+
+    // adminB не той, хто піднімав, — але піднімав теж адміністратор, тож можна
+    expect(
+      (await adminB.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'EDITOR' }))
+        .status,
+    ).toBe(200);
+    // а один одного ці двоє не чіпають: їх обох підняв власник
+    expect(
+      (await adminB.agent.patch(`/api/boards/${boardId}/members`).send({ userId: adminA.user.id, role: 'EDITOR' }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await adminA.agent.delete(`/api/boards/${boardId}/members`).send({ userId: adminB.user.id })).status,
+    ).toBe(403);
+  });
+
+  it('власник знімає будь-якого адміністратора, хоч би хто його підняв', async () => {
+    const owner = await registerUser();
+    const adminA = await registerUser();
+    const promoted = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
+    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await owner.agent.delete(`/api/boards/${boardId}/members`).send({ userId: adminA.user.id })).status,
+    ).toBe(204);
+  });
+
+  // слід оновлюється на КОЖНУ зміну ролі, а не лише на першу: власник забрав
+  // у адмін-ставленика роль і повернув — тепер за ним стоїть уже власник
+  it('після втручання власника адміністратор уже не чіпає того ж учасника', async () => {
+    const owner = await registerUser();
+    const adminA = await registerUser();
+    const adminB = await registerUser();
+    const promoted = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminB.payload.email, role: 'ADMIN' });
+    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+
+    await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'ADMIN' });
+
+    expect(
+      (await adminB.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'EDITOR' }))
+        .status,
+    ).toBe(403);
+  });
+
+  // та сама ієрархія на примусовому вимкненні голосу
+  it('примусове вимкнення голосу йде за тією ж ієрархією адміністраторів', async () => {
+    const owner = await registerUser();
+    const adminA = await registerUser();
+    const adminB = await registerUser();
+    const promoted = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminB.payload.email, role: 'ADMIN' });
+    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+
+    expect(
+      (await adminB.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: promoted.user.id, mute: true })).status,
+    ).toBe(204);
+    expect(
+      (await adminB.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: adminA.user.id, mute: true })).status,
+    ).toBe(403);
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: adminA.user.id, mute: true })).status,
+    ).toBe(204);
+  });
+
   it('видалення учасника забирає йому доступ до дошки', async () => {
     const owner = await registerUser();
     const member = await registerUser();

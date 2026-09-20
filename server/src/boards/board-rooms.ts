@@ -17,6 +17,7 @@ interface Client {
   id: number;
   boardId: string;
   role: BoardAccess['role'];
+  roleGrantedBy: string | null;
   userId: string;
   displayName: string;
   // чи людина зараз у голосовій розмові. Тримаємо тут, щоб новачок дізнався
@@ -75,12 +76,13 @@ function socketsOfUser(boardId: string, userId: string) {
 // наново, а тут би лишилась стара до перезаходу — і знижений редактор далі
 // розсилав би UPDATE. Тому після запису в базу правимо кеш і кажемо клієнту,
 // щоб той переставив і свій бік без перезавантаження
-export function applyRoleChange(boardId: string, userId: string, role: BoardRole) {
+export function applyRoleChange(boardId: string, userId: string, role: BoardRole, grantedBy: string) {
   diag('зміна ролі доганяє відкриті сокети', { boardId, userId, role });
   for (const socket of socketsOfUser(boardId, userId)) {
     const client = clients.get(socket);
     if (!client) continue;
     client.role = role;
+    client.roleGrantedBy = grantedBy;
     send(socket, jsonFrame(SYNC_MSG.ROLE, { role }));
   }
 }
@@ -112,6 +114,7 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
       id: nextClientId++,
       boardId,
       role: access.role,
+      roleGrantedBy: access.roleGrantedBy,
       userId,
       displayName,
       inVoice: false,
@@ -145,6 +148,7 @@ function toMember(client: Client): PresenceMember {
     userId: client.userId,
     displayName: client.displayName,
     role: client.role,
+    roleGrantedBy: client.roleGrantedBy,
     inVoice: client.inVoice,
     forcedMute: forcedFor(client.boardId, client.userId).mute,
     forcedDeafen: forcedFor(client.boardId, client.userId).deafen,

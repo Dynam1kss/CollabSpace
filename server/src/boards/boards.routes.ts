@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { outranks } from 'shared';
+import { canManageMember } from 'shared';
 import type {
   AddBoardMemberRequest,
   BoardDetail,
@@ -148,12 +148,14 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
 
     await prisma.boardMember.upsert({
       where: { boardId_userId: { boardId: access.board.id, userId: user.id } },
-      create: { boardId: access.board.id, userId: user.id, role },
-      update: { role },
+      create: { boardId: access.board.id, userId: user.id, role, roleGrantedBy: req.userId },
+      update: { role, roleGrantedBy: req.userId },
     });
     // те саме, що й у patch нижче: відкритий сокет живе з роллю, взятою на
     // підключенні, і без цього лишився б із правами, яких уже немає
-    if (existing && existing.role !== role) applyRoleChange(access.board.id, user.id, role);
+    if (existing && existing.role !== role) {
+      applyRoleChange(access.board.id, user.id, role, req.userId as string);
+    }
 
     const members = await prisma.boardMember.findMany({
       where: { boardId: access.board.id },
@@ -168,20 +170,21 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
 });
 
 // кого саме дозволено чіпати: власника — ніколи (у нього й рядка немає, але
-// кажемо про це прямо), решту — лише якщо ми вищі за неї. Адміністратор
-// адміністратора не чіпає: над ним стоїть лише власник
+// кажемо про це прямо), решту — за canManageMember. Роль і того, хто її дав,
+// читаємо з бази саме зараз: усе, що клієнт думає про ієрархію, — підказка
+// для кнопок, не більше
 async function requireCanManage(access: BoardAccess, targetUserId: string) {
   if (targetUserId === access.board.ownerId) {
     throw new AppError(403, 'FORBIDDEN', 'Власника дошки змінити не можна');
   }
   const target = await prisma.boardMember.findUnique({
     where: { boardId_userId: { boardId: access.board.id, userId: targetUserId } },
-    select: { role: true },
+    select: { role: true, roleGrantedBy: true },
   });
   if (!target) {
     throw new AppError(404, 'MEMBER_NOT_FOUND', 'Такого учасника на дошці немає');
   }
-  if (!outranks(access.role, target.role)) {
+  if (!canManageMember(access.role, target, access.board.ownerId)) {
     throw new AppError(403, 'FORBIDDEN', 'Недостатньо прав для цього учасника');
   }
   return target;
@@ -204,10 +207,10 @@ boardsRouter.patch('/:id/members', async (req, res, next) => {
 
     await prisma.boardMember.updateMany({
       where: { boardId: access.board.id, userId },
-      data: { role },
+      data: { role, roleGrantedBy: req.userId },
     });
     // відкритий сокет живе з роллю, взятою на підключенні — доганяємо його
-    applyRoleChange(access.board.id, userId, role);
+    applyRoleChange(access.board.id, userId, role, req.userId as string);
 
     const members = await prisma.boardMember.findMany({
       where: { boardId: access.board.id },

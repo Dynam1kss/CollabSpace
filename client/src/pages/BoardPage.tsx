@@ -248,7 +248,7 @@ export function BoardPage() {
         <Participants />
         {/* чат і голос не залежать від того, що показано — полотно чи канбан */}
         <ChatPanel boardId={board.id} />
-        <VoicePanel boardId={board.id} currentUserId={currentUserId} />
+        <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />
         <div className={`board-island sync-status ${syncStatus}`}>{SYNC_STATUS_TEXT[syncStatus]}</div>
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>

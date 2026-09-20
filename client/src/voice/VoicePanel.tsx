@@ -2,7 +2,7 @@ import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import { usePresenceStore } from '../canvas/presence-store';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
 import { forceVoice } from '../api/boards';
-import { outranks } from 'shared';
+import { canManageMember } from 'shared';
 import { setDeafened, setMicMuted, startVoice, stopVoice, voiceIsFull } from './voice-mesh';
 import {
   HeadphonesIcon,
@@ -25,9 +25,10 @@ function describe(peer: PeerInfo) {
 interface Props {
   boardId: string;
   currentUserId: string;
+  ownerId: string;
 }
 
-export function VoicePanel({ boardId, currentUserId }: Props) {
+export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
   const inVoice = useVoiceStore((s) => s.inVoice);
   const starting = useVoiceStore((s) => s.starting);
   const peers = useVoiceStore((s) => s.peers);
@@ -88,7 +89,7 @@ export function VoicePanel({ boardId, currentUserId }: Props) {
             if (!member) return null;
             const theirForced = forced[member.userId] ?? { mute: false, deafen: false };
             // керувати чужим мікрофоном може лише той, хто вищий за людину
-            const canForce = selfRole ? outranks(selfRole, member.role) : false;
+            const canForce = selfRole ? canManageMember(selfRole, member, ownerId) : false;
             return (
               <span key={clientId} className="voice-peer-row">
                 <span

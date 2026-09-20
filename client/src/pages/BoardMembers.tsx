@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { outranks } from 'shared';
+import { canManageMember } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
 import { ApiError, addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
 
@@ -9,13 +9,16 @@ interface Props {
   // моя роль на цій дошці: адміністратор керує не всіма, тому кнопки й
   // списки гасимо там, де сервер однаково відмовить
   myRole: 'OWNER' | BoardRole;
+  // потрібен для ієрархії: адміністратора, якого підняв власник, чіпає
+  // лише власник
+  ownerId: string;
 }
 
 // розкривна секція під дошкою у списку (лише для власника): список
 // учасників приходить окремим GET /boards/:id — у списку дошок його нема
-export function BoardMembers({ boardId, myRole }: Props) {
+export function BoardMembers({ boardId, myRole, ownerId }: Props) {
   // та сама ієрархія, що й на сервері — щоб не показувати дію, яка дасть 403
-  const canManage = (targetRole: BoardRole) => outranks(myRole, targetRole);
+  const canManage = (m: BoardMemberInfo) => canManageMember(myRole, m, ownerId);
   const [members, setMembers] = useState<BoardMemberInfo[] | null>(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<BoardRole>('EDITOR');
@@ -102,7 +105,7 @@ export function BoardMembers({ boardId, myRole }: Props) {
               <span>{m.email}</span>
               <select
                 value={m.role}
-                disabled={busyUserId === m.userId || !canManage(m.role)}
+                disabled={busyUserId === m.userId || !canManage(m)}
                 aria-label={`Роль: ${m.email}`}
                 onChange={(e) => handleRoleChange(m.userId, e.target.value as BoardRole)}
               >
@@ -110,7 +113,7 @@ export function BoardMembers({ boardId, myRole }: Props) {
                 <option value="EDITOR">Редактор</option>
                 <option value="VIEWER">Глядач</option>
               </select>
-              <button type="button" disabled={!canManage(m.role)} onClick={() => handleRemove(m.userId)}>
+              <button type="button" disabled={!canManage(m)} onClick={() => handleRemove(m.userId)}>
                 Видалити
               </button>
             </li>
