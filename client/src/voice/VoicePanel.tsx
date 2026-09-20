@@ -71,8 +71,8 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
           <button
             type="button"
             className={deafened ? 'voice-toggle off' : 'voice-toggle'}
-            title={myForced.deafen ? 'Звук вимкнув адміністратор' : deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
-            aria-label={deafened ? 'Увімкнути звук' : 'Вимкнути звук усіх'}
+            title={myForced.deafen ? 'Звук вимкнув адміністратор' : deafened ? 'Знову чути всіх' : 'Не чути нікого'}
+            aria-label={deafened ? 'Знову чути всіх' : 'Не чути нікого'}
             aria-pressed={deafened}
             disabled={myForced.deafen}
             onClick={() => setDeafened(!deafened)}
@@ -136,7 +136,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                     <button
                       type="button"
                       className={theirForced.deafen ? 'voice-force on' : 'voice-force'}
-                      title={theirForced.deafen ? 'Повернути звук' : 'Вимкнути звук учаснику'}
+                      title={theirForced.deafen ? 'Повернути звук' : 'Щоб учасник нікого не чув'}
                       aria-label={`Звук: ${member.displayName}`}
                       onClick={() =>
                         void forceVoice(boardId, {
