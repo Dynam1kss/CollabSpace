@@ -32,13 +32,16 @@ interface Client {
 interface ForcedVoice {
   mute: boolean;
   deafen: boolean;
+  // яким був примусовий мікрофон до заборони чути: знімаючи заборону,
+  // повертаємо саме його, а не просто вмикаємо мікрофон
+  muteBeforeDeafen: boolean;
 }
 
 const forcedVoice = new Map<string, ForcedVoice>();
 const forcedKey = (boardId: string, userId: string) => `${boardId}:${userId}`;
 
 function forcedFor(boardId: string, userId: string): ForcedVoice {
-  return forcedVoice.get(forcedKey(boardId, userId)) ?? { mute: false, deafen: false };
+  return forcedVoice.get(forcedKey(boardId, userId)) ?? { mute: false, deafen: false, muteBeforeDeafen: false };
 }
 
 // той самий журнал, що й у клієнта: коли обʼєкти зникають, послідовність
@@ -223,17 +226,29 @@ async function relayChat(client: Client, buf: Buffer) {
 // адміністратор примусово вимкнув комусь мікрофон або звук. Розсилаємо всім
 // у кімнаті: адресат виконує, решта малює замочок
 export function setForcedVoice(boardId: string, userId: string, patch: Partial<ForcedVoice>) {
-  const next = { ...forcedFor(boardId, userId), ...patch };
+  const current = forcedFor(boardId, userId);
+  const next = { ...current, ...patch };
+  // «не чує нікого» тягне за собою й мікрофон — рівно як власне вимкнення
+  // звуку в клієнті. Інакше людина не чує, але говорить у порожнечу, і
+  // замок на мікрофоні їй ніхто не малює
+  if (patch.deafen === true && !current.deafen) {
+    next.muteBeforeDeafen = current.mute;
+    next.mute = true;
+  }
+  if (patch.deafen === false && current.deafen) {
+    next.mute = current.muteBeforeDeafen;
+  }
   if (!next.mute && !next.deafen) forcedVoice.delete(forcedKey(boardId, userId));
   else forcedVoice.set(forcedKey(boardId, userId), next);
 
   const room = rooms.get(boardId);
   if (!room) return;
-  if (patch.mute !== undefined) {
+  // шлемо лише те, що справді змінилось: мікрофон міг поїхати слідом за звуком
+  if (next.mute !== current.mute) {
     const frame = jsonFrame(SYNC_MSG.FORCE_MUTE, { userId, on: next.mute });
     for (const [, socket] of room) send(socket, frame);
   }
-  if (patch.deafen !== undefined) {
+  if (next.deafen !== current.deafen) {
     const frame = jsonFrame(SYNC_MSG.FORCE_DEAFEN, { userId, on: next.deafen });
     for (const [, socket] of room) send(socket, frame);
   }

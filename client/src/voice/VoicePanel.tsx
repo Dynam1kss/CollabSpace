@@ -13,6 +13,14 @@ import {
 import type { PeerInfo } from './voice-store';
 import { useVoiceStore } from './voice-store';
 
+// вимкнув адміністратор — це НЕ те саме, що «я сам вимкнув і можу ввімкнути»:
+// окремий клас домальовує замок і червоний тон, інакше кнопка виглядає просто
+// застряглою
+function selfClass(off: boolean, forced: boolean) {
+  if (forced) return 'voice-toggle locked';
+  return off ? 'voice-toggle off' : 'voice-toggle';
+}
+
 function describe(peer: PeerInfo) {
   if (peer.phase === 'failed') return 'звʼязок не вдався';
   if (peer.phase !== 'live') return 'підключається';
@@ -55,27 +63,41 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
         {starting ? 'мікрофон…' : inVoice ? 'Вийти з розмови' : 'Приєднатись до розмови'}
       </button>
 
+      {/* примусово вимкнені кнопки лишаються клікабельними: на disabled браузер
+      не показує title, а саме з нього людина й дізнається, що це адміністратор */}
       {inVoice && (
         <div className="voice-self">
           <button
             type="button"
-            className={micMuted ? 'voice-toggle off' : 'voice-toggle'}
-            title={myForced.mute ? 'Мікрофон вимкнув адміністратор' : micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
-            aria-label={micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
+            className={selfClass(micMuted, myForced.mute)}
+            title={
+              myForced.mute
+                ? 'Мікрофон вимкнено адміністратором'
+                : micMuted
+                  ? 'Увімкнути мікрофон'
+                  : 'Вимкнути мікрофон'
+            }
+            aria-label={myForced.mute ? 'Мікрофон вимкнено адміністратором' : micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
             aria-pressed={micMuted}
-            disabled={myForced.mute}
-            onClick={() => setMicMuted(!micMuted)}
+            aria-disabled={myForced.mute}
+            onClick={() => !myForced.mute && setMicMuted(!micMuted)}
           >
             {micMuted ? <MicOffIcon size={22} /> : <MicIcon size={22} />}
           </button>
           <button
             type="button"
-            className={deafened ? 'voice-toggle off' : 'voice-toggle'}
-            title={myForced.deafen ? 'Звук вимкнув адміністратор' : deafened ? 'Знову чути всіх' : 'Не чути нікого'}
-            aria-label={deafened ? 'Знову чути всіх' : 'Не чути нікого'}
+            className={selfClass(deafened, myForced.deafen)}
+            title={
+              myForced.deafen
+                ? 'Звук вимкнено адміністратором'
+                : deafened
+                  ? 'Знову чути всіх'
+                  : 'Не чути нікого'
+            }
+            aria-label={myForced.deafen ? 'Звук вимкнено адміністратором' : deafened ? 'Знову чути всіх' : 'Не чути нікого'}
             aria-pressed={deafened}
-            disabled={myForced.deafen}
-            onClick={() => setDeafened(!deafened)}
+            aria-disabled={myForced.deafen}
+            onClick={() => !myForced.deafen && setDeafened(!deafened)}
           >
             {deafened ? <HeadphonesOffIcon size={22} /> : <HeadphonesIcon size={22} />}
           </button>

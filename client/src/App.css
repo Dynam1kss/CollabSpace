@@ -823,6 +823,27 @@ elementFromPoint повертав би її саму замість колонк
   background: #fdeef3;
 }
 
+/* вимкнув адміністратор: насичений тон і замок у кутку — щоб не плутати з
+власним вимкненим мікрофоном, який людина ввімкне будь-коли */
+.voice-toggle.locked {
+  position: relative;
+  color: #fff;
+  border-color: #a51e48;
+  background: #c2255c;
+  cursor: not-allowed;
+}
+
+.voice-toggle.locked::after {
+  content: '🔒';
+  position: absolute;
+  right: -3px;
+  bottom: -4px;
+  font-size: 0.62rem;
+  line-height: 1;
+  /* сам емодзі кольоровий, тінь відділяє його від кнопки під ним */
+  text-shadow: 0 0 2px var(--panel-bg);
+}
+
 /* рядок учасника голосу: кружечок, замочок і кнопки адміністратора */
 .voice-peer-row {
   display: inline-flex;
