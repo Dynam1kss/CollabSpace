@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 
-// іконки — інлайн svg, щоб не тягнути бібліотеку заради десятка картинок
-function Svg({ children }: { children: ReactNode }) {
+// іконки — інлайн svg, щоб не тягнути бібліотеку заради десятка картинок.
+// size — для місць, де 20px замало: у панелі голосу кнопки стоять щільним
+// рядком, і мікрофон там читався як крапка
+function Svg({ children, size = 20 }: { children: ReactNode; size?: number }) {
   return (
     <svg
-      width="20"
-      height="20"
+      width={size}
+      height={size}
       viewBox="0 0 20 20"
       fill="none"
       stroke="currentColor"
@@ -141,18 +143,18 @@ export function ChatIcon() {
   );
 }
 
-export function MicIcon() {
+export function MicIcon({ size }: { size?: number } = {}) {
   return (
-    <Svg>
+    <Svg size={size}>
       <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
       <path d="M4.5 9a5.5 5.5 0 0 0 11 0M10 14.5v3" />
     </Svg>
   );
 }
 
-export function MicOffIcon() {
+export function MicOffIcon({ size }: { size?: number } = {}) {
   return (
-    <Svg>
+    <Svg size={size}>
       <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
       <path d="M4.5 9a5.5 5.5 0 0 0 11 0M10 14.5v3" />
       <path d="M3 3l14 14" />
@@ -160,9 +162,9 @@ export function MicOffIcon() {
   );
 }
 
-export function HeadphonesIcon() {
+export function HeadphonesIcon({ size }: { size?: number } = {}) {
   return (
-    <Svg>
+    <Svg size={size}>
       <path d="M4 12V9.5a6 6 0 0 1 12 0V12" />
       <rect x="2.5" y="11.5" width="3.5" height="5" rx="1.5" />
       <rect x="14" y="11.5" width="3.5" height="5" rx="1.5" />
@@ -170,9 +172,9 @@ export function HeadphonesIcon() {
   );
 }
 
-export function HeadphonesOffIcon() {
+export function HeadphonesOffIcon({ size }: { size?: number } = {}) {
   return (
-    <Svg>
+    <Svg size={size}>
       <path d="M4 12V9.5a6 6 0 0 1 12 0V12" />
       <rect x="2.5" y="11.5" width="3.5" height="5" rx="1.5" />
       <rect x="14" y="11.5" width="3.5" height="5" rx="1.5" />

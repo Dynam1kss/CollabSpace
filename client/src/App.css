@@ -738,7 +738,8 @@ elementFromPoint повертав би її саму замість колонк
 
 .voice-peers {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
 }
 
 .voice-peer {
@@ -803,12 +804,15 @@ elementFromPoint повертав би її саму замість колонк
   gap: 4px;
 }
 
+/* 36px — як кнопки інструментів (40px) і помітно більше за попередні 32:
+у цьому рядку з дрібним текстом 32 читались як цятки */
 .voice-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
   padding: 0;
   color: var(--text-muted);
 }
@@ -823,7 +827,7 @@ elementFromPoint повертав би її саму замість колонк
 .voice-peer-row {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .voice-locked {
@@ -831,12 +835,15 @@ elementFromPoint повертав би її саму замість колонк
   line-height: 1;
 }
 
+/* кнопки адміністратора біля кожного співрозмовника. Були 26px і в щільному
+рядку зливались у крапку — тепер не менші за свої власні */
 .voice-force {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
   padding: 0;
   color: var(--text-muted);
 }

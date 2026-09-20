@@ -66,7 +66,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
             disabled={myForced.mute}
             onClick={() => setMicMuted(!micMuted)}
           >
-            {micMuted ? <MicOffIcon /> : <MicIcon />}
+            {micMuted ? <MicOffIcon size={22} /> : <MicIcon size={22} />}
           </button>
           <button
             type="button"
@@ -77,7 +77,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
             disabled={myForced.deafen}
             onClick={() => setDeafened(!deafened)}
           >
-            {deafened ? <HeadphonesOffIcon /> : <HeadphonesIcon />}
+            {deafened ? <HeadphonesOffIcon size={22} /> : <HeadphonesIcon size={22} />}
           </button>
         </div>
       )}
@@ -131,7 +131,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                         )
                       }
                     >
-                      {theirForced.mute ? <MicOffIcon /> : <MicIcon />}
+                      {theirForced.mute ? <MicOffIcon size={22} /> : <MicIcon size={22} />}
                     </button>
                     <button
                       type="button"
@@ -145,7 +145,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                         }).catch(() => {})
                       }
                     >
-                      {theirForced.deafen ? <HeadphonesOffIcon /> : <HeadphonesIcon />}
+                      {theirForced.deafen ? <HeadphonesOffIcon size={22} /> : <HeadphonesIcon size={22} />}
                     </button>
                   </>
                 )}
