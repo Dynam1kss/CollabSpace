@@ -240,6 +240,7 @@ export function SelectionOverlay({
       if (obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image') {
         const size = bakeScale(node, obj);
         if (obj.type === 'shape') node.setAttrs({ strokeWidth: scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, size) });
+
       } else if (obj.type === 'text' && soleText && isEdgeAnchor(anchor)) {
         resizeTextLive(node as Konva.Group, anchor, soleText.minHeight);
       } else if (obj.type === 'text') {
@@ -254,8 +255,18 @@ export function SelectionOverlay({
     // раніше setNodes скидав власний rotation трансформера, і кут накопичувався.
     // konva шле 'transform' по разу на кожен вузол за кадр, а цикл вище й так
     // проходить усі — пишемо лише на першому, інакше для групи з N виходить
-    // N² оновлень і стільки ж пакетів у мережу
-    if (e.target === tr.nodes()[0]) commitNodes();
+    // N² оновлень і стільки ж пакетів у мережу.
+    //
+    // І одразу ж скидаємо в документ, не чекаючи наступного кадру. Бо інакше
+    // стор відстає від вузла на кадр, react перемальовує вузол уже застарілими
+    // числами — і виходить кадр, де x новий, а width ще старий. На плавному
+    // тяганні це непомітно, а на межі приніжної зони пара розʼїжджається на
+    // піксель, і «нерухомий» кут смикається. Пакет той самий один на кадр,
+    // просто закривається тут, а не в rAF
+    if (e.target === tr.nodes()[0]) {
+      commitNodes();
+      flushUpdates();
+    }
   }
 
   function handleTransformEnd() {
@@ -334,6 +345,10 @@ export function SelectionOverlay({
   return (
     <Transformer
       ref={transformerRef}
+      // рамку трансформера рахуємо БЕЗ обведення: інакше воно входить у
+      // розміри, і заблокована пропорція щожесту трохи повзе до квадрата
+      // (у виділеної картинки обведення 3px — це +6 до кожної сторони)
+      ignoreStroke
       boundBoxFunc={limitBox}
       enabledAnchors={soleText ? TEXT_ANCHORS : soleImage ? CORNER_ANCHORS : ALL_ANCHORS}
       anchorStyleFunc={soleText ? styleTextAnchor : undefined}

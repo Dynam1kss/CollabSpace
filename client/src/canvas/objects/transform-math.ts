@@ -57,6 +57,23 @@ function limitDistance(distance: number) {
   return Math.sign(distance || 1) * MIN_SIZE;
 }
 
+// поріг для пари сторін, звʼязаних пропорцією. Накладати його на кожну вісь
+// окремо НЕ можна: тоді на порозі обидві стають рівні MIN_SIZE, тобто рамка
+// робиться квадратною — і цей квадрат іде в стор, після чого картинка
+// назавжди лишається квадратною. Замість цього підтягуємо обидві сторони
+// ОДНИМ множником: та, що впирається в поріг першою, його й задає, а
+// відношення сторін лишається тим самим
+function limitPair(across: number, down: number) {
+  const a = Math.abs(across);
+  const d = Math.abs(down);
+  // жодної сторони ще немає — зберігати нема чого
+  if (a < 1e-9 || d < 1e-9) {
+    return { across: Math.sign(across || 1) * MIN_SIZE, down: Math.sign(down || 1) * MIN_SIZE };
+  }
+  const k = Math.max(MIN_SIZE / a, MIN_SIZE / d, 1);
+  return { across: across * k, down: down * k };
+}
+
 // на якому боці від нерухомого кута стоїть готова рамка. Початок рамки
 // збігається з кутом, поки бік додатний, і відʼїжджає за нього, коли
 // фігуру віддзеркалило — тому знак проекції початку й відповідає на питання.
@@ -102,16 +119,13 @@ export function limitBoxSize(fixed: Point, newBox: Box, lockedRatio = false): Bo
 
   const across = movingEnd(originU, originU + newBox.width);
   const down = movingEnd(originV, originV + newBox.height);
-  const limitedAcross = limitDistance(across);
-  const limitedDown = limitDistance(down);
-  // із заблокованою пропорцією осі не живуть окремо: коли одна лягла на
-  // поріг, друга вже теж там (вони міняються разом). Кладемо на поріг
-  // обидві — інакше konva довертає рамку по гіпотенузі, узятій ще на
-  // натисканні, і розмір дрібно гуляє замість того, щоб завмерти
-  const atFloor =
-    lockedRatio && (Math.abs(limitedAcross) <= MIN_SIZE || Math.abs(limitedDown) <= MIN_SIZE);
-  const acrossValue = atFloor ? Math.sign(across || 1) * MIN_SIZE : limitedAcross;
-  const downValue = atFloor ? Math.sign(down || 1) * MIN_SIZE : limitedDown;
+  // із заблокованою пропорцією сторони не живуть окремо — поріг на них
+  // накладається спільно, щоб відношення лишилось те саме
+  const limited = lockedRatio
+    ? limitPair(across, down)
+    : { across: limitDistance(across), down: limitDistance(down) };
+  const acrossValue = limited.across;
+  const downValue = limited.down;
   const acrossStart = Math.min(0, acrossValue);
   const downStart = Math.min(0, downValue);
 

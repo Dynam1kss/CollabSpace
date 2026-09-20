@@ -204,3 +204,64 @@ describe('товщина обведення при зміні розміру', (
     expect(scaledStrokeWidth({ strokeWidth: 2, width: 500, height: 500 }, { width: 8, height: 8 })).toBe(1);
   });
 });
+
+// із заблокованою пропорцією (картинка, текст за кут) поріг не має права
+// робити рамку квадратною: інакше квадрат іде в стор, і картинка лишається
+// квадратною назавжди
+describe('поріг із заблокованою пропорцією', () => {
+  const ratio = (b: Box) => b.width / b.height;
+
+  // 2:3 — висока картинка
+  const tall = (w: number): Box => ({ x: 0, y: 0, width: w, height: w * 1.5, rotation: 0 });
+
+  it('на порозі рамка НЕ стає квадратною', () => {
+    const fixed = { x: 0, y: 0 };
+    const out = limitBoxSize(fixed, tall(2), true);
+    expect(out.width).not.toBeCloseTo(out.height, 6);
+    expect(ratio(out)).toBeCloseTo(1 / 1.5, 6);
+  });
+
+  it('менша сторона лягає рівно на поріг, більша — пропорційно', () => {
+    const out = limitBoxSize({ x: 0, y: 0 }, tall(2), true);
+    expect(Math.min(out.width, out.height)).toBeCloseTo(MIN_SIZE, 6);
+    expect(Math.max(out.width, out.height)).toBeCloseTo(MIN_SIZE * 1.5, 6);
+  });
+
+  it('вище порога нічого не чіпає', () => {
+    const big = tall(MIN_SIZE * 4);
+    const out = limitBoxSize({ x: 0, y: 0 }, big, true);
+    expect(out.width).toBeCloseTo(big.width, 6);
+    expect(out.height).toBeCloseTo(big.height, 6);
+  });
+
+  it('широка картинка так само: поріг ловить ВИСОТУ', () => {
+    const wide: Box = { x: 0, y: 0, width: 3, height: 1, rotation: 0 };
+    const out = limitBoxSize({ x: 0, y: 0 }, wide, true);
+    expect(ratio(out)).toBeCloseTo(3, 6);
+    expect(out.height).toBeCloseTo(MIN_SIZE, 6);
+    expect(out.width).toBeCloseTo(MIN_SIZE * 3, 6);
+  });
+
+  // саме те, на що скаржились: кілька жестів поспіль, і пропорція має
+  // лишатись тією самою, а не сповзати до квадрата
+  it('десять стискань до порога поспіль не зʼїдають пропорцію', () => {
+    const start = 2 / 3;
+    let node: Box = { x: 0, y: 0, width: 240, height: 360, rotation: 0 };
+    for (let i = 0; i < 10; i++) {
+      // стиснули в поріг…
+      const squeezed = limitBoxSize({ x: 0, y: 0 }, { ...node, width: 1, height: 1.5 }, true);
+      expect(ratio(squeezed)).toBeCloseTo(start, 9);
+      // …і розтягнули назад тим самим відношенням
+      node = limitBoxSize({ x: 0, y: 0 }, { ...squeezed, width: 240, height: 360 }, true);
+      expect(ratio(node)).toBeCloseTo(start, 9);
+    }
+    expect(node.width).toBeCloseTo(240, 6);
+    expect(node.height).toBeCloseTo(360, 6);
+  });
+
+  it('без блокування пропорції осі й далі незалежні', () => {
+    const out = limitBoxSize({ x: 0, y: 0 }, tall(2), false);
+    expect(out.width).toBeCloseTo(MIN_SIZE, 6);
+    expect(out.height).toBeCloseTo(MIN_SIZE, 6);
+  });
+});
