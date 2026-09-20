@@ -181,6 +181,16 @@ export function HeadphonesOffIcon() {
   );
 }
 
+// крісло збоку — спинка, сидіння, ніжки. «сюди можна ставити стільці»
+export function ChairIcon() {
+  return (
+    <Svg>
+      <path d="M6 3.5h8v7H6z" />
+      <path d="M4.5 10.5h11M6 13h8M6 13v3.5M14 13v3.5" />
+    </Svg>
+  );
+}
+
 export function TrashIcon() {
   return (
     <Svg>

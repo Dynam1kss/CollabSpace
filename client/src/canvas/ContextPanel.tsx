@@ -4,7 +4,7 @@ import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
-import { BringFrontIcon, SendBackIcon, StrokeWidthIcon, TextIcon, TrashIcon } from './icons';
+import { BringFrontIcon, ChairIcon, SendBackIcon, StrokeWidthIcon, TextIcon, TrashIcon } from './icons';
 import { NumberField } from './NumberField';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, PALETTE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './object-defaults';
 import { fitTextBox } from './text-layout';
@@ -80,6 +80,10 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
   const textColorObject = selected.find((o) => o.type === 'sticky' || o.type === 'text');
   const strokeObject = selected.find((o) => o.type === 'shape' || o.type === 'connector');
   const textObject = selected.find((o) => o.type === 'text');
+
+  // увімкненим вважаємо, лише коли дозволено всім виділеним — інакше перший
+  // клік має саме ВВІМКНУТИ решті, а не вимкнути тим, у кого вже стоїть
+  const seatsOn = selected.length > 0 && selected.every((o) => o.seatsAllowed === true);
 
   function setSeatsAllowed(allowed: boolean) {
     const update = useBoardStore.getState().update;
@@ -194,17 +198,16 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
       {canManageSeats && (
         <>
           <span className="ctx-sep" />
-          <label className="ctx-seats" title="Стільці учасників можна ставити просто на цей обʼєкт — зручно для намальованого дивана, стола чи килима">
-            <input
-              type="checkbox"
-              checked={selected.every((o) => o.seatsAllowed === true)}
-              onChange={(e) => setSeatsAllowed(e.target.checked)}
-            />
-            <span>
-              дозволити стільці
-              <small>місця учасників не обходитимуть цей обʼєкт</small>
-            </span>
-          </label>
+          <button
+            type="button"
+            className={seatsOn ? 'ctx-toggle active' : 'ctx-toggle'}
+            title="Дозволити стільці"
+            aria-label="Дозволити стільці"
+            aria-pressed={seatsOn}
+            onClick={() => setSeatsAllowed(!seatsOn)}
+          >
+            <ChairIcon />
+          </button>
         </>
       )}
 

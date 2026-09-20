@@ -847,19 +847,9 @@ elementFromPoint повертав би її саму замість колонк
   background: #fdeef3;
 }
 
-/* прапорець «сюди можна сідати» — лише для власника й адміністратора */
-.ctx-seats {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.ctx-seats small {
-  display: block;
-  font-size: 0.68rem;
-  opacity: 0.75;
+/* «сюди можна сідати» — такий самий перемикач, як активний інструмент
+у лівій панелі: та сама підкладка й той самий колір */
+.board-page .ctx-panel .ctx-toggle.active {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
