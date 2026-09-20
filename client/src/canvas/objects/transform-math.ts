@@ -1,154 +1,158 @@
-import type { Box } from 'konva/lib/shapes/Transformer';
 import type { Point } from '../coordinates';
 import { MIN_SIZE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from '../limits';
 
 export { MIN_SIZE };
 
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(min, value), max);
 }
 
-// кут, на який спирається весь жест: протилежний до взятої ручки. Беремо
-// його ОДИН раз, на першому кадрі, поки рамка ще не чіпана, і далі весь
-// жест рахуємо від нього.
-//
-// Спокуса шукати нерухомий кінець щокадру (по тому, який край рамки не
-// зрушив) виглядає рівноцінною, але не є: _getNodeRect віддає рамку РАЗОМ
-// З обведенням, тож щокадру набігає піваобведення. Поки фігура більша за
-// поріг, це нічого не значить, а в приніжній зоні, де розмір задаємо ми
-// самі, ця похибка тягне «нерухомий» кут за курсором — і курсор не може
-// його наздогнати, щоб перетнути. Зовні це виглядало так, ніби фігура
-// цілком їде за мишею, не дзеркалячись
-export function fixedCornerOf(box: Box, anchor: string | null): Point {
-  const cos = Math.cos(box.rotation);
-  const sin = Math.sin(box.rotation);
-  const name = anchor ?? '';
-  // тягнуть лівий бік — отже нерухомий правий, і навпаки
-  const alongU = name.includes('left') ? box.width : 0;
-  const alongV = name.includes('top') ? box.height : 0;
+// Усе, що потрібно знати про жест, береться ОДИН раз — на його початку — і
+// далі не міняється. Щокадру лишається чиста функція від двох речей: цього
+// запису й того, де зараз курсор. Ні попередній кадр, ні рамка від konva, ні
+// scale вузла в рахунок не входять узагалі — тому й накопичувати нема чого
+export interface ResizeGrip {
+  // нерухома точка в координатах дошки: кут (або край) НАПРОТИ взятої ручки
+  x: number;
+  y: number;
+  // у який бік від неї дивиться ручка, поки фігуру не перевернули
+  signX: 1 | -1;
+  signY: 1 | -1;
+  // ребром тягнуть лише одну вісь, друга не міняється зовсім
+  drivesX: boolean;
+  drivesY: boolean;
+  startWidth: number;
+  startHeight: number;
+  rotation: number;
+}
+
+// нерухома точка для кожної з восьми ручок — та, що напроти. Правило одне на
+// всі: ліву ручку тягнемо — нерухомий правий край, верхню — нижній, і навпаки.
+// Ручка без сторони по осі (наприклад «середина праворуч» по вертикалі) цю
+// вісь не чіпає зовсім
+export function gripFor(rect: Rect, rotation: number, handle: string): ResizeGrip {
+  const left = handle.includes('left');
+  const right = handle.includes('right');
+  const top = handle.includes('top');
+  const bottom = handle.includes('bottom');
   return {
-    x: box.x + alongU * cos - alongV * sin,
-    y: box.y + alongU * sin + alongV * cos,
+    x: left ? rect.x + rect.width : rect.x,
+    y: top ? rect.y + rect.height : rect.y,
+    signX: left ? -1 : 1,
+    signY: top ? -1 : 1,
+    drivesX: left || right,
+    drivesY: top || bottom,
+    startWidth: rect.width,
+    startHeight: rect.height,
+    rotation,
   };
 }
 
-export function isResizeAnchor(anchor: string | null) {
-  return !!anchor && anchor !== 'rotater';
+// точка самої ручки — потрібна лише щоб запамʼятати, на скільки курсор
+// схибив повз неї на натисканні, і далі цю поправку віднімати
+export function handlePoint(rect: Rect, handle: string): Point {
+  const left = handle.includes('left');
+  const right = handle.includes('right');
+  const top = handle.includes('top');
+  const bottom = handle.includes('bottom');
+  return {
+    x: left ? rect.x : right ? rect.x + rect.width : rect.x + rect.width / 2,
+    y: top ? rect.y : bottom ? rect.y + rect.height : rect.y + rect.height / 2,
+  };
 }
 
-// кутова ручка тягне обидві осі; ребро — лише одну
-export function isCornerAnchor(anchor: string | null) {
-  const name = anchor ?? '';
-  return (name.includes('top') || name.includes('bottom')) && (name.includes('left') || name.includes('right'));
+export interface ResizeResult extends Rect {
+  mirroredX: boolean;
+  mirroredY: boolean;
 }
 
-// з двох кінців сторони рухомий той, що ДАЛІ від нерухомого кута (обидва
-// тут — уже відстані від нього). Ближній і є сам кут. По осі, яку ця ручка
-// не змінює, дальній кінець — протилежний бік рамки, і сторона лишається
-// такою, як була
-function movingEnd(nearSide: number, farSide: number) {
-  return Math.abs(nearSide) >= Math.abs(farSide) ? nearSide : farSide;
+function rotateAround(p: Point, pivot: Point, angle: number): Point {
+  if (!angle) return p;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const dx = p.x - pivot.x;
+  const dy = p.y - pivot.y;
+  return { x: pivot.x + dx * cos - dy * sin, y: pivot.y + dx * sin + dy * cos };
 }
 
-// розмір по одній осі: модуль відстані, але не менший за поріг; знак лишаємо,
-// бо саме він каже, на якому боці від нерухомого кута стоїть фігура
-function limitDistance(distance: number) {
-  if (Math.abs(distance) >= MIN_SIZE) return distance;
-  return Math.sign(distance || 1) * MIN_SIZE;
-}
+// серце всього: нова рамка з нерухомої точки й поточного курсора
+export function resizeFromPointer(grip: ResizeGrip, pointer: Point, lockRatio: boolean): ResizeResult {
+  const rad = (grip.rotation * Math.PI) / 180;
+  // рахуємо у власних осях обʼєкта, тому курсор довертаємо назад навколо
+  // нерухомої точки; наприкінці кут повертаємо на місце
+  const local = rotateAround(pointer, grip, -rad);
 
-// поріг для пари сторін, звʼязаних пропорцією. Накладати його на кожну вісь
-// окремо НЕ можна: тоді на порозі обидві стають рівні MIN_SIZE, тобто рамка
-// робиться квадратною — і цей квадрат іде в стор, після чого картинка
-// назавжди лишається квадратною. Замість цього підтягуємо обидві сторони
-// ОДНИМ множником: та, що впирається в поріг першою, його й задає, а
-// відношення сторін лишається тим самим
-function limitPair(across: number, down: number) {
-  const a = Math.abs(across);
-  const d = Math.abs(down);
-  // жодної сторони ще немає — зберігати нема чого
-  if (a < 1e-9 || d < 1e-9) {
-    return { across: Math.sign(across || 1) * MIN_SIZE, down: Math.sign(down || 1) * MIN_SIZE };
+  // відстань від нерухомої точки до курсора ЗІ ЗНАКОМ. Вісь, яку ця ручка не
+  // тягне, підставляє свій початковий розмір і лишається як була
+  const rawW = grip.drivesX ? local.x - grip.x : grip.signX * grip.startWidth;
+  const rawH = grip.drivesY ? local.y - grip.y : grip.signY * grip.startHeight;
+
+  let width: number;
+  let height: number;
+  if (lockRatio) {
+    // один множник на обидві осі — і в тому числі на порозі. Тому відношення
+    // сторін не може поїхати ніяк: воно просто не бере участі в рахунку
+    const scale = Math.max(
+      Math.abs(rawW) / grip.startWidth,
+      Math.abs(rawH) / grip.startHeight,
+      MIN_SIZE / grip.startWidth,
+      MIN_SIZE / grip.startHeight,
+    );
+    width = grip.startWidth * scale;
+    height = grip.startHeight * scale;
+  } else {
+    width = Math.max(MIN_SIZE, Math.abs(rawW));
+    height = Math.max(MIN_SIZE, Math.abs(rawH));
   }
-  const k = Math.max(MIN_SIZE / a, MIN_SIZE / d, 1);
-  return { across: across * k, down: down * k };
-}
 
-// на якому боці від нерухомого кута стоїть готова рамка. Початок рамки
-// збігається з кутом, поки бік додатний, і відʼїжджає за нього, коли
-// фігуру віддзеркалило — тому знак проекції початку й відповідає на питання.
-// Потрібне тільки для вмісту, що має верх і низ (картинка): самі
-// x/y/width/height від цього не залежать
-export function mirroredAxes(fixed: Point, box: Box) {
-  const cos = Math.cos(box.rotation);
-  const sin = Math.sin(box.rotation);
-  const relX = box.x - fixed.x;
-  const relY = box.y - fixed.y;
+  // лівий верхній кут — або сама нерухома точка, або на ширину лівіше від неї.
+  // Звідси випадає вся потрібна поведінка, без жодного окремого коду: поки
+  // знак rawW той самий, і width (затиснута порогом), і цей кут щокадру ті
+  // самі — фігура стоїть. Змінився знак — того ж кадру змінилось і те, і те:
+  // переворот без проміжних станів
+  const corner = {
+    x: rawW >= 0 ? grip.x : grip.x - width,
+    y: rawH >= 0 ? grip.y : grip.y - height,
+  };
+  const placed = rotateAround(corner, grip, rad);
+
   return {
-    x: relX * cos + relY * sin < -1e-6,
-    y: -relX * sin + relY * cos < -1e-6,
+    x: placed.x,
+    y: placed.y,
+    width,
+    height,
+    // рахується щокадру наново з поточного курсора; ніде не зберігається
+    mirroredX: rawW * grip.signX < 0,
+    mirroredY: rawH * grip.signY < 0,
   };
 }
 
-// поріг розміру й дзеркалення — обидва тут, у координатах конви, ДО того як
-// вона застосує трансформацію.
-//
-// Рамку будуємо від нерухомого кута й відстані до курсора:
-//
-//     розмір = max(ПОРІГ, |відстань|),  бік = знак(відстань)
-//
-// Від попередніх кадрів не залежить нічого: ні памʼяті, ні порівнянь із
-// минулою рамкою. Тому в приніжній зоні рамка збігається сама з собою до
-// пікселя — не міняється ні розмір, ні ПОЛОЖЕННЯ, хоч як водити курсором.
-// Щойно знак відстані міняється, фігура дзеркалиться тієї ж миті, вже в
-// розмірі під курсор.
-//
-// Знак не віддаємо конві взагалі. Побачивши відʼємну ширину, _fitNodesInto
-// перейменовує активну ручку (right → left) І віддає відʼємний scale, який
-// decompose() перетворює на поворот 180°. Поворот перекладає ручки місцями
-// ще раз — виходить подвійне дзеркалення, після якого імʼя активної ручки
-// вказує на ту, що мала стояти нерухомо, і розмір подвоюється щомаху
-export function limitBoxSize(fixed: Point, newBox: Box, lockedRatio = false): Box {
-  const cos = Math.cos(newBox.rotation);
-  const sin = Math.sin(newBox.rotation);
-  // початок рамки відносно нерухомого кута, у її власних осях
-  const relX = newBox.x - fixed.x;
-  const relY = newBox.y - fixed.y;
-  const originU = relX * cos + relY * sin;
-  const originV = -relX * sin + relY * cos;
-
-  const across = movingEnd(originU, originU + newBox.width);
-  const down = movingEnd(originV, originV + newBox.height);
-  // із заблокованою пропорцією сторони не живуть окремо — поріг на них
-  // накладається спільно, щоб відношення лишилось те саме
-  const limited = lockedRatio
-    ? limitPair(across, down)
-    : { across: limitDistance(across), down: limitDistance(down) };
-  const acrossValue = limited.across;
-  const downValue = limited.down;
-  const acrossStart = Math.min(0, acrossValue);
-  const downStart = Math.min(0, downValue);
-
+// як окремий обʼєкт виділення лягає в нову рамку. Для одинокого обʼєкта його
+// прямокутник і є рамкою, тож виходить рівно те, що порахував resizeFromPointer
+export function mapIntoBox(start: Rect, from: Rect, to: ResizeResult): Rect {
+  const sx = to.width / from.width;
+  const sy = to.height / from.height;
+  const offX = start.x - from.x;
+  const offY = start.y - from.y;
   return {
-    ...newBox,
-    x: fixed.x + acrossStart * cos - downStart * sin,
-    y: fixed.y + acrossStart * sin + downStart * cos,
-    width: Math.abs(acrossValue),
-    height: Math.abs(downValue),
+    width: start.width * sx,
+    height: start.height * sy,
+    x: to.x + (to.mirroredX ? from.width - offX - start.width : offX) * sx,
+    y: to.y + (to.mirroredY ? from.height - offY - start.height : offY) * sy,
   };
-}
-
-// відʼємний scale означає дзеркалення: розмір беремо за модулем, а знак
-// далі перетворюється на зсув позиції (див. bakeScale)
-export function bakedSide(size: number, scale: number, min = MIN_SIZE) {
-  return Math.max(min, Math.abs(size * scale));
 }
 
 // обведення масштабуємо разом з фігурою (середнє по осях), інакше після
 // resize воно лишається фіксованим у px і візуально "худне" на збільшеній фігурі.
 // start — стан на ПОЧАТКУ жесту, не попередній кадр: рахунок від попереднього
-// множив би сам себе щокадру, і один прохід біля нуля (де розмір лягає на
-// поріг) розганяв товщину до максимуму за два-три перетини
+// множив би сам себе щокадру
 export function scaledStrokeWidth(
   start: { strokeWidth: number; width: number; height: number },
   size: { width: number; height: number },

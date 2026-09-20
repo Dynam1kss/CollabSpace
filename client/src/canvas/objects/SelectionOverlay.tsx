@@ -14,14 +14,41 @@ import { fitTextBox } from '../text-layout';
 import { flattenPoints, withPoints } from './connector-geometry';
 import {
   MIN_SIZE,
-  bakedSide,
-  fixedCornerOf,
-  isCornerAnchor,
-  isResizeAnchor,
-  mirroredAxes,
-  limitBoxSize,
+  gripFor,
+  handlePoint,
+  mapIntoBox,
+  resizeFromPointer,
   scaledStrokeWidth,
 } from './transform-math';
+import type { Rect, ResizeGrip, ResizeResult } from './transform-math';
+
+// обʼєкти, чия геометрія — звичайний прямокутник: саме їх тягне нова
+// математика. Текст (шрифт/перенос) і конектор (точки) лишаються на своєму
+// шляху — у них розмір не зводиться до x/y/width/height
+type RectObject = ShapeObject | StickyObject | ImageObject;
+
+function isRectObject(obj: BoardObject): obj is RectObject {
+  return obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image';
+}
+
+interface ResizeGesture {
+  grip: ResizeGrip;
+  // рамка виділення на початку жесту
+  from: Rect;
+  lockRatio: boolean;
+  // на скільки курсор схибив повз ручку на натисканні
+  grabOffset: Point;
+  items: { id: string; start: Rect; flipX: boolean; flipY: boolean }[];
+}
+
+// рамка виділення в координатах дошки — обʼєднання всіх узятих обʼєктів
+function unionRect(objects: RectObject[]): Rect {
+  const x = Math.min(...objects.map((o) => o.x));
+  const y = Math.min(...objects.map((o) => o.y));
+  const right = Math.max(...objects.map((o) => o.x + o.width));
+  const bottom = Math.max(...objects.map((o) => o.y + o.height));
+  return { x, y, width: right - x, height: bottom - y };
+}
 
 const STICKY_PADDING = 10; // те саме, що відступ тексту в StickyNoteShape
 const ANCHOR_SIZE = 12;
@@ -124,31 +151,25 @@ export function SelectionOverlay({
   const transformerRef = useRef<Konva.Transformer>(null);
   // розмір і обведення на початку жесту — база для scaledStrokeWidth
   const strokeStartRef = useRef<Record<string, { strokeWidth: number; width: number; height: number }>>({});
-  // ручка, за яку взялись, і протилежний їй кут. Кут беремо на першому кадрі
-  // жесту (там рамка ще не чіпана) і тримаємо до кінця — на нього спирається
-  // вся рамка, і саме тому в приніжній зоні вона не зсувається
-  const grabbedAnchorRef = useRef<string | null>(null);
-  const fixedCornerRef = useRef<Point | null>(null);
-  // чи рамка зараз по той бік нерухомого кута — тобто чи вміст віддзеркалено
-  // ВІДНОСНО ПОЧАТКУ жесту. Порівнюємо саме з початком, а не перемикаємо
-  // щоразу: тоді зайвий кадр нічого не зіпсує, і повернення назад само
-  // повертає вміст у вихідний бік
-  const mirroredRef = useRef({ x: false, y: false });
-  const flipStartRef = useRef<Record<string, { x: boolean; y: boolean }>>({});
+  // весь стан жесту — лише те, що знято на його початку. Далі розмір і
+  // позиція щокадру рахуються заново з цього запису й поточного курсора
+  const gestureRef = useRef<ResizeGesture | null>(null);
 
-  // konva перейменовує активну ручку, щойно сторона стає відʼємною, тому
-  // питати її імʼя тут, посеред жесту, вже не можна — беремо запамʼятоване
+  // konva теж рахує свою рамку (перейменовує активну ручку на відʼємній
+  // стороні, робить із дзеркалення поворот 180°, довертає пропорцію по
+  // гіпотенузі) — і саме ця внутрішня математика була джерелом усіх бід.
+  // Поки жест наш, віддаємо їй стару рамку: тоді вона нічого не міняє, а
+  // розмір виставляємо ми самі в onPointerMove. Для тексту й конектора
+  // жест не наш — там konva працює як і раніше
   function limitBox(oldBox: Box, newBox: Box): Box {
-    if (!isResizeAnchor(grabbedAnchorRef.current)) return newBox;
-    if (!fixedCornerRef.current) {
-      fixedCornerRef.current = fixedCornerOf(oldBox, grabbedAnchorRef.current);
-    }
-    // пропорція заблокована лише на кутах: ребром тягнуть одну вісь, і
-    // друга тут ні до чого
-    const locked = keepRatio && isCornerAnchor(grabbedAnchorRef.current);
-    const out = limitBoxSize(fixedCornerRef.current, newBox, locked);
-    mirroredRef.current = mirroredAxes(fixedCornerRef.current, out);
-    return out;
+    // наш жест: konva не міняє нічого, розмір виставляє resizeToPointer
+    if (gestureRef.current) return oldBox;
+    // текст і конектор веде konva. Їй не можна давати лише вироджену або
+    // відʼємну рамку: на першій вона глушить увесь кадр і блок залипає
+    // назавжди, а друга означала б дзеркалення — дзеркальний текст
+    // читається навиворіт, тому для нього це просто нижня межа
+    if (newBox.width < MIN_BOX_SIDE || newBox.height < MIN_BOX_SIDE) return oldBox;
+    return newBox;
   }
   const updateObject = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
@@ -214,15 +235,126 @@ export function SelectionOverlay({
       if (o.type === 'shape') start[o.id] = { strokeWidth: o.strokeWidth, width: o.width, height: o.height };
     }
     strokeStartRef.current = start;
-    grabbedAnchorRef.current = transformerRef.current?.getActiveAnchor() ?? null;
-    fixedCornerRef.current = null;
-    mirroredRef.current = { x: false, y: false };
-    const flips: Record<string, { x: boolean; y: boolean }> = {};
-    for (const o of selectedObjects) {
-      if (o.type === 'image') flips[o.id] = { x: o.flipX ?? false, y: o.flipY ?? false };
+    gestureRef.current = beginResize();
+    if (gestureRef.current) {
+      // слухаємо рух САМІ, а не покладаємось на подію konva: вона не шле
+      // 'transform', коли її власна рамка виходить виродженою (|ширина| < 1),
+      // а це рівно ті кадри біля нерухомої точки, де й відбувається переворот
+      window.addEventListener('pointermove', handlePointerMove);
     }
-    flipStartRef.current = flips;
     setInteracting(true);
+  }
+
+  function handlePointerMove(e: PointerEvent) {
+    // konva тримає позицію вказівника у себе — оновлюємо її перед читанням
+    transformerRef.current?.getStage()?.setPointersPositions(e);
+    resizeToPointer();
+  }
+
+  // все, що потрібно на весь жест, знімаємо тут і більше не перераховуємо
+  function beginResize(): ResizeGesture | null {
+    const tr = transformerRef.current;
+    const handle = tr?.getActiveAnchor();
+    // поворот іде своїм шляхом, і текст із конектором теж
+    if (!tr || !handle || handle === 'rotater') return null;
+    const rects = selectedObjects.filter(isRectObject);
+    if (rects.length === 0 || rects.length !== selectedObjects.length) return null;
+    const pointer = tr.getStage()?.getRelativePointerPosition();
+    if (!pointer) return null;
+
+    const from = unionRect(rects);
+    // поворот враховуємо лише для одинокого обʼєкта: у групи в рамки свій кут
+    const rotation = rects.length === 1 ? rects[0].rotation : 0;
+    const grabbed = handlePoint(from, handle);
+    return {
+      grip: gripFor(from, rotation, handle),
+      from,
+      lockRatio: keepRatio,
+      grabOffset: { x: pointer.x - grabbed.x, y: pointer.y - grabbed.y },
+      items: rects.map((o) => ({
+        id: o.id,
+        start: { x: o.x, y: o.y, width: o.width, height: o.height },
+        flipX: o.type === 'image' ? (o.flipX ?? false) : false,
+        flipY: o.type === 'image' ? (o.flipY ?? false) : false,
+      })),
+    };
+  }
+
+  // щокадру: беремо курсор і рахуємо з нуля. Ні попередній кадр, ні рамка
+  // konva, ні scale вузла тут не читаються
+  function resizeToPointer() {
+    const gesture = gestureRef.current;
+    const tr = transformerRef.current;
+    const stage = tr?.getStage();
+    if (!gesture || !tr || !stage) return;
+    const raw = stage.getRelativePointerPosition();
+    if (!raw) return;
+    const pointer = { x: raw.x - gesture.grabOffset.x, y: raw.y - gesture.grabOffset.y };
+    const box = resizeFromPointer(gesture.grip, pointer, gesture.lockRatio);
+
+    for (const item of gesture.items) {
+      const obj = objects[item.id];
+      const node = nodesByIdRef.current?.[item.id];
+      if (!obj || !node || !isRectObject(obj)) continue;
+      const rect = mapIntoBox(item.start, gesture.from, box);
+      applyRect(node, obj, rect, box);
+      updateObject(item.id, storePatch(obj, item, rect, box));
+    }
+    flushUpdates();
+    tr.forceUpdate();
+    tr.getLayer()?.batchDraw();
+  }
+
+  // вузол приводимо рівно до порахованого. scale завжди лишається 1 — його
+  // не читають і не використовують ніде
+  function applyRect(node: Konva.Node, obj: RectObject, rect: Rect, box: ResizeResult) {
+    node.scale({ x: 1, y: 1 });
+    if (obj.type === 'shape') {
+      const strokeWidth = scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, rect);
+      if (obj.shapeKind === 'ellipse') {
+        // Ellipse малюється від центру, модель тримає лівий верхній кут
+        node.setAttrs({
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2,
+          radiusX: rect.width / 2,
+          radiusY: rect.height / 2,
+          strokeWidth,
+        });
+      } else {
+        node.setAttrs({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, strokeWidth });
+      }
+      return;
+    }
+    if (obj.type === 'image') {
+      node.setAttrs({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+      return;
+    }
+    const group = node as Konva.Group;
+    group.setAttrs({ x: rect.x, y: rect.y });
+    group.findOne<Konva.Rect>('.box')?.setAttrs({ width: rect.width, height: rect.height });
+    group.findOne<Konva.Text>('.text')?.setAttrs({
+      width: Math.max(0, rect.width - STICKY_PADDING * 2),
+      height: Math.max(0, rect.height - STICKY_PADDING * 2),
+    });
+    void box;
+  }
+
+  function storePatch(obj: RectObject, item: ResizeGesture['items'][number], rect: Rect, box: ResizeResult) {
+    const common = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    if (obj.type === 'shape') {
+      return { ...common, strokeWidth: scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, rect) };
+    }
+    if (obj.type === 'image') {
+      // дзеркалення цього жесту накладаємо на те, що було до нього: сам факт
+      // перевороту щокадру рахується наново з курсора, а попередній стан
+      // картинки при цьому не губиться
+      return {
+        ...common,
+        flipX: item.flipX !== box.mirroredX,
+        flipY: item.flipY !== box.mirroredY,
+      };
+    }
+    return common;
   }
 
   // на кожному кадрі тягання scale вузла одразу запікається в його розмір,
@@ -237,11 +369,11 @@ export function SelectionOverlay({
     for (const node of tr.nodes()) {
       const obj = objects[node.id()];
       if (!obj) continue;
-      if (obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image') {
-        const size = bakeScale(node, obj);
-        if (obj.type === 'shape') node.setAttrs({ strokeWidth: scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, size) });
-
-      } else if (obj.type === 'text' && soleText && isEdgeAnchor(anchor)) {
+      if (isRectObject(obj)) {
+        // ці рахує resizeToPointer за курсором; konva тут не бере участі
+        continue;
+      }
+      if (obj.type === 'text' && soleText && isEdgeAnchor(anchor)) {
         resizeTextLive(node as Konva.Group, anchor, soleText.minHeight);
       } else if (obj.type === 'text') {
         scaleTextLive(node as Konva.Group, obj.autoWidth);
@@ -270,12 +402,12 @@ export function SelectionOverlay({
   }
 
   function handleTransformEnd() {
+    window.removeEventListener('pointermove', handlePointerMove);
+    if (gestureRef.current) resizeToPointer();
     commitNodes();
     flushUpdates();
     strokeStartRef.current = {};
-    grabbedAnchorRef.current = null;
-    fixedCornerRef.current = null;
-    flipStartRef.current = {};
+    gestureRef.current = null;
     setInteracting(false);
   }
 
@@ -294,8 +426,6 @@ export function SelectionOverlay({
         continue;
       }
 
-      // scale тут уже 1 (запечений у handleTransform): розмір комітимо як
-      // width/height, а React scale не чіпає — інакше нода й пропси розійдуться
       const common = { x: node.x(), y: node.y(), rotation: node.rotation() };
 
       if (obj.type === 'text') {
@@ -306,39 +436,7 @@ export function SelectionOverlay({
         continue;
       }
 
-      // handleTransform уже запік scale у розмір — тут лише дочитуємо його з вузла
-      const { width, height } = bakeScale(node, obj);
-      if (obj.type === 'shape') {
-        const strokeWidth = scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, { width, height });
-        if (obj.shapeKind === 'ellipse') {
-          // Ellipse позиціюється від центру — модель тримає top-left
-          updateObject(obj.id, {
-            ...common,
-            width,
-            height,
-            strokeWidth,
-            x: node.x() - width / 2,
-            y: node.y() - height / 2,
-          });
-        } else {
-          updateObject(obj.id, { ...common, width, height, strokeWidth });
-        }
-        continue;
-      }
-      if (obj.type === 'image') {
-        // дзеркалення відносно початку жесту накладаємо на те, що було
-        // раніше: два перетини по одній осі повертають картинку як була
-        const start = flipStartRef.current[obj.id] ?? { x: obj.flipX ?? false, y: obj.flipY ?? false };
-        updateObject(obj.id, {
-          ...common,
-          width,
-          height,
-          flipX: start.x !== mirroredRef.current.x,
-          flipY: start.y !== mirroredRef.current.y,
-        });
-        continue;
-      }
-      updateObject(obj.id, { ...common, width, height });
+      // прямокутні обʼєкти пише resizeToPointer — тут їх чіпати нічим
     }
   }
 
@@ -407,8 +505,8 @@ function scaleTextLive(node: Konva.Group, autoWidth: boolean) {
   const sy = node.scaleY();
   node.scale({ x: 1, y: 1 });
   text.fontSize(clamp(text.fontSize() * sy, FONT_SIZE_MIN, FONT_SIZE_MAX));
-  const width = bakedSide(box.width(), sx);
-  box.setAttrs({ width, height: bakedSide(box.height(), sy) });
+  const width = textSide(box.width(), sx);
+  box.setAttrs({ width, height: textSide(box.height(), sy) });
   if (!autoWidth) text.width(width);
 }
 
@@ -427,41 +525,11 @@ function bakeConnectorTransform(node: Konva.Group): BoardPoint[] {
   return points;
 }
 
-// переносить scale вузла в його справжній розмір (width/height, радіуси,
-// діти групи стікера) і повертає новий розмір у координатах дошки.
-// знак тут уже не зустрічається: limitBoxSize нормалізує рамку ще в
-// координатах конви, тому scale приходить лише додатний. modulo в bakedSide
-// лишається як страховка — краще зайвий раз узяти модуль, ніж отримати
-// відʼємну ширину у вузлі
-function bakeScale(node: Konva.Node, obj: ShapeObject | StickyObject | ImageObject) {
-  const sx = node.scaleX();
-  const sy = node.scaleY();
-  node.scale({ x: 1, y: 1 });
-  if (obj.type === 'shape' && obj.shapeKind === 'ellipse') {
-    const ellipse = node as Konva.Ellipse;
-    const radiusX = Math.max(MIN_SIZE / 2, Math.abs(ellipse.radiusX() * sx));
-    const radiusY = Math.max(MIN_SIZE / 2, Math.abs(ellipse.radiusY() * sy));
-    ellipse.setAttrs({ radiusX, radiusY });
-    return { width: radiusX * 2, height: radiusY * 2 };
-  }
-  if (obj.type === 'shape' || obj.type === 'image') {
-    const width = bakedSide(node.width(), sx);
-    const height = bakedSide(node.height(), sy);
-    node.setAttrs({ width, height });
-    return { width, height };
-  }
-  const box = (node as Konva.Group).findOne<Konva.Rect>('.box');
-  const text = (node as Konva.Group).findOne<Konva.Text>('.text');
-  const width = bakedSide(box?.width() ?? obj.width, sx);
-  const height = bakedSide(box?.height() ?? obj.height, sy);
-  box?.setAttrs({ width, height });
-  // на мінімальному розмірі відступи більші за сам стікер — але відʼємної
-  // ширини konva-тексту давати не можна
-  text?.setAttrs({
-    width: Math.max(0, width - STICKY_PADDING * 2),
-    height: Math.max(0, height - STICKY_PADDING * 2),
-  });
-  return { width, height };
+// текст і далі тягне konva (у нього розмір — це шрифт і перенос, а не
+// прямокутник), тому тут scale вузла ще читається. Модуль лишаємо як
+// страховку: від konva може прилетіти відʼємний scale на дзеркаленні
+function textSide(size: number, scale: number) {
+  return Math.max(MIN_BOX_SIDE, Math.abs(size * scale));
 }
 
 // тягання ребра тексту: скидаємо scale одразу і задаємо ширину — konva
@@ -470,8 +538,8 @@ function resizeTextLive(node: Konva.Group, anchor: string | null, minHeight: num
   const box = node.findOne<Konva.Rect>('.box');
   const text = node.findOne<Konva.Text>('.text');
   if (!box || !text) return;
-  const width = bakedSide(box.width(), node.scaleX());
-  const height = bakedSide(box.height(), node.scaleY());
+  const width = textSide(box.width(), node.scaleX());
+  const height = textSide(box.height(), node.scaleY());
   node.scale({ x: 1, y: 1 });
   // висота теж не нижче порога: у вузькому блоці konva міряє порожній текст
   // у 0, і рамка виділення стає виродженою. Далі конва бачить нульову
