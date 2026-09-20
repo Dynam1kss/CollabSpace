@@ -268,6 +268,97 @@ describe('дошки — CRUD і права доступу', () => {
     expect(list.body.boards[0]).toMatchObject({ isOwner: false, myRole: 'ADMIN' });
   });
 
+  // саме той сценарій, який ловили руками: у знятого чи зниженого адміністратора
+  // лишилась відкрита сторінка зі списком учасників. Кнопки на ній ще ті самі —
+  // сервер має відмовити КОЖНІЙ дії, бо роль він читає з бази на кожен запит,
+  // а не памʼятає з попереднього
+  it('знятому адміністратору наступний же запит відмовляють', async () => {
+    const owner = await registerUser();
+    const admin = await registerUser();
+    const victim = await registerUser();
+    const outsider = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: victim.payload.email, role: 'EDITOR' });
+
+    expect(
+      (await owner.agent.delete(`/api/boards/${boardId}/members`).send({ userId: admin.user.id })).status,
+    ).toBe(204);
+
+    // доступу немає взагалі — тому 404, як і в будь-якого чужого
+    expect(
+      (await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: outsider.payload.email, role: 'EDITOR' }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: victim.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: victim.user.id })).status,
+    ).toBe(404);
+    expect(
+      (await admin.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: victim.user.id, mute: true })).status,
+    ).toBe(404);
+
+    // і нічого з цього не сталось
+    const after = await owner.agent.get(`/api/boards/${boardId}`);
+    expect(after.body.members).toHaveLength(1);
+    expect(after.body.members[0]).toMatchObject({ userId: victim.user.id, role: 'EDITOR' });
+  });
+
+  it('зниженому адміністратору наступний же запит відмовляють', async () => {
+    const owner = await registerUser();
+    const admin = await registerUser();
+    const victim = await registerUser();
+    const outsider = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: victim.payload.email, role: 'EDITOR' });
+
+    expect(
+      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: admin.user.id, role: 'VIEWER' }))
+        .status,
+    ).toBe(200);
+
+    // дошку він ще бачить, тому 403, а не 404
+    for (const res of [
+      await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: outsider.payload.email, role: 'EDITOR' }),
+      await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: victim.user.id, role: 'VIEWER' }),
+      await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: victim.user.id }),
+      await admin.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: victim.user.id, mute: true }),
+    ]) {
+      expect(res.status).toBe(403);
+    }
+
+    const after = await owner.agent.get(`/api/boards/${boardId}`);
+    expect(after.body.members).toHaveLength(2);
+    expect(after.body.members.find((m: { userId: string }) => m.userId === victim.user.id).role).toBe('EDITOR');
+  });
+
+  // додавання — це upsert, тому для того, хто вже на дошці, воно рівносильне
+  // зміні ролі й мусить проходити ту саму перевірку ієрархії
+  it('через додавання учасника не можна обійти ієрархію', async () => {
+    const owner = await registerUser();
+    const admin = await registerUser();
+    const other = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: other.payload.email, role: 'ADMIN' });
+
+    expect(
+      (await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: other.payload.email, role: 'VIEWER' }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: owner.payload.email, role: 'VIEWER' }))
+        .status,
+    ).toBe(400);
+  });
+
   it('видалення учасника забирає йому доступ до дошки', async () => {
     const owner = await registerUser();
     const member = await registerUser();

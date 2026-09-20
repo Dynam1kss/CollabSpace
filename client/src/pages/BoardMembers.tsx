@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { outranks } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
-import { addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
+import { ApiError, addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
 
 interface Props {
   boardId: string;
@@ -22,6 +22,21 @@ export function BoardMembers({ boardId, myRole }: Props) {
   const [error, setError] = useState<string | null>(null);
   // кого саме зараз перемикаємо — щоб не блокувати весь список
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  // мої права на цій дошці могли змінитись, поки панель була відкрита.
+  // сервер їх перечитує на кожен запит і відмовляє — а панель лишалась із
+  // тими кнопками, що й були, і людина не розуміла, чому нічого не діється
+  const [lost, setLost] = useState(false);
+
+  // 403/404 від будь-якої дії означає «прав уже немає» — ховаємо панель,
+  // а не просто показуємо помилку під списком
+  const handleFailure = (err: unknown, fallback: string) => {
+    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+      setLost(true);
+      setError('Ваші права на цій дошці змінились — оновіть сторінку');
+      return;
+    }
+    setError(err instanceof Error ? err.message : fallback);
+  };
 
   useEffect(() => {
     fetchBoard(boardId)
@@ -41,7 +56,7 @@ export function BoardMembers({ boardId, myRole }: Props) {
       setEmail('');
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося додати учасника');
+      handleFailure(err, 'Не вдалося додати учасника');
     }
   };
 
@@ -52,7 +67,7 @@ export function BoardMembers({ boardId, myRole }: Props) {
       setMembers(board.members);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося змінити роль');
+      handleFailure(err, 'Не вдалося змінити роль');
     } finally {
       setBusyUserId(null);
     }
@@ -64,9 +79,17 @@ export function BoardMembers({ boardId, myRole }: Props) {
       setMembers((prev) => prev?.filter((m) => m.userId !== userId) ?? null);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося видалити учасника');
+      handleFailure(err, 'Не вдалося видалити учасника');
     }
   };
+
+  if (lost) {
+    return (
+      <div className="board-members">
+        <p className="form-error">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="board-members">

@@ -137,12 +137,23 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
     if (user.id === access.board.ownerId) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Власник дошки й так має до неї повний доступ');
     }
+    // ця ручка — upsert, тож для того, хто вже на дошці, вона рівносильна
+    // зміні ролі. Без цієї перевірки через неї можна було обійти всю
+    // ієрархію: адміністратор «додавав» іншого адміністратора глядачем
+    const existing = await prisma.boardMember.findUnique({
+      where: { boardId_userId: { boardId: access.board.id, userId: user.id } },
+      select: { role: true },
+    });
+    if (existing) await requireCanManage(access, user.id);
 
     await prisma.boardMember.upsert({
       where: { boardId_userId: { boardId: access.board.id, userId: user.id } },
       create: { boardId: access.board.id, userId: user.id, role },
       update: { role },
     });
+    // те саме, що й у patch нижче: відкритий сокет живе з роллю, взятою на
+    // підключенні, і без цього лишився б із правами, яких уже немає
+    if (existing && existing.role !== role) applyRoleChange(access.board.id, user.id, role);
 
     const members = await prisma.boardMember.findMany({
       where: { boardId: access.board.id },
