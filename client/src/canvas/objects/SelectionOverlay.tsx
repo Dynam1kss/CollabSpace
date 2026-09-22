@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
@@ -66,6 +66,11 @@ const STICKY_PADDING = 10; // те саме, що відступ тексту в
 const ANCHOR_SIZE = 12;
 // ширина невидимої смужки захвату вздовж ребра текстового блоку (px екрана)
 const EDGE_GRAB_PX = 10;
+// мінімальна ціль під палець. Ручку не роздуваємо — росте лише невидима зона
+// довкола неї: hitStrokeWidth малюється по контуру, половина йде назовні,
+// тому до діаметра ручки додається рівно ця величина
+const TOUCH_TARGET_PX = 44;
+const TOUCH_HIT_STROKE = TOUCH_TARGET_PX - ANCHOR_SIZE;
 
 const ALL_ANCHORS = [
   'top-left',
@@ -103,7 +108,7 @@ function clamp(value: number, min: number, max: number) {
 // бокові/нижні ручки тексту — не кружечки, а прозорі смужки вздовж ребра;
 // update() трансформера щоразу скидає їм розмір до anchorSize, тому
 // перевизначаємо тут, а не один раз при створенні
-function styleTextAnchor(anchor: Konva.Rect) {
+function styleTextAnchor(anchor: Konva.Rect, grab: number) {
   const name = anchor.name().split(' ')[0];
   const tr = anchor.getParent() as Konva.Transformer;
   const w = Math.abs(tr.width());
@@ -112,9 +117,9 @@ function styleTextAnchor(anchor: Konva.Rect) {
     // коротша за ребро на розмір кутів, інакше перекриває кутові ручки
     const len = Math.max(0, h - ANCHOR_SIZE * 2);
     anchor.setAttrs({
-      width: EDGE_GRAB_PX,
+      width: grab,
       height: len,
-      offsetX: EDGE_GRAB_PX / 2,
+      offsetX: grab / 2,
       offsetY: len / 2,
       fill: 'transparent',
       stroke: 'transparent',
@@ -123,13 +128,26 @@ function styleTextAnchor(anchor: Konva.Rect) {
     const len = Math.max(0, w - ANCHOR_SIZE * 2);
     anchor.setAttrs({
       width: len,
-      height: EDGE_GRAB_PX,
+      height: grab,
       offsetX: len / 2,
-      offsetY: EDGE_GRAB_PX / 2,
+      offsetY: grab / 2,
       fill: 'transparent',
       stroke: 'transparent',
     });
   }
+}
+
+// одна функція оформлення на обидва випадки: смужки тексту і розширена зона
+// під палець. Смужці власного hitStrokeWidth не даємо — вона й так завширшки
+// з ціль, а зайве обведення накрило б кутові ручки поруч
+function anchorStyler(soleText: boolean, touch: boolean) {
+  if (!soleText && !touch) return undefined;
+  const grab = touch ? TOUCH_TARGET_PX : EDGE_GRAB_PX;
+  return (anchor: Konva.Rect) => {
+    const edge = soleText && isEdgeAnchor(anchor.name().split(' ')[0]);
+    if (soleText) styleTextAnchor(anchor, grab);
+    if (touch && !edge) anchor.hitStrokeWidth(TOUCH_HIT_STROKE);
+  };
 }
 
 interface Props {
@@ -147,6 +165,8 @@ interface Props {
   selectedIds: string[];
   // те, що зараз редагує хтось інший — ручок розміру й повороту на ньому не даємо
   lockedByOthers: Set<string>;
+  // працюють пальцем: ручки лишаються того ж розміру, зона захвату росте
+  touchInput: boolean;
 }
 
 // маркери зміни розміру/повороту — вбудований Konva Transformer (сам тримає
@@ -159,6 +179,7 @@ export function SelectionOverlay({
   objects,
   selectedIds,
   lockedByOthers,
+  touchInput,
 }: Props) {
   const transformerRef = useRef<Konva.Transformer>(null);
   // розмір і обведення на початку жесту — база для scaledStrokeWidth
@@ -221,6 +242,10 @@ export function SelectionOverlay({
   const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
   // пропорція заблокована для тексту й картинки завжди, для решти — з shift
   const keepRatio = soleText || soleImage ? true : shiftHeld;
+  const isSoleText = !!soleText;
+  // нова функція щорендера означала б зміну атрибута трансформера і зайвий
+  // update() на кожен кадр жесту
+  const anchorStyleFunc = useMemo(() => anchorStyler(isSoleText, touchInput), [isSoleText, touchInput]);
 
   useEffect(() => {
     if (interacting) return;
@@ -562,7 +587,7 @@ export function SelectionOverlay({
       ignoreStroke
       boundBoxFunc={limitBox}
       enabledAnchors={soleText ? TEXT_ANCHORS : soleImage ? CORNER_ANCHORS : ALL_ANCHORS}
-      anchorStyleFunc={soleText ? styleTextAnchor : undefined}
+      anchorStyleFunc={anchorStyleFunc}
       keepRatio={keepRatio}
       rotateEnabled
       onTransformStart={rememberTransformStart}

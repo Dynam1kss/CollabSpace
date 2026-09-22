@@ -242,6 +242,7 @@ export function BoardCanvas({
                 objects={objectsMap}
                 selectedIds={selectedIds}
                 lockedByOthers={lockedByOthers}
+                touchInput={touchInput}
               />
             </Layer>
           )}

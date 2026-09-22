@@ -11,6 +11,10 @@ import { useSelectOnPointerDown } from './useSelectOnPointerDown';
 
 const HANDLE_SCREEN_RADIUS = 7; // px на екрані, не в координатах дошки — тому ділимо на масштаб нижче
 const MID_HANDLE_SCREEN_RADIUS = 5;
+// ціль під палець; кружечок лишається дрібним, росте лише невидима зона
+// довкола — hitStrokeWidth іде половиною назовні, тому до діаметра додається
+// рівно різниця
+const TOUCH_TARGET = 44;
 
 interface Props {
   object: ConnectorObject;
@@ -37,6 +41,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
   // ручки точок — лише коли конектор виділений сам; у групі він у трансформері.
   // глядачу ручок не даємо — ними міняють точки
   const showHandles = useEditorStore((s) => s.canEdit && isSelected && s.selectedIds.length === 1);
+  const touchInput = useEditorStore((s) => s.touchInput);
   const handlePointerDown = useSelectOnPointerDown(object.id);
   const { onDragStart, onDragEnd } = useDragGesture();
   // зняти window-слухачі тягання щойно вставленої точки — і при pointerup,
@@ -148,6 +153,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
   };
 
   const handleStrokeWidth = 1.5 / viewportScale;
+  const touchHit = (radius: number) => (touchInput ? (TOUCH_TARGET - radius * 2) / viewportScale : undefined);
 
   return (
     <Group
@@ -172,6 +178,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
             x={p.x}
             y={p.y}
             radius={MID_HANDLE_SCREEN_RADIUS / viewportScale}
+            hitStrokeWidth={touchHit(MID_HANDLE_SCREEN_RADIUS)}
             fill="#4262ff"
             stroke="#fff"
             strokeWidth={handleStrokeWidth}
@@ -186,6 +193,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
             x={p.x}
             y={p.y}
             radius={HANDLE_SCREEN_RADIUS / viewportScale}
+            hitStrokeWidth={touchHit(HANDLE_SCREEN_RADIUS)}
             fill="#fff"
             stroke="#4262ff"
             strokeWidth={handleStrokeWidth}

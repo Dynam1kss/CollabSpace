@@ -21,6 +21,9 @@ interface EditorState {
   interacting: boolean;
   // ctrl+c/x — знімки обʼєктів як є; при вставці їм роздаються нові id
   clipboard: BoardObject[];
+  // працюють пальцем, а не мишею: від цього залежать зони захвату ручок.
+  // Назад у «мишу» не вертаємось — телефон мишею не стане
+  touchInput: boolean;
   setCanEdit: (value: boolean) => void;
   setActiveTool: (tool: ToolId) => void;
   select: (id: string) => void;
@@ -31,6 +34,7 @@ interface EditorState {
   stopEditingText: () => void;
   setInteracting: (value: boolean) => void;
   setClipboard: (objects: BoardObject[]) => void;
+  setTouchInput: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -40,6 +44,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   editingTextId: null,
   interacting: false,
   clipboard: [],
+  touchInput: false,
 
   // інструмент лишається в сторі між дошками — щоб редактор, перейшовши на
   // чужу дошку глядачем, не приніс із собою «стікер» і не наставив їх тапом
@@ -71,4 +76,5 @@ export const useEditorStore = create<EditorState>((set) => ({
     set({ interacting: value });
   },
   setClipboard: (objects) => set({ clipboard: objects }),
+  setTouchInput: () => set({ touchInput: true }),
 }));

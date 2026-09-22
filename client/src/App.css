@@ -124,8 +124,12 @@ header {
     border-color 0.12s;
 }
 
-.board-page button:hover {
-  background: var(--hover);
+/* підсвітку від наведення віддаємо лише мишам: на тачі :hover залипає після
+тапу, і остання натиснута кнопка виглядає вибраною */
+@media (hover: hover) {
+  .board-page button:hover {
+    background: var(--hover);
+  }
 }
 
 .board-page button:active {
@@ -244,8 +248,10 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   color: var(--text);
 }
 
-.tool-button:hover {
-  background: var(--hover) !important;
+@media (hover: hover) {
+  .tool-button:hover {
+    background: var(--hover) !important;
+  }
 }
 
 .tool-button.active {
@@ -308,12 +314,16 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   color: var(--text);
 }
 
-.board-page .ctx-panel button:hover {
-  background: var(--hover);
+@media (hover: hover) {
+  .board-page .ctx-panel button:hover {
+    background: var(--hover);
+  }
 }
 
-.ctx-danger:hover {
-  color: #d93025;
+@media (hover: hover) {
+  .ctx-danger:hover {
+    color: #d93025;
+  }
 }
 
 .ctx-sep {
@@ -327,16 +337,25 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   position: relative;
 }
 
+/* сама кнопка — площа під клік/тап, колір малює кружок усередині */
 .board-page .ctx-panel .ctx-swatch {
+  width: 32px;
+  height: 32px;
+}
+
+.ctx-dot {
+  /* border-box, щоб кружок мав рівно ті самі 22px, що й колишня кнопка-зразок */
+  box-sizing: border-box;
   width: 22px;
   height: 22px;
-  margin: 5px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 6px;
 }
 
-.board-page .ctx-panel .ctx-swatch:hover {
-  border-color: var(--accent);
+@media (hover: hover) {
+  .board-page .ctx-panel .ctx-swatch:hover .ctx-dot {
+    border-color: var(--accent);
+  }
 }
 
 /* палітра відкривається від обʼєкта: панель над ним — палітра над панеллю,
@@ -361,7 +380,8 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
 }
 
 .board-page .ctx-popover .ctx-swatch {
-  margin: 0;
+  width: 22px;
+  height: 22px;
 }
 
 .ctx-number {
@@ -629,8 +649,10 @@ elementFromPoint повертав би її саму замість колонк
   cursor: pointer;
 }
 
-.chat-toggle:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .chat-toggle:hover {
+    color: var(--text);
+  }
 }
 
 .chat-unread {
@@ -810,8 +832,10 @@ elementFromPoint повертав би її саму замість колонк
   color: var(--text-muted);
 }
 
-.board-back:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .board-back:hover {
+    color: var(--text);
+  }
 }
 
 /* скасувати/повторити стоять окремою групою внизу панелі — риска показує,
@@ -1185,6 +1209,17 @@ elementFromPoint повертав би її саму замість колонк
 /* ───── палець замість миші ─────
 цілі під тап — не менші за 44px; поріг стандартний для мобільних інтерфейсів */
 @media (pointer: coarse) {
+  /* текстові кнопки й поля ростуть тільки вгору — ширину їм задає вміст */
+  .board-page button,
+  .board-page input {
+    min-height: 44px;
+  }
+
+  /* пігулка голосу вузька через іконку — ширину їй теж доводимо до цілі */
+  .voice-expand {
+    min-width: 44px;
+  }
+
   .board-page .icon-button,
   .board-page .ctx-panel button,
   .tool-button,
@@ -1194,11 +1229,11 @@ elementFromPoint повертав би її саму замість колонк
     height: 44px;
   }
 
-  /* зразок кольору лишається того ж розміру — росте лише поле навколо нього */
-  .board-page .ctx-panel .ctx-swatch {
-    width: 24px;
-    height: 24px;
-    margin: 10px;
+  /* зразок кольору лишається того ж розміру — росте лише кнопка під ним */
+  .board-page .ctx-panel .ctx-swatch,
+  .board-page .ctx-popover .ctx-swatch {
+    width: 44px;
+    height: 44px;
   }
 
   /* вісім зразків по 44px у рядок не влазять у телефон — у два ряди */
@@ -1209,6 +1244,7 @@ elementFromPoint повертав би її саму замість колонк
 
   .ctx-number input {
     width: 48px;
-    padding: 10px 2px;
+    height: 44px;
+    box-sizing: border-box;
   }
 }

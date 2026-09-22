@@ -257,25 +257,17 @@ function ColorButton({
 }) {
   return (
     <div className="ctx-color">
-      <button
-        type="button"
-        className="ctx-swatch"
-        style={{ background: color }}
-        title={label}
-        aria-label={label}
-        onClick={onToggle}
-      />
+      {/* колір показує кружок усередині, а не сама кнопка: так площу під
+      палець можна ростити, не роздуваючи зразок */}
+      <button type="button" className="ctx-swatch" title={label} aria-label={label} onClick={onToggle}>
+        <span className="ctx-dot" style={{ background: color }} />
+      </button>
       {open && (
         <div className="ctx-popover">
           {PALETTE.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className="ctx-swatch"
-              style={{ background: c }}
-              onClick={() => onPick(c)}
-              aria-label={c}
-            />
+            <button key={c} type="button" className="ctx-swatch" onClick={() => onPick(c)} aria-label={c}>
+              <span className="ctx-dot" style={{ background: c }} />
+            </button>
           ))}
         </div>
       )}

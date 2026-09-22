@@ -6,6 +6,7 @@ import { usePresenceStore } from '../canvas/presence-store';
 import { publishSeat, SEAT_THROTTLE_MS } from '../canvas/presence-channel';
 import { createPresenceTween } from '../canvas/objects/presence-tween';
 import { useBoardStore } from '../canvas/board-store';
+import { useEditorStore } from '../canvas/editor-store';
 import { nearestFreeSeat } from './seat-position';
 import { useSeatStore } from './seat-store';
 import { useVoiceStore } from './voice-store';
@@ -14,6 +15,8 @@ import { useVoiceStore } from './voice-store';
 // він позначка людини, а не обʼєкт дошки
 const RADIUS = 18;
 const RING = 2.5;
+// свій стілець тягають пальцем — зона захвату добирається до 44px невидимо
+const TOUCH_TARGET = 44;
 // наскільки кільце «говорить» виступає за кружечок
 const SPEAK_RING = 4;
 
@@ -38,6 +41,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
   const inVoice = useVoiceStore((s) => s.inVoice);
   const speaking = useVoiceStore((s) => s.speaking);
   const selfSpeaking = useVoiceStore((s) => s.selfSpeaking);
+  const touchInput = useEditorStore((s) => s.touchInput);
 
   const k = 1 / viewportScale;
 
@@ -116,6 +120,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
             inVoice={inVoice}
             speaking={selfSpeaking}
             k={k}
+            touch={touchInput}
           />
         </Group>
       )}
@@ -130,11 +135,12 @@ interface BodyProps {
   inVoice: boolean;
   speaking: boolean;
   k: number;
+  touch?: boolean;
 }
 
 // поки людина не в розмові, стілець блідий: місце за нею лишається, але на
 // гучність воно ще ні на що не впливає (крок C)
-function SeatBody({ color, initials, name, inVoice, speaking, k }: BodyProps) {
+function SeatBody({ color, initials, name, inVoice, speaking, k, touch }: BodyProps) {
   const r = RADIUS * k;
   return (
     <>
@@ -150,6 +156,7 @@ function SeatBody({ color, initials, name, inVoice, speaking, k }: BodyProps) {
         opacity={inVoice ? 1 : 0.4}
         stroke="#fff"
         strokeWidth={RING * k}
+        hitStrokeWidth={touch ? (TOUCH_TARGET - RADIUS * 2) * k : undefined}
       />
       <Text
         x={-r}
