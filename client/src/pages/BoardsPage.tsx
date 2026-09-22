@@ -6,6 +6,7 @@ import { logout } from '../api/auth';
 import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
 import { BoardMembers } from './BoardMembers';
+import { useNarrow } from '../use-narrow';
 
 export function BoardsPage() {
   const { user, setUser } = useAuthStore();
@@ -16,6 +17,8 @@ export function BoardsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [membersOpenId, setMembersOpenId] = useState<string | null>(null);
+  // на телефоні список учасників не влазить у рядок дошки — виносимо на весь екран
+  const narrow = useNarrow();
 
   useEffect(() => {
     fetchBoards()
@@ -137,9 +140,26 @@ export function BoardsPage() {
                 Учасники
               </button>
             )}
-            {membersOpenId === board.id && (
-              <BoardMembers boardId={board.id} myRole={board.myRole} ownerId={board.ownerId} />
-            )}
+            {membersOpenId === board.id &&
+              (narrow ? (
+                <div className="sheet-full members-sheet">
+                  <header className="sheet-head">
+                    <span>Учасники — {board.title}</span>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title="Закрити"
+                      aria-label="Закрити"
+                      onClick={() => setMembersOpenId(null)}
+                    >
+                      ×
+                    </button>
+                  </header>
+                  <BoardMembers boardId={board.id} myRole={board.myRole} ownerId={board.ownerId} />
+                </div>
+              ) : (
+                <BoardMembers boardId={board.id} myRole={board.myRole} ownerId={board.ownerId} />
+              ))}
           </li>
         ))}
       </ul>

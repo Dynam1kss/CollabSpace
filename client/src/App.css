@@ -265,6 +265,13 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   }
 }
 
+/* обгортка, якої на десктопі ніби нема: діти лягають у батьківський layout.
+Потрібна там, де мобільна верстка групує елементи, а десктопна — ні */
+.contents,
+.tool-group {
+  display: contents;
+}
+
 /* помилка вставки картинки — поруч із панеллю інструментів, зникає сама */
 .tool-error {
   left: 68px;
@@ -902,4 +909,306 @@ elementFromPoint повертав би її саму замість колонк
 .board-page .ctx-panel .ctx-toggle.active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* ───── вузький екран (телефон) ─────
+поріг 768px дублює NARROW_QUERY у use-narrow.ts — компоненти, які міняють
+не тільки стилі, а й розмітку, читають його звідти */
+
+/* спільна шкірка для трьох повноекранних накладок: чат, хто на дошці,
+учасники дошки. Fixed, бо чат живе всередині правої колонки */
+.sheet-full {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg, #fff);
+}
+
+.board-page .board-island.sheet-full {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 8px 10px 14px;
+  border-bottom: 1px solid var(--panel-border, #e3e6ea);
+  font-weight: 600;
+}
+
+.sheet-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 8px 14px;
+}
+
+.sheet-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.members-sheet {
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.members-sheet .board-members {
+  border-top: none;
+  padding: 12px 14px;
+}
+
+@media (max-width: 768px) {
+  .board-toolbar {
+    gap: 0.4rem;
+    padding: 0.4rem 0.5rem;
+  }
+
+  /* без min-width:0 назва не стискається і видавлює решту шапки за край —
+  браузер на телефоні від цього зменшує масштаб усієї сторінки */
+  .board-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .view-switch {
+    font-size: 0.8rem;
+    flex: 0 0 auto;
+  }
+
+  /* панель інструментів — рядком унизу: збоку вона зʼїдала половину висоти */
+  .tool-island {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 8px;
+    transform: none;
+    flex-direction: row;
+    align-items: center;
+    padding: 4px;
+  }
+
+  .tool-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* інструменти скроляться, скасувати/повторити лишаються видні завжди —
+  на телефоні це єдиний спосіб відкотити дію */
+  .tool-tools {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tool-tools::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tool-actions {
+    flex: 0 0 auto;
+  }
+
+  .tool-button {
+    flex: 0 0 auto;
+  }
+
+  .tool-divider {
+    width: 1px;
+    height: 24px;
+    margin: 0 4px;
+  }
+
+  .tool-error {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 72px;
+    transform: none;
+    max-width: none;
+  }
+
+  /* контекстна панель — нижня шторка над панеллю інструментів, а не плашка
+  біля обʼєкта: біля обʼєкта вона на такому екрані або за краєм, або на ньому */
+  .board-page .ctx-panel.ctx-sheet {
+    left: 8px;
+    right: 8px;
+    bottom: 72px;
+    max-width: none;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  /* статуси з нижнього правого кута — у верхній лівий: унизу тепер інструменти */
+  .save-status,
+  .sync-status {
+    top: 8px;
+    bottom: auto;
+    right: auto;
+  }
+
+  .sync-status {
+    left: 8px;
+  }
+
+  .save-status {
+    left: 96px;
+  }
+
+  /* чат, присутні й голос — однією колонкою праворуч */
+  /* без z-index навмисно: він зробив би тут контекст накладання, і
+  повноекранний чат з нього вже не виліз би поверх статусів */
+  .mobile-rail {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .mobile-rail > * {
+    pointer-events: auto;
+  }
+
+  .mobile-rail > .board-island {
+    position: static;
+    transform: none;
+  }
+
+  .participants-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+  }
+
+  .participants-count {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .chat-toggle {
+    position: static;
+  }
+
+  /* згорнутий голос: свої перемикачі + скільки нас у розмові */
+  .voice-mini > .voice-join,
+  .voice-mini > .voice-leave,
+  .voice-mini > .voice-peers,
+  .voice-mini > .voice-note {
+    display: none;
+  }
+
+  .voice-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.35rem 0.5rem !important;
+    color: var(--text-muted);
+  }
+
+  .voice-expand.alert {
+    color: #c2255c;
+    border-color: #f3c0d2;
+  }
+
+  .voice-count {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* розгорнутий голос — шторка внизу, поверх інструментів */
+  .board-page .board-island.voice-sheet {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    top: auto;
+    z-index: 20;
+    flex-wrap: wrap;
+    padding: 8px;
+  }
+
+  .voice-sheet .voice-peers {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 4px;
+  }
+
+  .voice-sheet .voice-peer-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .voice-peer-who {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 4px;
+    font-size: 0.8rem;
+  }
+
+  .voice-peer-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .voice-collapse {
+    margin-left: auto;
+  }
+}
+
+/* ───── палець замість миші ─────
+цілі під тап — не менші за 44px; поріг стандартний для мобільних інтерфейсів */
+@media (pointer: coarse) {
+  .board-page .icon-button,
+  .board-page .ctx-panel button,
+  .tool-button,
+  .voice-toggle,
+  .voice-force {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* зразок кольору лишається того ж розміру — росте лише поле навколо нього */
+  .board-page .ctx-panel .ctx-swatch {
+    width: 24px;
+    height: 24px;
+    margin: 10px;
+  }
+
+  /* вісім зразків по 44px у рядок не влазять у телефон — у два ряди */
+  .ctx-popover {
+    flex-wrap: wrap;
+    width: 200px;
+  }
+
+  .ctx-number input {
+    width: 48px;
+    padding: 10px 2px;
+  }
 }

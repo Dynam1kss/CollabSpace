@@ -9,6 +9,7 @@ import { NumberField } from './NumberField';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, PALETTE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './object-defaults';
 import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
+import { useNarrow } from '../use-narrow';
 import { deleteSelected } from './selection-actions';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
@@ -45,6 +46,8 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
     .filter((o): o is BoardObject => !!o && !lockedByOthers.has(o.id));
   const selectionKey = selectedIds.join(',');
   const ref = useRef<HTMLDivElement>(null);
+  // на вузькому екрані панель не літає біля обʼєкта — прибита до низу
+  const narrow = useNarrow();
   // відкрита палітра привʼязана до виділення — нове виділення її закриває
   const [picker, setPicker] = useState<{ key: string; kind: PickerKind } | null>(null);
   const openPicker = picker && picker.key === selectionKey ? picker.kind : null;
@@ -55,6 +58,13 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !anchor) return;
+    if (narrow) {
+      // координати лишились від десктопа — інакше перебʼють css нижньої шторки
+      el.style.left = '';
+      el.style.top = '';
+      el.classList.remove('below');
+      return;
+    }
     const w = el.offsetWidth;
     const h = el.offsetHeight;
     let top = anchor.y - GAP_ABOVE - h;
@@ -145,7 +155,7 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
   }
 
   return (
-    <div ref={ref} className="board-island ctx-panel">
+    <div ref={ref} className={narrow ? 'board-island ctx-panel ctx-sheet' : 'board-island ctx-panel'}>
       {fillObject && (fillObject.type === 'sticky' || fillObject.type === 'shape') && (
         <ColorButton
           label="Заливка"

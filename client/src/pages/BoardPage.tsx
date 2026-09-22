@@ -20,10 +20,11 @@ import { setSelfUserId } from '../voice/voice-mesh';
 import { Participants } from '../canvas/Participants';
 import { usePresenceStore } from '../canvas/presence-store';
 import { diag } from '../canvas/diag';
-import { BackIcon } from '../canvas/icons';
+import { BackIcon, FitIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
+import { useNarrow } from '../use-narrow';
 
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
 // що зараз показано — стан сторінки, не редактора: не персиститься, канбан
@@ -72,6 +73,8 @@ export function BoardPage() {
   // і тоді діє свіжіше
   const selfRole = usePresenceStore((s) => s.selfRole);
   const editable = !!board && canEdit(board, currentUserId) && selfRole !== 'VIEWER';
+
+  const narrow = useNarrow();
 
   usePreventBrowserZoom();
   // sync — перед persistence: його ефект дає свіжий документ, у який persistence
@@ -211,17 +214,29 @@ export function BoardPage() {
             Канбан
           </button>
         </div>
+        {/* на телефоні −/100%/+ прибираємо: масштаб там щипком, а в шапці
+        вони видавлювали «показати все» за край екрана */}
         {view === 'canvas' && (
           <div className="zoom-controls">
-            <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
-              −
-            </button>
-            <span className="zoom-percent">{Math.round(viewport.scale * 100)}%</span>
-            <button type="button" className="icon-button" title="Збільшити" onClick={() => zoomIn(center)}>
-              +
-            </button>
-            <button type="button" onClick={handleFitAll}>
-              Показати все
+            {!narrow && (
+              <>
+                <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
+                  −
+                </button>
+                <span className="zoom-percent">{Math.round(viewport.scale * 100)}%</span>
+                <button type="button" className="icon-button" title="Збільшити" onClick={() => zoomIn(center)}>
+                  +
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className={narrow ? 'icon-button' : undefined}
+              title="Показати все"
+              aria-label="Показати все"
+              onClick={handleFitAll}
+            >
+              {narrow ? <FitIcon /> : 'Показати все'}
             </button>
           </div>
         )}
@@ -245,10 +260,14 @@ export function BoardPage() {
         ) : (
           <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} />
         )}
-        <Participants />
-        {/* чат і голос не залежать від того, що показано — полотно чи канбан */}
-        <ChatPanel boardId={board.id} />
-        <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />
+        {/* чат і голос не залежать від того, що показано — полотно чи канбан.
+        На телефоні всі три збираються в одну колонку праворуч, інакше вони
+        розповзаються по кутах і налазять одне на одне */}
+        <div className={narrow ? 'mobile-rail' : 'contents'}>
+          <Participants />
+          <ChatPanel boardId={board.id} />
+          <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />
+        </div>
         <div className={`board-island sync-status ${syncStatus}`}>{SYNC_STATUS_TEXT[syncStatus]}</div>
         <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
       </div>

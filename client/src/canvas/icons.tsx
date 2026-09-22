@@ -200,3 +200,21 @@ export function TrashIcon() {
     </Svg>
   );
 }
+
+export function FitIcon() {
+  return (
+    <Svg>
+      <path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4" />
+    </Svg>
+  );
+}
+
+export function PeopleIcon() {
+  return (
+    <Svg>
+      <circle cx="8" cy="6.5" r="2.8" />
+      <path d="M2.5 16.5c0-3 2.5-4.8 5.5-4.8s5.5 1.8 5.5 4.8" />
+      <path d="M13.5 4.2a2.8 2.8 0 0 1 0 5.4M15 11.9c1.7.5 2.9 1.8 2.9 4" />
+    </Svg>
+  );
+}

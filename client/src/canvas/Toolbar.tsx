@@ -100,6 +100,10 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
   return (
     <>
       <aside className="board-island tool-island">
+        {/* дві групи: інструменти й дії. На десктопі обгортки прозорі
+        (display: contents), на телефоні панель лягає в рядок унизу — і тоді
+        інструменти скроляться, а скасувати/повторити лишаються на місці */}
+        <div className="tool-group tool-tools">
         {tools.map((tool) => (
           <button
             key={tool.id}
@@ -124,11 +128,12 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
             <ImageIcon />
           </button>
         )}
-        {/* скасувати/повторити — окрема група внизу, відділена рискою: це не
+        </div>
+        {/* скасувати/повторити — окрема група, відділена рискою: це не
         інструменти, а дії над тим, що вже зроблено. Для телефона це ще й
         ЄДИНИЙ спосіб скасувати — клавіатури там нема */}
         {canEdit && (
-          <>
+          <div className="tool-group tool-actions">
             <span className="tool-divider" />
             <button
               type="button"
@@ -150,7 +155,7 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
             >
               <RedoIcon />
             </button>
-          </>
+          </div>
         )}
         {canEdit && (
           <input

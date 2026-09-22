@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import { usePresenceStore } from '../canvas/presence-store';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
@@ -12,6 +13,7 @@ import {
 } from '../canvas/icons';
 import type { PeerInfo } from './voice-store';
 import { useVoiceStore } from './voice-store';
+import { useNarrow } from '../use-narrow';
 
 // вимкнув адміністратор — це НЕ те саме, що «я сам вимкнув і можу ввімкнути»:
 // окремий клас домальовує замок і червоний тон, інакше кнопка виглядає просто
@@ -19,6 +21,15 @@ import { useVoiceStore } from './voice-store';
 function selfClass(off: boolean, forced: boolean) {
   if (forced) return 'voice-toggle locked';
   return off ? 'voice-toggle off' : 'voice-toggle';
+}
+
+// те саме, що в title замка, але текстом: на тачі наведення нема, і підказку
+// ніхто не побачить
+function describeForced(f: { mute: boolean; deafen: boolean }) {
+  if (f.mute && f.deafen) return 'адміністратор вимкнув мікрофон і звук';
+  if (f.mute) return 'адміністратор вимкнув мікрофон';
+  if (f.deafen) return 'адміністратор вимкнув звук';
+  return null;
 }
 
 function describe(peer: PeerInfo) {
@@ -54,9 +65,15 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
 
   const peerIds = Object.keys(peers).map(Number);
   const full = !inVoice && voiceIsFull();
+  // на телефоні панель постійно висить згорнутою пігулкою (свої перемикачі +
+  // лічильник), решту ховає css — розмітка та сама, щоб не двоїти кнопки
+  const narrow = useNarrow();
+  const [expanded, setExpanded] = useState(false);
+  const myLock = describeForced(myForced);
+  const mini = narrow && !expanded;
 
   return (
-    <div className="board-island voice-panel">
+    <div className={`board-island voice-panel${narrow ? (mini ? ' voice-mini' : ' voice-sheet') : ''}`}>
       <button
         type="button"
         className={inVoice ? 'voice-leave' : 'voice-join'}
@@ -146,17 +163,16 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                     {initialsOf(member.displayName)}
                   </span>
                 </span>
+                {/* на тачі те, що на десктопі лежить у title кружечка, мусить
+                бути текстом — наведення там нема */}
+                {narrow && (
+                  <span className="voice-peer-who">
+                    <span className="voice-peer-name">{member.displayName}</span>
+                    <span className="voice-note">{describe(peers[clientId])}</span>
+                  </span>
+                )}
                 {(theirForced.mute || theirForced.deafen) && (
-                  <span
-                    className="voice-locked"
-                    title={
-                      theirForced.mute && theirForced.deafen
-                        ? 'адміністратор вимкнув мікрофон і звук'
-                        : theirForced.mute
-                          ? 'адміністратор вимкнув мікрофон'
-                          : 'адміністратор вимкнув звук'
-                    }
-                  >
+                  <span className="voice-locked" title={describeForced(theirForced) ?? undefined}>
                     🔒
                   </span>
                 )}
@@ -197,8 +213,34 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
         </div>
       )}
 
+      {/* свій замок теж текстом: title на кнопці дістається лише миші */}
+      {myLock && <span className="voice-note voice-error">{myLock}</span>}
       {full && <span className="voice-note">розмова повна ({VOICE_MAX_PARTICIPANTS})</span>}
       {error && <span className="voice-note voice-error">{error}</span>}
+
+      {mini && (
+        <button
+          type="button"
+          className={error || myLock ? 'voice-expand alert' : 'voice-expand'}
+          title="Розмова"
+          aria-label="Розмова"
+          onClick={() => setExpanded(true)}
+        >
+          <HeadphonesIcon size={20} />
+          {inVoice && <span className="voice-count">{peerIds.length + 1}</span>}
+        </button>
+      )}
+      {narrow && expanded && (
+        <button
+          type="button"
+          className="icon-button voice-collapse"
+          title="Згорнути"
+          aria-label="Згорнути"
+          onClick={() => setExpanded(false)}
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }

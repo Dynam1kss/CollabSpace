@@ -5,6 +5,7 @@ import { useChatStore } from './chat-store';
 import { ChatIcon } from './icons';
 import { colorForUser } from './presence-colors';
 import { publishChat } from './presence-channel';
+import { useNarrow } from '../use-narrow';
 
 interface Props {
   boardId: string;
@@ -24,6 +25,8 @@ export function ChatPanel({ boardId }: Props) {
   const unread = useChatStore((s) => s.unread);
   const setOpen = useChatStore((s) => s.setOpen);
   const [draft, setDraft] = useState('');
+  // на телефоні чат не колонка збоку, а вікно на весь екран
+  const narrow = useNarrow();
   const listRef = useRef<HTMLDivElement>(null);
 
   // історія не чекає ні сокета, ні снепшота: вона тільки дописує в стор, а
@@ -61,7 +64,13 @@ export function ChatPanel({ boardId }: Props) {
 
   if (!open) {
     return (
-      <button type="button" className="board-island chat-toggle" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="board-island chat-toggle"
+        title="Чат"
+        aria-label="Чат"
+        onClick={() => setOpen(true)}
+      >
         <ChatIcon />
         {unread > 0 && <span className="chat-unread">{unread > 99 ? '99+' : unread}</span>}
       </button>
@@ -69,10 +78,16 @@ export function ChatPanel({ boardId }: Props) {
   }
 
   return (
-    <div className="board-island chat-panel">
-      <header className="chat-head">
+    <div className={narrow ? 'board-island chat-panel sheet-full' : 'board-island chat-panel'}>
+      <header className="chat-head sheet-head">
         <span>Чат</span>
-        <button type="button" className="icon-button" title="Згорнути" onClick={() => setOpen(false)}>
+        <button
+          type="button"
+          className="icon-button"
+          title="Згорнути"
+          aria-label="Згорнути"
+          onClick={() => setOpen(false)}
+        >
           ×
         </button>
       </header>
