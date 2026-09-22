@@ -1481,6 +1481,12 @@ elementFromPoint повертав би її саму замість колонк
     flex: 0 0 auto;
   }
 
+  /* на 360px кожен піксель у шапці на рахунку — перемикачу вигляду вистачає
+  і вужчих полів */
+  .board-page .view-switch button {
+    padding: 0.35rem 0.45rem;
+  }
+
   /* панель інструментів — рядком унизу: збоку вона зʼїдала половину висоти */
   .tool-island {
     left: 8px;
@@ -1722,4 +1728,99 @@ elementFromPoint повертав би її саму замість колонк
     height: 44px;
     box-sizing: border-box;
   }
+}
+
+/* ───── пошук на дошці ─────
+кнопка живе в шапці серед решти керування виглядом, попап висить під нею */
+.board-search {
+  position: relative;
+}
+
+.search-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 3;
+  width: 260px;
+  padding: 8px;
+  text-align: left;
+}
+
+.board-page .search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  /* не менше 16px: під цим порогом мобільний сафарі зумить сторінку на фокусі */
+  font-size: 1rem;
+}
+
+.board-page .search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.search-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.search-hits:not(:empty) {
+  margin-top: 6px;
+}
+
+.board-page .search-hits button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0.4rem 0.45rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.search-hit-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+/* довгий рядок обрізає ще й css — на випадок слова без пробілів */
+.search-hit-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-search-sheet {
+  padding-bottom: 8px;
+}
+
+.board-search-sheet .search-input {
+  margin: 10px 14px;
+  width: calc(100% - 28px);
+}
+
+.board-search-sheet .search-hits {
+  flex: 1 1 auto;
+  max-height: none;
+  padding: 0 10px;
+}
+
+/* іконки в шапці не стискаються: місце віддає назва дошки, у неї для цього
+є ellipsis. Без цього кожна нова кнопка зʼїдала в них по кілька пікселів,
+і ціль під палець мовчки ставала меншою за 44px */
+.board-toolbar .icon-button,
+.zoom-controls > * {
+  flex: 0 0 auto;
 }

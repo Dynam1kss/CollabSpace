@@ -22,6 +22,7 @@ import { usePresenceStore } from '../canvas/presence-store';
 import { diag } from '../canvas/diag';
 import { BackIcon, FitIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
+import { BoardSearch } from '../canvas/BoardSearch';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
 import { useNarrow } from '../use-narrow';
@@ -218,6 +219,7 @@ export function BoardPage() {
         вони видавлювали «показати все» за край екрана */}
         {view === 'canvas' && (
           <div className="zoom-controls">
+            <BoardSearch viewport={viewport} canvasSize={canvasSize} onJump={setViewport} />
             {!narrow && (
               <>
                 <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
