@@ -7,6 +7,10 @@ export default defineConfig({
   // встановлюваність (воркер у dev не реєструється)
   preview: {
     port: 4173,
+    // як і в dev: щоб відкривати з телефону через тунель, інакше vite ще й
+    // відкине чужий Host
+    host: true,
+    allowedHosts: true,
     proxy: {
       '/api': 'http://localhost:3000',
       '/uploads': 'http://localhost:3000',
