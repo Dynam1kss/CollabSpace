@@ -1,6 +1,25 @@
+/* палітра одна на весь застосунок. Була всередині .board-page — і тому
+сторінки входу й списку дошок, які живуть у .app-shell, її не бачили зовсім
+і падали на голі стилі браузера */
+:root {
+  --panel-bg: #ffffff;
+  --panel-border: #e3e6ea;
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  --accent: #4262ff;
+  --accent-soft: #e8ecff;
+  --hover: #f1f3f6;
+  /* той самий тон, що й background_color у маніфесті */
+  --page-bg: #f7f8fa;
+  --danger: #d93025;
+  --danger-soft: #fdecea;
+}
+
 body {
   font-family: system-ui, sans-serif;
   margin: 0;
+  background: var(--page-bg);
+  color: var(--text);
 }
 
 .app-shell {
@@ -22,12 +41,35 @@ label {
 }
 
 .server-status {
-  color: gray;
-  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
+/* помилка форми — плашка, а не самотній червоний рядок посеред білого */
 .form-error {
-  color: crimson;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.form-error::before {
+  content: '!';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: -3px;
 }
 
 header {
@@ -36,34 +78,466 @@ header {
   align-items: center;
 }
 
+.board-role {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ───── спільні цеглинки для сторінок поза полотном ─────
+той самий вигляд, що й в островів на дошці: біла картка, тонка межа,
+мʼяка тінь */
+
+.app-shell input,
+.app-shell select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font: inherit;
+  /* не менше 16px: під цим порогом мобільний сафарі зумить сторінку на фокусі */
+  font-size: 1rem;
+}
+
+/* те саме підсвічування фокуса, що й у полях контекстної панелі, плюс мʼяке
+сяйво — на великому полі сама лише зміна межі майже не помітна */
+.app-shell input:focus,
+.app-shell select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* суцільна акцентна кнопка — головна дія екрана */
+.button-primary {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.button-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .button-primary:not(:disabled):hover {
+    background: #3450e6;
+    border-color: #3450e6;
+  }
+}
+
+.button-primary:not(:disabled):active {
+  background: #2c45cc;
+  border-color: #2c45cc;
+}
+
+/* кнопка-текст: дія без рамки, як посилання */
+.button-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .button-link:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ───── вхід і реєстрація ─────
+картка посеред екрана; сторінка під нею — той самий світлий тон, що й
+робоча область дошки */
+.auth-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 100vh;
+  max-width: none;
+  margin: 0;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.auth-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 380px;
+  padding: 1.75rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.wordmark-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.auth-card h1 {
+  margin: 1.25rem 0;
+  font-size: 1.35rem;
+}
+
+.auth-card label {
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.auth-card .button-primary {
+  margin-top: 0.25rem;
+}
+
+.auth-switch {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ───── список дошок ───── */
+.boards-shell {
+  max-width: 960px;
+  margin: 1.5rem auto 3rem;
+}
+
+.boards-header {
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+}
+
+.boards-me {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.boards-me strong {
+  font-weight: 600;
+}
+
+.boards-title {
+  margin: 1.5rem 0 1rem;
+  font-size: 1.5rem;
+}
+
+/* рядок створення — головна дія сторінки, тому на всю ширину над сіткою */
 .board-create-form {
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.board-create-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.board-create-form .button-primary {
+  flex: 0 0 auto;
 }
 
 .board-list {
   list-style: none;
   padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.board-list li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  /* колір верхньої смужки приходить інлайном — він рахується з id дошки */
+  border-top: 4px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.12s;
+}
+
+@media (hover: hover) {
+  .board-list li:hover {
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.08),
+      0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* посилання розтягнуте на всю картку: клік будь-де відкриває дошку, а меню
+дій лежить вище за z-index і забирає свої кліки собі */
+.board-open {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  /* місце під кнопку меню, щоб довга назва не лізла під неї */
+  padding-right: 2rem;
+}
+
+.board-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+
+@media (hover: hover) {
+  .board-open:hover {
+    color: var(--accent);
+  }
+}
+
+.board-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* роль — пігулка, а не просто сірий текст у рядку */
+.role-chip {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.board-menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+.board-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .board-menu-button:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+}
+
+.board-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  padding: 4px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.board-menu-popover button {
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .board-menu-popover button:hover {
+    background: var(--hover);
+  }
+}
+
+.board-menu-popover .danger {
+  color: var(--danger);
+}
+
+/* перейменування розгортається прямо в картці, замість назви */
+.board-rename {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.board-list li {
+.board-rename-actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
 }
 
-.board-role {
-  color: gray;
+/* нейтральна кнопка — другорядні дії поруч із акцентною: перейменування,
+керування учасниками. Без неї тут лишались сірі кнопки браузера */
+.board-rename-actions button,
+.board-members button {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font: inherit;
   font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.board-rename-actions button {
+  flex: 1 1 0;
+}
+
+.board-members button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .board-rename-actions button:hover,
+  .board-members button:not(:disabled):hover {
+    background: var(--hover);
+  }
+}
+
+/* порожній список: не сухий рядок «дошок ще немає», а запрошення почати */
+.boards-empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--panel-bg);
+  border: 1px dashed var(--panel-border);
+  border-radius: 12px;
+}
+
+.boards-empty svg {
+  color: var(--panel-border);
+}
+
+.boards-empty p {
+  margin: 0.75rem 0 0;
+}
+
+.boards-empty strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+/* поки в картці відкриті учасники — вона на всю ширину сітки: у колонці
+240px список з ролями й поштою не поміщається */
+.board-list li.with-members {
+  grid-column: 1 / -1;
+}
+
+.board-list .board-members {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 0.75rem;
+}
+
+.board-list .member-list li {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.board-list .member-add-form {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.board-list .member-add-form input {
+  flex: 1 1 180px;
+}
+
+.board-list .member-add-form select,
+.board-list .member-list select {
+  width: auto;
+}
+
+/* на телефоні цілі мають бути не менші за палець — тут ті самі 44px, що й
+на дошці, але .app-shell не всередині .board-page, тож правило своє */
+@media (pointer: coarse) {
+  .app-shell button,
+  .app-shell input,
+  .app-shell select {
+    min-height: 44px;
+  }
+
+  .board-menu-button {
+    width: 44px;
+    height: 44px;
+    top: 0;
+    right: 0;
+  }
+
+  /* кнопка меню стала ширша — звільняємо під неї більше місця в назві */
+  .board-open {
+    padding-right: 3rem;
+  }
 }
 
 /* секція учасників — окремим рядком на всю ширину під дошкою */
@@ -95,16 +569,9 @@ header {
   gap: 0.5rem;
 }
 
-/* сторінка дошки — на всю площу вікна, полотно під шапкою. Палітра одна на
-всі елементи дошки: білі панелі, тонкі сірі межі, синій акцент */
+/* сторінка дошки — на всю площу вікна, полотно під шапкою. Палітра спільна
+з рештою застосунку і лежить на :root */
 .board-page {
-  --panel-bg: #ffffff;
-  --panel-border: #e3e6ea;
-  --text: #1f2937;
-  --text-muted: #6b7280;
-  --accent: #4262ff;
-  --accent-soft: #e8ecff;
-  --hover: #f1f3f6;
   display: flex;
   flex-direction: column;
   height: 100vh;

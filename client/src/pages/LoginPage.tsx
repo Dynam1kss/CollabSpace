@@ -36,10 +36,12 @@ export function LoginPage({ onSwitchToRegister }: Props) {
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </label>
       {error && <p className="form-error">{error}</p>}
-      <button type="submit">Увійти</button>
-      <p>
+      <button type="submit" className="button-primary">
+        Увійти
+      </button>
+      <p className="auth-switch">
         Немає акаунту?{' '}
-        <button type="button" onClick={onSwitchToRegister}>
+        <button type="button" className="button-link" onClick={onSwitchToRegister}>
           Зареєструватись
         </button>
       </p>

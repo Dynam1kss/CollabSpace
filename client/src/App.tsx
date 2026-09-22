@@ -8,12 +8,22 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { useAuthStore } from './store/auth-store';
 
+// картка й назва застосунку — спільні для входу й реєстрації, самі сторінки
+// всередині лишаються тільки формою
 function AuthGate() {
   const [view, setView] = useState<'login' | 'register'>('login');
-  return view === 'login' ? (
-    <LoginPage onSwitchToRegister={() => setView('register')} />
-  ) : (
-    <RegisterPage onSwitchToLogin={() => setView('login')} />
+  return (
+    <div className="auth-card">
+      <div className="wordmark">
+        <span className="wordmark-dot" />
+        CollabSpace
+      </div>
+      {view === 'login' ? (
+        <LoginPage onSwitchToRegister={() => setView('register')} />
+      ) : (
+        <RegisterPage onSwitchToLogin={() => setView('login')} />
+      )}
+    </div>
   );
 }
 
@@ -28,9 +38,9 @@ export function App() {
 
   if (status === 'loading') {
     return (
-      <main className="app-shell">
-        <ServerStatus />
+      <main className="app-shell auth-shell">
         <p>Завантаження…</p>
+        <ServerStatus />
       </main>
     );
   }
@@ -41,9 +51,9 @@ export function App() {
         <Route
           path="/"
           element={
-            <main className="app-shell">
-              <ServerStatus />
+            <main className={status === 'authenticated' && user ? 'app-shell boards-shell' : 'app-shell auth-shell'}>
               {status === 'authenticated' && user ? <BoardsPage /> : <AuthGate />}
+              <ServerStatus />
             </main>
           }
         />

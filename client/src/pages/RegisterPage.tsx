@@ -47,10 +47,12 @@ export function RegisterPage({ onSwitchToLogin }: Props) {
         />
       </label>
       {error && <p className="form-error">{error}</p>}
-      <button type="submit">Зареєструватись</button>
-      <p>
+      <button type="submit" className="button-primary">
+        Зареєструватись
+      </button>
+      <p className="auth-switch">
         Вже є акаунт?{' '}
-        <button type="button" onClick={onSwitchToLogin}>
+        <button type="button" className="button-link" onClick={onSwitchToLogin}>
           Увійти
         </button>
       </p>

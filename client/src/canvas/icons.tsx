@@ -218,3 +218,22 @@ export function PeopleIcon() {
     </Svg>
   );
 }
+
+export function MoreIcon() {
+  return (
+    <Svg>
+      <circle cx="10" cy="4.5" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="10" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="15.5" r="1.3" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
+export function EmptyBoardsIcon() {
+  return (
+    <Svg size={56}>
+      <rect x="2.5" y="4.5" width="10" height="7.5" rx="1.5" />
+      <rect x="8.5" y="9" width="9" height="7" rx="1.5" />
+    </Svg>
+  );
+}

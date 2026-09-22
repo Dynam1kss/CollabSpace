@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { BoardSummary } from 'shared';
@@ -6,7 +6,16 @@ import { logout } from '../api/auth';
 import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
 import { BoardMembers } from './BoardMembers';
+import { EmptyBoardsIcon, MoreIcon } from '../canvas/icons';
+import { colorForBoard, relativeTime } from './board-card';
 import { useNarrow } from '../use-narrow';
+
+const ROLE_TEXT = {
+  OWNER: 'власник',
+  ADMIN: 'адміністратор',
+  EDITOR: 'редактор',
+  VIEWER: 'глядач',
+};
 
 export function BoardsPage() {
   const { user, setUser } = useAuthStore();
@@ -17,7 +26,9 @@ export function BoardsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [membersOpenId, setMembersOpenId] = useState<string | null>(null);
-  // на телефоні список учасників не влазить у рядок дошки — виносимо на весь екран
+  // яка картка розкрила меню дій; відкрите лише одне
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  // на телефоні список учасників не влазить у картку — виносимо на весь екран
   const narrow = useNarrow();
 
   useEffect(() => {
@@ -45,6 +56,7 @@ export function BoardsPage() {
   };
 
   const startRename = (board: BoardSummary) => {
+    setMenuOpenId(null);
     setEditingId(board.id);
     setEditingTitle(board.title);
   };
@@ -61,6 +73,7 @@ export function BoardsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    setMenuOpenId(null);
     if (!window.confirm('Видалити дошку? Цю дію не можна скасувати.')) return;
     try {
       await deleteBoard(id);
@@ -72,73 +85,102 @@ export function BoardsPage() {
 
   return (
     <div>
-      <header>
-        <span>
-          {user?.displayName}
-          <span className="board-role"> {user?.email}</span>
+      <header className="boards-header">
+        <span className="boards-me">
+          <strong>{user?.displayName}</strong>
+          <span className="board-role">{user?.email}</span>
         </span>
-        <button type="button" onClick={handleLogout}>
+        <button type="button" onClick={handleLogout} className="button-link">
           Вийти
         </button>
       </header>
-      <h1>Мої дошки</h1>
+      <h1 className="boards-title">Мої дошки</h1>
 
       <form onSubmit={handleCreate} className="board-create-form">
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Назва нової дошки"
+          aria-label="Назва нової дошки"
         />
-        <button type="submit">Створити</button>
+        <button type="submit" className="button-primary" disabled={!newTitle.trim()}>
+          Створити
+        </button>
       </form>
 
       {error && <p className="form-error">{error}</p>}
       {loading && <p>Завантаження…</p>}
-      {!loading && boards.length === 0 && <p>Дошок ще немає.</p>}
+      {!loading && boards.length === 0 && (
+        <div className="boards-empty">
+          <EmptyBoardsIcon />
+          <p>
+            <strong>Тут поки порожньо</strong>
+            Назвіть першу дошку у полі вище — і можна малювати.
+          </p>
+        </div>
+      )}
 
       <ul className="board-list">
         {boards.map((board) => (
-          <li key={board.id}>
+          <li
+            key={board.id}
+            className={membersOpenId === board.id && !narrow ? 'with-members' : undefined}
+            style={{ borderTopColor: colorForBoard(board.id) }}
+          >
             {editingId === board.id ? (
-              <>
-                <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} />
-                <button type="button" onClick={() => submitRename(board.id)}>
-                  Зберегти
-                </button>
-                <button type="button" onClick={() => setEditingId(null)}>
-                  Скасувати
-                </button>
-              </>
+              <div className="board-rename">
+                <input
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  aria-label="Назва дошки"
+                  autoFocus
+                />
+                <div className="board-rename-actions">
+                  <button type="button" onClick={() => submitRename(board.id)}>
+                    Зберегти
+                  </button>
+                  <button type="button" onClick={() => setEditingId(null)}>
+                    Скасувати
+                  </button>
+                </div>
+              </div>
             ) : (
               <>
-                <Link to={`/boards/${board.id}`}>{board.title}</Link>
-                {!board.isOwner && <span className="board-role"> (учасник)</span>}
-                {board.isOwner && (
-                  <>
-                    <button type="button" onClick={() => startRename(board)}>
-                      Перейменувати
-                    </button>
-                    <button type="button" onClick={() => handleDelete(board.id)}>
-                      Видалити
-                    </button>
+                <Link className="board-open" to={`/boards/${board.id}`}>
+                  {board.title}
+                </Link>
+                <span className="board-meta">
+                  <span>оновлено {relativeTime(board.updatedAt)}</span>
+                  {!board.isOwner && <span className="role-chip">{ROLE_TEXT[board.myRole]}</span>}
+                </span>
+                {(board.isOwner || board.myRole === 'ADMIN') && (
+                  <BoardCardMenu
+                    open={menuOpenId === board.id}
+                    onToggle={() => setMenuOpenId(menuOpenId === board.id ? null : board.id)}
+                    onClose={() => setMenuOpenId(null)}
+                  >
+                    {board.isOwner && (
+                      <button type="button" onClick={() => startRename(board)}>
+                        Перейменувати
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setMembersOpenId(membersOpenId === board.id ? null : board.id)}
+                      onClick={() => {
+                        setMenuOpenId(null);
+                        setMembersOpenId(membersOpenId === board.id ? null : board.id);
+                      }}
                     >
                       Учасники
                     </button>
-                  </>
+                    {board.isOwner && (
+                      <button type="button" className="danger" onClick={() => handleDelete(board.id)}>
+                        Видалити
+                      </button>
+                    )}
+                  </BoardCardMenu>
                 )}
               </>
-            )}
-            {/* керування учасниками — власнику й адміністратору */}
-            {!board.isOwner && board.myRole === 'ADMIN' && (
-              <button
-                type="button"
-                onClick={() => setMembersOpenId(membersOpenId === board.id ? null : board.id)}
-              >
-                Учасники
-              </button>
             )}
             {membersOpenId === board.id &&
               (narrow ? (
@@ -163,6 +205,47 @@ export function BoardsPage() {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// дії власника за «⋮», щоб у картці не стояло три голі кнопки поспіль.
+// Закриття по кліку повз — тим самим прийомом, що й палітра кольорів
+function BoardCardMenu({
+  open,
+  onToggle,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [open, onClose]);
+
+  return (
+    <div className="board-menu" ref={ref}>
+      <button
+        type="button"
+        className="board-menu-button"
+        title="Дії з дошкою"
+        aria-label="Дії з дошкою"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <MoreIcon />
+      </button>
+      {open && <div className="board-menu-popover">{children}</div>}
     </div>
   );
 }
