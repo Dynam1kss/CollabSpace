@@ -255,7 +255,9 @@ export function BoardPage() {
               currentUserId={currentUserId}
             />
             {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
-            {editable && <ContextPanel viewport={viewport} canvasSize={canvasSize} />}
+            {editable && (
+              <ContextPanel viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
+            )}
           </>
         ) : (
           <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} />

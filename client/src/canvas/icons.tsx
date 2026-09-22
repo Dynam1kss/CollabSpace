@@ -237,3 +237,32 @@ export function EmptyBoardsIcon() {
     </Svg>
   );
 }
+
+// дві однакові рамки зі зсувом — те саме, що робить ctrl+d
+export function DuplicateIcon() {
+  return (
+    <Svg>
+      <rect x="3" y="3" width="10" height="10" rx="1.5" />
+      <path d="M7 16.5h8a1.5 1.5 0 0 0 1.5-1.5V7" />
+    </Svg>
+  );
+}
+
+export function SearchIcon() {
+  return (
+    <Svg>
+      <circle cx="8.5" cy="8.5" r="5" />
+      <path d="M12.3 12.3L17 17" />
+    </Svg>
+  );
+}
+
+// «показати всім мій вид» — екран зі стрілкою назовні
+export function ShowViewIcon() {
+  return (
+    <Svg>
+      <path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h5M17 9v5.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5V10" />
+      <path d="M12 3h5v5M17 3l-6 6" />
+    </Svg>
+  );
+}

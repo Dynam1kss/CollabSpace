@@ -4,13 +4,21 @@ import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
-import { BringFrontIcon, ChairIcon, SendBackIcon, StrokeWidthIcon, TextIcon, TrashIcon } from './icons';
+import {
+  BringFrontIcon,
+  ChairIcon,
+  DuplicateIcon,
+  SendBackIcon,
+  StrokeWidthIcon,
+  TextIcon,
+  TrashIcon,
+} from './icons';
 import { NumberField } from './NumberField';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, PALETTE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './object-defaults';
 import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
-import { deleteSelected } from './selection-actions';
+import { deleteSelected, duplicateSelected } from './selection-actions';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
 const GAP_ABOVE = 44;
@@ -24,13 +32,15 @@ type PickerKind = 'fill' | 'text' | 'stroke';
 interface Props {
   viewport: Viewport;
   canvasSize: { width: number; height: number };
+  // автор копій; приходить із BoardPage, як і в BoardCanvas
+  currentUserId: string;
 }
 
 // компактний рядок дій біля виділення: над ним, а якщо зверху не влазить —
 // під ним. Показує лише те, що застосовне хоч до одного з виділених, і
 // застосовує зміну до всіх, кому вона личить. Під час тягання ховається —
 // стор відстає від вузлів до dragend
-export function ContextPanel({ viewport, canvasSize }: Props) {
+export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const interacting = useEditorStore((s) => s.interacting);
   const objectsMap = useBoardStore((s) => s.objects);
@@ -222,6 +232,15 @@ export function ContextPanel({ viewport, canvasSize }: Props) {
       )}
 
       <span className="ctx-sep" />
+      {/* на телефоні це ЄДИНИЙ спосіб продублювати — ctrl+d там нема звідки взяти */}
+      <button
+        type="button"
+        title="Дублювати (Ctrl+D)"
+        aria-label="Дублювати"
+        onClick={() => duplicateSelected(currentUserId)}
+      >
+        <DuplicateIcon />
+      </button>
       <button type="button" title="На задній план" aria-label="На задній план" onClick={sendToBack}>
         <SendBackIcon />
       </button>
