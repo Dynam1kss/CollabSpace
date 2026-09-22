@@ -19,3 +19,4 @@ server/uploads/
 docs/ТЗ.md
 docs/briefs/
 docs/defense.md
+*.tsbuildinfo

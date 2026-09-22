@@ -3,6 +3,16 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // зібраний застосунок теж треба десь відкрити — саме на ньому перевіряється
+  // встановлюваність (воркер у dev не реєструється)
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/uploads': 'http://localhost:3000',
+      '/ws': { target: 'ws://localhost:3000', ws: true },
+    },
+  },
   server: {
     port: 5173,
     // тільки для розробки — щоб відкривати з телефону через тунель
