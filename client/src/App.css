@@ -1113,8 +1113,13 @@ elementFromPoint повертав би її саму замість колонк
     pointer-events: auto;
   }
 
+  /* relative, а не static: усередині кнопки чату висить абсолютний лічильник
+  непрочитаних, і без власного контексту він тікав аж до самої колонки й сідав
+  на «присутніх». inset: auto гасить десктопні координати островів — у колонці
+  вони зайві, а при relative ще й зсували б саму кнопку */
   .mobile-rail > .board-island {
-    position: static;
+    position: relative;
+    inset: auto;
     transform: none;
   }
 
@@ -1129,10 +1134,6 @@ elementFromPoint повертав би її саму замість колонк
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--text);
-  }
-
-  .chat-toggle {
-    position: static;
   }
 
   /* згорнутий голос: свої перемикачі + скільки нас у розмові */
@@ -1179,6 +1180,13 @@ elementFromPoint повертав би її саму замість колонк
     align-items: stretch;
     width: 100%;
     gap: 4px;
+  }
+
+  /* свій кружечок лежить у .voice-peers напряму, без рядка-обгортки, і
+  stretch розтягував його на всю ширину — разом із кільцем «говорить»,
+  яке малює box-shadow по формі коробки */
+  .voice-sheet .voice-peers > .voice-chip {
+    align-self: flex-start;
   }
 
   .voice-sheet .voice-peer-row {
