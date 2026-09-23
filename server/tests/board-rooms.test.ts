@@ -645,6 +645,56 @@ describe('кімнати дошок поверх ws', () => {
     expect(got && [...got]).toEqual([2]);
   });
 
+  it('показати свій вид: редактора сервер не слухає, власника — так', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, editor.cookie);
+    const v = connect(boardId, viewer.cookie);
+    await Promise.all([opened(a), opened(b), opened(v)]);
+
+    const showView = (ws: WebSocket, body: object) =>
+      ws.send(Buffer.concat([Buffer.from([SYNC_MSG.SHOW_VIEW]), Buffer.from(JSON.stringify(body))]));
+
+    // кадр від редактора не доїжджає ні до кого, хоч кнопки в нього й нема
+    const toOwner = nextOfType(a, SYNC_MSG.SHOW_VIEW, 200);
+    const toViewer = nextOfType(v, SYNC_MSG.SHOW_VIEW, 200);
+    showView(b, { centerX: 1, centerY: 2, scale: 1 });
+    expect(await toOwner).toBeNull();
+    expect(await toViewer).toBeNull();
+
+    // а від власника — всім, і з його clientId спереду
+    const [gotB, gotV] = [nextOfType(b, SYNC_MSG.SHOW_VIEW), nextOfType(v, SYNC_MSG.SHOW_VIEW)];
+    showView(a, { centerX: 10, centerY: 20, scale: 2 });
+    const frameB = (await gotB)!;
+    expect(frameB).not.toBeNull();
+    expect(JSON.parse(frameB.subarray(5).toString())).toMatchObject({ centerX: 10, centerY: 20, scale: 2 });
+    expect(await gotV).not.toBeNull();
+  });
+
+  it('показати свій вид вибраним: кадр іде лише тим, чий userId у targets', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const editorId = (await editorUserId(editor)).id;
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, editor.cookie);
+    // друга вкладка того самого редактора: адресуємо людину, а не сокет
+    const b2 = connect(boardId, editor.cookie);
+    const v = connect(boardId, viewer.cookie);
+    await Promise.all([opened(a), opened(b), opened(b2), opened(v)]);
+
+    const gotB = nextOfType(b, SYNC_MSG.SHOW_VIEW);
+    const gotB2 = nextOfType(b2, SYNC_MSG.SHOW_VIEW);
+    const gotV = nextOfType(v, SYNC_MSG.SHOW_VIEW, 300);
+    a.send(
+      Buffer.concat([
+        Buffer.from([SYNC_MSG.SHOW_VIEW]),
+        Buffer.from(JSON.stringify({ centerX: 5, centerY: 6, scale: 1, targets: [editorId] })),
+      ]),
+    );
+    expect(await gotB).not.toBeNull();
+    expect(await gotB2).not.toBeNull();
+    expect(await gotV).toBeNull();
+  });
+
   it('close прибирає сокет, порожня кімната зникає', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     const a = connect(boardId, owner.cookie);

@@ -1606,7 +1606,8 @@ elementFromPoint повертав би її саму замість колонк
   }
 
   /* у колонці кнопка — такий самий острівець, як сусіди */
-  .mobile-rail > .show-view {
+  .mobile-rail > .show-view,
+  .mobile-rail > .show-view-pick {
     width: 44px;
     height: 44px;
     color: var(--text-muted);
@@ -1739,6 +1740,11 @@ elementFromPoint повертав би її саму замість колонк
     width: 200px;
   }
 
+  /* ціль під палець — увесь рядок списку, сам чекбокс лишається дрібним */
+  .show-view-list label {
+    min-height: 44px;
+  }
+
   .ctx-number input {
     width: 48px;
     height: 44px;
@@ -1848,4 +1854,76 @@ elementFromPoint повертав би її саму замість колонк
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* кнопка й шеврон вибору адресатів стоять упритул — це одна дія, просто
+з двома входами */
+.show-view-group {
+  position: relative;
+  display: flex;
+  gap: 2px;
+}
+
+.board-toolbar .show-view-pick {
+  width: 22px;
+}
+
+.board-page .show-view-pick.active {
+  color: var(--accent);
+}
+
+.show-view-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 3;
+  width: 200px;
+  padding: 6px;
+}
+
+.show-view-list {
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.show-view-list label {
+  display: flex;
+  /* глобальний label — колонка (форми входу), тут потрібен рядок */
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* імʼя довше за попап не має його розпирати */
+.show-view-list label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.show-view-list input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  accent-color: var(--accent);
+}
+
+@media (hover: hover) {
+  .show-view-list label:hover {
+    background: var(--hover);
+  }
+}
+
+.show-view-empty {
+  padding: 5px 6px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }

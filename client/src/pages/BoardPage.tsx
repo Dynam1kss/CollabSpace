@@ -20,10 +20,11 @@ import { setSelfUserId } from '../voice/voice-mesh';
 import { Participants } from '../canvas/Participants';
 import { usePresenceStore } from '../canvas/presence-store';
 import { diag } from '../canvas/diag';
-import { BackIcon, FitIcon, ShowViewIcon } from '../canvas/icons';
+import { BackIcon, FitIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { BoardSearch } from '../canvas/BoardSearch';
 import { publishShowView } from '../canvas/presence-channel';
+import { ShowViewButton } from '../canvas/ShowViewButton';
 import { useShowView } from '../canvas/use-show-view';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
@@ -52,9 +53,6 @@ const SYNC_STATUS_TEXT: Record<SyncStatus, string> = {
 // скільки людина бачить пояснення, перш ніж її віднесе до списку дошок
 const KICKED_REDIRECT_MS = 2500;
 
-// «надіслано» на кнопці «показати всім мій вид»
-const SHOW_VIEW_FLASH_MS = 1200;
-
 // глядач нічого не зберігає і не змінює — сервер і так відхилить, але й
 // пробувати не варто. Адміністратор для цієї перевірки — той самий редактор
 function canEdit(board: BoardDetail, userId: string) {
@@ -79,10 +77,12 @@ export function BoardPage() {
   // і тоді діє свіжіше
   const selfRole = usePresenceStore((s) => s.selfRole);
   const editable = !!board && canEdit(board, currentUserId) && selfRole !== 'VIEWER';
+  // чужу камеру смикає лише власник чи адміністратор — решті кнопки просто
+  // нема (сервер такий кадр однаково викидає). Та сама перевірка, що на
+  // стільцях у ContextPanel
+  const canShowView = selfRole === 'OWNER' || selfRole === 'ADMIN';
 
   const narrow = useNarrow();
-  // скільки кнопка світиться «надіслано» після натискання
-  const [viewShared, setViewShared] = useState(false);
 
   usePreventBrowserZoom();
   // sync — перед persistence: його ефект дає свіжий документ, у який persistence
@@ -158,17 +158,10 @@ export function BoardPage() {
   // одноразовий кадр. Шлемо ТОЧКУ ДОШКИ, яка в мене посеред екрана, а не
   // свій viewport.x/y: той рахується від краю мого вікна, і на чужому екрані
   // іншого розміру вміст від нього виїжджав у куток
-  function handleShowView() {
+  function handleShowView(targets?: string[]) {
     const { x: centerX, y: centerY } = screenToBoard(center, viewport);
-    publishShowView({ centerX, centerY, scale: viewport.scale });
-    setViewShared(true);
+    publishShowView({ centerX, centerY, scale: viewport.scale, targets });
   }
-
-  useEffect(() => {
-    if (!viewShared) return;
-    const timer = window.setTimeout(() => setViewShared(false), SHOW_VIEW_FLASH_MS);
-    return () => window.clearTimeout(timer);
-  }, [viewShared]);
 
   function handleFitAll() {
     setViewport(fitToObjects(Object.values(objects), canvasSize.width, canvasSize.height));
@@ -177,16 +170,13 @@ export function BoardPage() {
   // у шапці телефона місця вже нема: три іконки підряд стискали назву дошки
   // до кількох пікселів. Тому там кнопка живе в правій колонці, поруч із
   // рештою іконок-накладок
-  const showViewButton = (
-    <button
-      type="button"
-      className={`${narrow ? 'board-island ' : ''}icon-button show-view${viewShared ? ' sent' : ''}`}
-      title="Показати всім мій вид"
-      aria-label="Показати всім мій вид"
-      onClick={handleShowView}
-    >
-      <ShowViewIcon />
-    </button>
+  const showViewButton = board && canShowView && (
+    <ShowViewButton
+      key={`${board.id}:${currentUserId}`}
+      boardId={board.id}
+      currentUserId={currentUserId}
+      onShare={handleShowView}
+    />
   );
 
   // точка дошки під серединою полотна: сюди лягають стікери з канбану і

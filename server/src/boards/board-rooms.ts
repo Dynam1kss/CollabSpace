@@ -204,6 +204,21 @@ function readChatText(buf: Buffer) {
   }
 }
 
+// кому показувати свій вид: null — усій кімнаті (як було до появи вибору),
+// множина — лише цим людям. Зіпсоване тіло читаємо як «усім»: кадр одноразовий
+// і нічого не псує, а мовчки губити його важче зрозуміти
+function readShowViewTargets(buf: Buffer) {
+  try {
+    const body: unknown = JSON.parse(buf.subarray(1).toString('utf8'));
+    if (typeof body !== 'object' || body === null) return null;
+    const { targets } = body as { targets?: unknown };
+    if (!Array.isArray(targets)) return null;
+    return new Set(targets.filter((id): id is string => typeof id === 'string'));
+  } catch {
+    return null;
+  }
+}
+
 // єдиний кадр, який сервер зберігає, а не ретранслює: спершу база призначає
 // id і час, і вже готове повідомлення йде всім у кімнаті — разом із автором,
 // бо саме з цієї відповіді він і побачить своє повідомлення
@@ -333,10 +348,24 @@ boardRoomWss.on('connection', (socket) => {
       // тут ні до чого
       case SYNC_MSG.SELECTION:
       case SYNC_MSG.SEAT:
-      case SYNC_MSG.SHOW_VIEW:
       case SYNC_MSG.VIEWPORT: {
         const framed = withClientId(buf[0], client.id, buf);
         for (const [, other] of others) send(other, framed);
+        return;
+      }
+
+      case SYNC_MSG.SHOW_VIEW: {
+        // єдиний кадр присутності з гейтом: він смикає чужу камеру, тому
+        // доступний лише власнику й адміністратору. Клієнт кнопку й так
+        // ховає, але ховання — не заборона
+        if (client.role !== 'OWNER' && client.role !== 'ADMIN') return;
+        const targets = readShowViewTargets(buf);
+        const framed = withClientId(SYNC_MSG.SHOW_VIEW, client.id, buf);
+        for (const [, other] of others) {
+          // у списку userId, а не clientId — усі вкладки адресата дістають кадр
+          if (targets && !targets.has(clients.get(other)?.userId ?? '')) continue;
+          send(other, framed);
+        }
         return;
       }
 

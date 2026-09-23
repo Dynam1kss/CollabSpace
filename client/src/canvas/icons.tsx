@@ -266,3 +266,12 @@ export function ShowViewIcon() {
     </Svg>
   );
 }
+
+// шеврон донизу — «тут відкриється список»
+export function ChevronIcon() {
+  return (
+    <Svg size={14}>
+      <path d="M5 8l5 5 5-5" />
+    </Svg>
+  );
+}
