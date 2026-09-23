@@ -2,7 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
-import { lockOwner, usePresenceStore } from './presence-store';
+import { lockedObjectIds, usePresenceStore } from './presence-store';
+import { deletableIds } from './object-lock';
 import { withPoints } from './objects/connector-geometry';
 
 // копія лягає не точно поверх оригіналу, а трохи вбік (координати дошки)
@@ -28,12 +29,14 @@ function selectedObjects() {
 }
 
 // одна дія і для Delete/Backspace, і для кошика на контекстній панелі.
-// Зайняте кимось іншим пропускаємо — решту виділеного видаляємо як і було
+// Зайняте кимось іншим і замкнене прапорцем пропускаємо — решту виділеного
+// видаляємо як і було. Замкнене саме тому й замикають: випадкове видалення —
+// найдорожча з випадковостей, тому спершу відімкни
 export function deleteSelected() {
   const { selectedIds, clearSelection } = useEditorStore.getState();
   if (selectedIds.length === 0) return;
-  const presence = usePresenceStore.getState();
-  const free = selectedIds.filter((id) => !lockOwner(presence, id));
+  const { getById } = useBoardStore.getState();
+  const free = deletableIds(selectedIds.map(getById), lockedObjectIds(usePresenceStore.getState()));
   if (free.length === 0) return;
   useBoardStore.getState().removeMany(free);
   clearSelection();

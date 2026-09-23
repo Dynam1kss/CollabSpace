@@ -10,11 +10,13 @@ import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { ObjectRenderer } from './objects/ObjectRenderer';
 import { RemoteCursors } from './objects/RemoteCursors';
+import { LockedBadges } from './objects/LockedBadges';
 import { RemoteLocks } from './objects/RemoteLocks';
 import { RemoteSelections } from './objects/RemoteSelections';
 import { RemoteViewports } from './objects/RemoteViewports';
 import { SelectionOverlay } from './objects/SelectionOverlay';
 import { publishCursor, publishViewport } from './presence-channel';
+import { isMovable } from './object-lock';
 import { useLockedByOthers } from './presence-store';
 import { useObjectInteractions } from './useObjectInteractions';
 import { useImageDrop } from './use-image-drop';
@@ -123,7 +125,8 @@ export function BoardCanvas({
   }, [objectsMap]);
 
   // глядачу тягати не можна ніколи, незалежно від інструмента; зайняте кимось
-  // іншим — теж, поки він не вийде
+  // іншим — теж, поки він не вийде. Замкнений прапорцем — та сама заборона,
+  // лише постійна й для всіх
   const draggableObjects = canEdit && activeTool === 'select';
   const lockedByOthers = useLockedByOthers();
 
@@ -208,7 +211,7 @@ export function BoardCanvas({
                 object={object}
                 isSelected={selectedIds.includes(object.id)}
                 isEditing={editingTextId === object.id}
-                draggable={draggableObjects && !lockedByOthers.has(object.id)}
+                draggable={draggableObjects && isMovable(object, lockedByOthers)}
                 viewportScale={viewport.scale}
                 registerRef={getRegisterRef(object.id)}
               />
@@ -216,6 +219,9 @@ export function BoardCanvas({
 
             <RemoteSelections objects={objectsMap} viewportScale={viewport.scale} />
             <RemoteLocks objects={objectsMap} viewportScale={viewport.scale} />
+            {/* замочок бачить і глядач: зняти його він не може, але знати,
+            чому обʼєкт не рухається, має */}
+            <LockedBadges objects={sortedObjects} viewportScale={viewport.scale} />
 
             {draft && <DraftPreview tool={draft.tool} start={draft.start} current={draft.current} />}
             {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}

@@ -116,16 +116,18 @@ export function otherMembers(state: PresenceState) {
 // обʼєкти, які зараз тримає хтось інший. Поки людина в обʼєкті друкує, решта
 // його не чіпає взагалі — ні стилем, ні розміром, ні видаленням: інакше можна
 // змінити колір чи знести стікер просто з-під того, хто в ньому пише
+export function lockedObjectIds(state: Pick<PresenceState, 'locks' | 'selfClientId'>) {
+  const ids = new Set<string>();
+  for (const [key, objectId] of Object.entries(state.locks)) {
+    if (Number(key) !== state.selfClientId) ids.add(objectId);
+  }
+  return ids;
+}
+
 export function useLockedByOthers() {
   const locks = usePresenceStore((s) => s.locks);
   const selfClientId = usePresenceStore((s) => s.selfClientId);
-  return useMemo(() => {
-    const ids = new Set<string>();
-    for (const [key, objectId] of Object.entries(locks)) {
-      if (Number(key) !== selfClientId) ids.add(objectId);
-    }
-    return ids;
-  }, [locks, selfClientId]);
+  return useMemo(() => lockedObjectIds({ locks, selfClientId }), [locks, selfClientId]);
 }
 
 // хто тримає обʼєкт зайнятим — не рахуючи мене самого: свій же замок

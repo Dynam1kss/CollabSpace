@@ -73,6 +73,26 @@ describe('снепшот дошки', () => {
     expect(await prisma.boardSnapshot.count({ where: { boardId: board.body.id } })).toBe(1);
   });
 
+  it('locked доїжджає до бази й вертається назад', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [{ ...sticky, locked: true }] })
+      .expect(204);
+    const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    expect(res.body.objects[0].locked).toBe(true);
+
+    // старий знімок поля не має — і не має його отримати з нізвідки
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [sticky] })
+      .expect(204);
+    const plain = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    expect(plain.body.objects[0].locked).toBeUndefined();
+  });
+
   it('невалідний обʼєкт — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });

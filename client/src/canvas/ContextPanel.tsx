@@ -8,10 +8,12 @@ import {
   BringFrontIcon,
   ChairIcon,
   DuplicateIcon,
+  LockIcon,
   SendBackIcon,
   StrokeWidthIcon,
   TextIcon,
   TrashIcon,
+  UnlockIcon,
 } from './icons';
 import { NumberField } from './NumberField';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, PALETTE, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './object-defaults';
@@ -104,10 +106,19 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
   // увімкненим вважаємо, лише коли дозволено всім виділеним — інакше перший
   // клік має саме ВВІМКНУТИ решті, а не вимкнути тим, у кого вже стоїть
   const seatsOn = selected.length > 0 && selected.every((o) => o.seatsAllowed === true);
+  // та сама умова, що й у стільців: відмикає лише коли замкнені всі
+  const lockedOn = selected.length > 0 && selected.every((o) => o.locked === true);
 
   function setSeatsAllowed(allowed: boolean) {
     const update = useBoardStore.getState().update;
     for (const o of selected) update(o.id, { seatsAllowed: allowed });
+  }
+
+  // звичайна правка обʼєкта, як колір чи стільці: їде в Y.Doc і лягає в
+  // снепшот — на відміну від ефемерного замка присутності
+  function setLocked(locked: boolean) {
+    const update = useBoardStore.getState().update;
+    for (const o of selected) update(o.id, { locked });
   }
 
   function togglePicker(kind: PickerKind) {
@@ -232,6 +243,18 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       )}
 
       <span className="ctx-sep" />
+      {/* панель уся під editable, тож глядач сюди не дістанеться — окремої
+      перевірки ролі замку не треба */}
+      <button
+        type="button"
+        className={lockedOn ? 'ctx-toggle active' : 'ctx-toggle'}
+        title={lockedOn ? 'Відімкнути' : 'Замкнути від змін'}
+        aria-label={lockedOn ? 'Відімкнути' : 'Замкнути від змін'}
+        aria-pressed={lockedOn}
+        onClick={() => setLocked(!lockedOn)}
+      >
+        {lockedOn ? <LockIcon /> : <UnlockIcon />}
+      </button>
       {/* на телефоні це ЄДИНИЙ спосіб продублювати — ctrl+d там нема звідки взяти */}
       <button
         type="button"

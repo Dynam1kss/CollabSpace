@@ -8,6 +8,7 @@ import type { Box } from 'konva/lib/shapes/Transformer';
 import type { Point } from '../coordinates';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
+import { isMovable } from '../object-lock';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
 import { MIN_BOX_SIDE } from '../limits';
 import { fitTextBox } from '../text-layout';
@@ -230,9 +231,11 @@ export function SelectionOverlay({
     };
   }, []);
 
+  // замкнений прапорцем сюди не потрапляє так само, як зайнятий іншим: ручок
+  // розміру й повороту на ньому нема, хоч виділення й лишається
   const selectedObjects = selectedIds
     .map((id) => objects[id])
-    .filter((o): o is BoardObject => !!o && !lockedByOthers.has(o.id));
+    .filter((o): o is BoardObject => !!o && isMovable(o, lockedByOthers));
   const soleText =
     selectedObjects.length === 1 && selectedObjects[0].type === 'text'
       ? (selectedObjects[0] as TextObject)

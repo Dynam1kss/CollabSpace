@@ -275,3 +275,22 @@ export function ChevronIcon() {
     </Svg>
   );
 }
+
+// замок закритий і відкритий: дужка та сама, у відкритого зсунута вбік
+export function LockIcon() {
+  return (
+    <Svg>
+      <rect x="4" y="9" width="12" height="8" rx="1.5" />
+      <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" />
+    </Svg>
+  );
+}
+
+export function UnlockIcon() {
+  return (
+    <Svg>
+      <rect x="4" y="9" width="12" height="8" rx="1.5" />
+      <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0" />
+    </Svg>
+  );
+}
