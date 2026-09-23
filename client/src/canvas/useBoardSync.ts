@@ -4,6 +4,7 @@ import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
 import {
   publishLock,
   publishSelection,
+  receiveShowView,
   republishSeat,
   republishViewport,
   setPresenceSender,
@@ -18,6 +19,7 @@ import type {
   RoleChangedMessage,
   RosterMessage,
   SeatPosition,
+  ShowViewMessage,
   VoiceIceMessage,
   VoiceSdpMessage,
   VoiceStateMessage,
@@ -304,6 +306,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           // і час призначає база
           useChatStore.getState().addMessage(JSON.parse(text(payload)) as ChatMessageInfo);
           return;
+
+        case SYNC_MSG.SHOW_VIEW: {
+          // хто саме натиснув — не важливо, камера в усіх одна
+          receiveShowView(JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as ShowViewMessage);
+          return;
+        }
 
         case SYNC_MSG.VIEWPORT: {
           const view = new DataView(data.buffer, data.byteOffset + 1);

@@ -1,5 +1,5 @@
 import { CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import type { SeatPosition, ViewportMessage } from 'shared';
+import type { SeatPosition, ShowViewMessage, ViewportMessage } from 'shared';
 import { useEditorStore } from './editor-store';
 
 // присутність шле через той самий сокет, що й документ — useBoardSync ставить
@@ -157,6 +157,26 @@ export function publishLock(objectId: string | null) {
 export function publishChat(text: string) {
   if (!sendFrame) return;
   sendFrame(jsonFrame(SYNC_MSG.CHAT, { text }));
+}
+
+// «подивіться, де я» — один кадр на натискання, тротлити нема чого.
+// Окремий тип, а не VIEWPORT: той іде безперервно і лише з тача, і чужу
+// камеру ним ніхто не рухає
+export function publishShowView(view: ShowViewMessage) {
+  if (!sendFrame) return;
+  sendFrame(jsonFrame(SYNC_MSG.SHOW_VIEW, view));
+}
+
+// приймальна сторона: обробник ставить сторінка дошки, бо камера живе в її
+// стані. Симетрично до setPresenceSender вище
+let showViewHandler: ((view: ShowViewMessage) => void) | null = null;
+
+export function setShowViewHandler(fn: ((view: ShowViewMessage) => void) | null) {
+  showViewHandler = fn;
+}
+
+export function receiveShowView(view: ShowViewMessage) {
+  showViewHandler?.(view);
 }
 
 // останнє надіслане вікно — щоб переспівати його новачкові: він міг зайти

@@ -20,9 +20,11 @@ import { setSelfUserId } from '../voice/voice-mesh';
 import { Participants } from '../canvas/Participants';
 import { usePresenceStore } from '../canvas/presence-store';
 import { diag } from '../canvas/diag';
-import { BackIcon, FitIcon } from '../canvas/icons';
+import { BackIcon, FitIcon, ShowViewIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { BoardSearch } from '../canvas/BoardSearch';
+import { publishShowView } from '../canvas/presence-channel';
+import { useShowView } from '../canvas/use-show-view';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
 import { useNarrow } from '../use-narrow';
@@ -50,6 +52,9 @@ const SYNC_STATUS_TEXT: Record<SyncStatus, string> = {
 // скільки людина бачить пояснення, перш ніж її віднесе до списку дошок
 const KICKED_REDIRECT_MS = 2500;
 
+// «надіслано» на кнопці «показати всім мій вид»
+const SHOW_VIEW_FLASH_MS = 1200;
+
 // глядач нічого не зберігає і не змінює — сервер і так відхилить, але й
 // пробувати не варто. Адміністратор для цієї перевірки — той самий редактор
 function canEdit(board: BoardDetail, userId: string) {
@@ -76,6 +81,8 @@ export function BoardPage() {
   const editable = !!board && canEdit(board, currentUserId) && selfRole !== 'VIEWER';
 
   const narrow = useNarrow();
+  // скільки кнопка світиться «надіслано» після натискання
+  const [viewShared, setViewShared] = useState(false);
 
   usePreventBrowserZoom();
   // sync — перед persistence: його ефект дає свіжий документ, у який persistence
@@ -109,6 +116,8 @@ export function BoardPage() {
       y: 0,
       scale: 1,
     });
+
+  useShowView(viewport, setViewport);
 
   useEffect(() => {
     if (!id) return;
@@ -146,9 +155,37 @@ export function BoardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasSize.width, canvasSize.height]);
 
+  // одноразовий кадр: беремо камеру як є і шлемо решті. Розмір екрана не
+  // шлемо — у кожного свій
+  function handleShowView() {
+    publishShowView({ x: viewport.x, y: viewport.y, scale: viewport.scale });
+    setViewShared(true);
+  }
+
+  useEffect(() => {
+    if (!viewShared) return;
+    const timer = window.setTimeout(() => setViewShared(false), SHOW_VIEW_FLASH_MS);
+    return () => window.clearTimeout(timer);
+  }, [viewShared]);
+
   function handleFitAll() {
     setViewport(fitToObjects(Object.values(objects), canvasSize.width, canvasSize.height));
   }
+
+  // у шапці телефона місця вже нема: три іконки підряд стискали назву дошки
+  // до кількох пікселів. Тому там кнопка живе в правій колонці, поруч із
+  // рештою іконок-накладок
+  const showViewButton = (
+    <button
+      type="button"
+      className={`${narrow ? 'board-island ' : ''}icon-button show-view${viewShared ? ' sent' : ''}`}
+      title="Показати всім мій вид"
+      aria-label="Показати всім мій вид"
+      onClick={handleShowView}
+    >
+      <ShowViewIcon />
+    </button>
+  );
 
   // точка дошки під серединою полотна: сюди лягають стікери з канбану і
   // вставлені картинки — щоб були перед очима, а не в (0,0) десь далеко
@@ -220,6 +257,7 @@ export function BoardPage() {
         {view === 'canvas' && (
           <div className="zoom-controls">
             <BoardSearch viewport={viewport} canvasSize={canvasSize} onJump={setViewport} />
+            {!narrow && showViewButton}
             {!narrow && (
               <>
                 <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
@@ -268,6 +306,7 @@ export function BoardPage() {
         На телефоні всі три збираються в одну колонку праворуч, інакше вони
         розповзаються по кутах і налазять одне на одне */}
         <div className={narrow ? 'mobile-rail' : 'contents'}>
+          {narrow && view === 'canvas' && showViewButton}
           <Participants />
           <ChatPanel boardId={board.id} />
           <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />

@@ -333,6 +333,7 @@ boardRoomWss.on('connection', (socket) => {
       // тут ні до чого
       case SYNC_MSG.SELECTION:
       case SYNC_MSG.SEAT:
+      case SYNC_MSG.SHOW_VIEW:
       case SYNC_MSG.VIEWPORT: {
         const framed = withClientId(buf[0], client.id, buf);
         for (const [, other] of others) send(other, framed);

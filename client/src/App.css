@@ -1596,6 +1596,13 @@ elementFromPoint повертав би її саму замість колонк
     transform: none;
   }
 
+  /* у колонці кнопка — такий самий острівець, як сусіди */
+  .mobile-rail > .show-view {
+    width: 44px;
+    height: 44px;
+    color: var(--text-muted);
+  }
+
   .participants-toggle {
     display: flex;
     align-items: center;
@@ -1823,4 +1830,13 @@ elementFromPoint повертав би її саму замість колонк
 .board-toolbar .icon-button,
 .zoom-controls > * {
   flex: 0 0 auto;
+}
+
+/* коротка підсвітка «надіслано» після «показати всім мій вид»: інакше
+натискання виглядає так, ніби нічого не сталось — усе видиме відбувається
+в чужих вкладках */
+.board-page .show-view.sent {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
