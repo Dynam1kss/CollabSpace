@@ -347,11 +347,14 @@ header {
   font-size: 0.72rem;
 }
 
+/* 2, а не 1: меню випадає рівно на те місце, де розгортається панель
+учасників, і при однаковому z-index вона перекривала б його собою — вона
+пізніше в розмітці */
 .board-menu {
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 1;
+  z-index: 2;
 }
 
 .board-menu-button {
@@ -486,7 +489,13 @@ header {
   grid-column: 1 / -1;
 }
 
+/* та сама історія, що й у меню «⋮»: посилання на дошку розтягнуте по всій
+картці через ::after, і воно перекриває звичайний вміст, хоч і лежить у
+розмітці раніше. Без власного контексту кожен тап у форму додавання
+учасника відкривав дошку */
 .board-list .board-members {
+  position: relative;
+  z-index: 1;
   margin-top: 0.5rem;
   border-top: 1px solid var(--panel-border);
   padding-top: 0.75rem;
