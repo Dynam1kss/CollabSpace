@@ -45,6 +45,24 @@ export function getVisibleBoardRect(viewport: Viewport, screenWidth: number, scr
   };
 }
 
+// viewport, у якому задана точка дошки стоїть рівно посеред екрана.
+// Потрібен скрізь, де ціль задана в координатах ДОШКИ, а не екрана: перехід
+// до знайденого обʼєкта, чужий «подивіться, де я». Екранний зсув сам по собі
+// нічого не означає — у кожного своя ширина вікна
+export function centerOnPoint(
+  boardPoint: Point,
+  scale: number,
+  screenWidth: number,
+  screenHeight: number,
+): Viewport {
+  const clamped = clampScale(scale);
+  return {
+    scale: clamped,
+    x: screenWidth / 2 - boardPoint.x * clamped,
+    y: screenHeight / 2 - boardPoint.y * clamped,
+  };
+}
+
 // новий viewport такий, щоб точка дошки під screenPoint лишилась під ним і після зміни масштабу
 export function zoomViewportAtPoint(viewport: Viewport, newScale: number, screenPoint: Point): Viewport {
   const scale = clampScale(newScale);

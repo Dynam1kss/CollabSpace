@@ -117,7 +117,7 @@ export function BoardPage() {
       scale: 1,
     });
 
-  useShowView(viewport, setViewport);
+  useShowView(viewport, canvasSize, setViewport);
 
   useEffect(() => {
     if (!id) return;
@@ -155,10 +155,12 @@ export function BoardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasSize.width, canvasSize.height]);
 
-  // одноразовий кадр: беремо камеру як є і шлемо решті. Розмір екрана не
-  // шлемо — у кожного свій
+  // одноразовий кадр. Шлемо ТОЧКУ ДОШКИ, яка в мене посеред екрана, а не
+  // свій viewport.x/y: той рахується від краю мого вікна, і на чужому екрані
+  // іншого розміру вміст від нього виїжджав у куток
   function handleShowView() {
-    publishShowView({ x: viewport.x, y: viewport.y, scale: viewport.scale });
+    const { x: centerX, y: centerY } = screenToBoard(center, viewport);
+    publishShowView({ centerX, centerY, scale: viewport.scale });
     setViewShared(true);
   }
 

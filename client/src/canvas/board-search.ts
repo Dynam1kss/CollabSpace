@@ -1,6 +1,6 @@
 import type { BoardObject } from 'shared';
 import type { Viewport } from './coordinates';
-import { clampScale } from './coordinates';
+import { centerOnPoint } from './coordinates';
 
 // текст носять лише стікер і текстовий блок — решті шукати нема в чому
 export interface SearchHit {
@@ -40,10 +40,6 @@ export function centerOnObject(
   canvasWidth: number,
   canvasHeight: number,
 ): Viewport {
-  const scale = clampScale(viewport.scale);
-  return {
-    scale,
-    x: canvasWidth / 2 - (object.x + object.width / 2) * scale,
-    y: canvasHeight / 2 - (object.y + object.height / 2) * scale,
-  };
+  const center = { x: object.x + object.width / 2, y: object.y + object.height / 2 };
+  return centerOnPoint(center, viewport.scale, canvasWidth, canvasHeight);
 }
