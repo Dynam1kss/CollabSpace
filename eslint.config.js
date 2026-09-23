@@ -27,6 +27,14 @@ export default tseslint.config(
     },
   },
   {
+    // воркер крутиться не у вікні, а в ServiceWorkerGlobalScope: там свої
+    // self/caches/clients, і без цього лінт бачить самі лише no-undef
+    files: ['client/public/sw.js'],
+    languageOptions: {
+      globals: { ...globals.serviceworker, ...globals.browser },
+    },
+  },
+  {
     files: ['server/**/*.ts', 'shared/**/*.ts', '*.js'],
     languageOptions: {
       globals: globals.node,
