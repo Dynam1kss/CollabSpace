@@ -1,6 +1,7 @@
 import type { BoardObject } from 'shared';
 import { clampScale, MAX_SCALE } from './coordinates';
 import type { Viewport } from './coordinates';
+import { pivotOffset } from './object-pivot';
 
 const FIT_PADDING_PX = 60;
 
@@ -12,14 +13,14 @@ export interface Bounds {
 }
 
 // повернутий обʼєкт вилазить за свої x/y/width/height, тому беремо всі
-// чотири кути. konva крутить навколо x/y, а еліпс — навколо центру (у нього
-// offset на пів розміру, див. ShapeNode)
+// чотири кути, повернуті навколо його центру повороту
 export function contentBounds(objects: BoardObject[]): Bounds | null {
   if (objects.length === 0) return null;
   const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
   for (const o of objects) {
-    const pivotX = o.type === 'shape' && o.shapeKind === 'ellipse' ? o.x + o.width / 2 : o.x;
-    const pivotY = o.type === 'shape' && o.shapeKind === 'ellipse' ? o.y + o.height / 2 : o.y;
+    const pivot = pivotOffset(o);
+    const pivotX = o.x + pivot.x;
+    const pivotY = o.y + pivot.y;
     const angle = (o.rotation * Math.PI) / 180;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);

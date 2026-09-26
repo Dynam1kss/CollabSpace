@@ -2,6 +2,7 @@ import { Group, Path, Rect, Text } from 'react-konva';
 import type { BoardObject } from 'shared';
 import { usePresenceStore } from '../presence-store';
 import { colorForUser } from '../presence-colors';
+import { pivotOffset } from '../object-pivot';
 
 interface Props {
   objects: Record<string, BoardObject>;
@@ -32,9 +33,18 @@ export function RemoteLocks({ objects, viewportScale }: Props) {
         if (!member || !object) return null;
         const color = colorForUser(member.userId);
         const width = member.displayName.length * 6.5 + BADGE_PADDING * 3 + 10;
+        const pivot = pivotOffset(object);
 
         return (
-          <Group key={clientId} x={object.x} y={object.y} rotation={object.rotation} listening={false}>
+          <Group
+            key={clientId}
+            x={object.x + pivot.x}
+            y={object.y + pivot.y}
+            offsetX={pivot.x}
+            offsetY={pivot.y}
+            rotation={object.rotation}
+            listening={false}
+          >
             <Rect width={object.width} height={object.height} fill={color} opacity={0.12} />
             {/* шильдик сталого розміру на екрані — як і в курсора */}
             <Group

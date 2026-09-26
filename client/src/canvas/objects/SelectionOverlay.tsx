@@ -9,6 +9,7 @@ import type { Point } from '../coordinates';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { isMovable } from '../object-lock';
+import { pivotOffset } from '../object-pivot';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
 import { MIN_BOX_SIDE } from '../limits';
 import { fitTextBox } from '../text-layout';
@@ -581,13 +582,9 @@ export function SelectionOverlay({
       // веде сама konva (beginResize на rotater дає null) — без цього кут
       // лишався тільки на вузлі й губився при перезаході
       if (!gestureRef.current) {
-        const ellipse = obj.type === 'shape' && obj.shapeKind === 'ellipse';
         // вузол еліпса стоїть у центрі, модель — у лівому верхньому куті
-        updateObject(obj.id, {
-          ...common,
-          x: ellipse ? common.x - obj.width / 2 : common.x,
-          y: ellipse ? common.y - obj.height / 2 : common.y,
-        });
+        const pivot = pivotOffset(obj);
+        updateObject(obj.id, { ...common, x: common.x - pivot.x, y: common.y - pivot.y });
       }
     }
   }

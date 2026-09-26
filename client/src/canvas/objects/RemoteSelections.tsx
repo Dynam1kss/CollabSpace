@@ -2,6 +2,7 @@ import { Arrow, Line, Rect } from 'react-konva';
 import type { BoardObject, PresenceMember } from 'shared';
 import { usePresenceStore } from '../presence-store';
 import { colorForUser } from '../presence-colors';
+import { pivotOffset } from '../object-pivot';
 import { CONNECTOR_TENSION, flattenPoints } from './connector-geometry';
 
 interface Props {
@@ -59,11 +60,16 @@ export function RemoteSelections({ objects, viewportScale }: Props) {
           );
         }
 
+        // крутимо навколо того ж центру, що й сам обʼєкт: з x - padding рамка
+        // на куті відʼїжджала, а в еліпса — на сотню пікселів
+        const pivot = pivotOffset(object);
         return (
           <Rect
             key={id}
-            x={object.x - padding}
-            y={object.y - padding}
+            x={object.x + pivot.x}
+            y={object.y + pivot.y}
+            offsetX={pivot.x + padding}
+            offsetY={pivot.y + padding}
             width={object.width + padding * 2}
             height={object.height + padding * 2}
             rotation={object.rotation}
