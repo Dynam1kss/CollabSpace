@@ -185,6 +185,13 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
         case SYNC_MSG.ROSTER: {
           const roster = JSON.parse(text(payload)) as RosterMessage;
           usePresenceStore.getState().setRoster(roster.you, roster.members);
+          // своє місце вантажиться з rest і часто приходить раніше, ніж
+          // відкрився сокет, — той кадр send мовчки викидав, і решта не бачила
+          // стілець, доки не зайде хтось третій. Roster — перша мить, коли
+          // сервер уже тримає мене в кімнаті, тож переспівуємо звідси. Вікно
+          // з тача шлеться раз на монтуванні — та сама історія
+          republishSeat();
+          republishViewport();
           // хто вже говорив до мого приходу — далі це живе кадрами VOICE_STATE
           for (const member of roster.members) {
             if (member.inVoice && member.clientId !== roster.you) {
