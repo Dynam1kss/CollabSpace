@@ -6,12 +6,13 @@ import { requireAuth } from '../auth/auth.middleware';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import { broadcastRestore } from './board-rooms';
-import { getBoardAccess, getDisplayName, requireBoardAccess, requireBoardAdmin } from './boards.service';
+import { getBoardAccess, getDisplayName, requireBoardAdmin } from './boards.service';
 import { readSnapshotState, writeSnapshotState } from './snapshots.service';
 import { createVersion, listVersions, toVersionInfo } from './versions.service';
 
-// історія версій дошки. Дивитись — будь-хто з доступом, зберігати вручну й
-// відкочувати — лише власник і адміністратор: відкат переписує роботу всіх
+// історія версій дошки — уся лише для власника й адміністратора: і список, і
+// ручне збереження, і відкат. Відкат переписує роботу всіх, а решті в клієнті
+// цієї панелі не видно зовсім — тож і список їм сервер не віддає
 export const versionsRouter = Router({ mergeParams: true });
 
 versionsRouter.use(requireAuth);
@@ -22,7 +23,7 @@ const saveVersionSchema = z.object({
 
 versionsRouter.get('/', async (req: Request<{ id: string }>, res, next) => {
   try {
-    const access = requireBoardAccess(await getBoardAccess(req.params.id, req.userId as string));
+    const access = requireBoardAdmin(await getBoardAccess(req.params.id, req.userId as string));
     const body: VersionsResponse = { versions: await listVersions(access.board.id) };
     res.json(body);
   } catch (err) {

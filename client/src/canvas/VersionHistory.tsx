@@ -5,11 +5,10 @@ import { relativeTime } from '../pages/board-card';
 import { HistoryIcon } from './icons';
 import { useNarrow } from '../use-narrow';
 
+// рендериться лише для власника й адміна (див. BoardPage), тож усе керування
+// тут без окремих перевірок ролі
 interface Props {
   boardId: string;
-  // власник чи адміністратор: зберегти вручну й відкотити. Решта лише дивиться —
-  // сервер однаково відкине, але кнопка без дії тільки плутала б
-  canManage: boolean;
 }
 
 function titleOf(v: BoardVersionInfo) {
@@ -18,7 +17,7 @@ function titleOf(v: BoardVersionInfo) {
 
 // історія версій дошки. Список тягнемо щоразу на відкриття: він короткий,
 // а тримати його живим через сокет заради рідкісного погляду нема сенсу
-export function VersionHistory({ boardId, canManage }: Props) {
+export function VersionHistory({ boardId }: Props) {
   const narrow = useNarrow();
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<BoardVersionInfo[] | null>(null);
@@ -101,22 +100,20 @@ export function VersionHistory({ boardId, canManage }: Props) {
 
   const body = (
     <>
-      {canManage && (
-        <div className="history-save">
-          <input
-            className="search-input"
-            value={label}
-            maxLength={80}
-            onChange={(e) => setLabel(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Підпис (необовʼязково)"
-            aria-label="Підпис версії"
-          />
-          <button type="button" disabled={!!busy} onClick={() => void handleSave()}>
-            {busy === 'save' ? 'Зберігаю…' : 'Зберегти версію'}
-          </button>
-        </div>
-      )}
+      <div className="history-save">
+        <input
+          className="search-input"
+          value={label}
+          maxLength={80}
+          onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Підпис (необовʼязково)"
+          aria-label="Підпис версії"
+        />
+        <button type="button" disabled={!!busy} onClick={() => void handleSave()}>
+          {busy === 'save' ? 'Зберігаю…' : 'Зберегти версію'}
+        </button>
+      </div>
       {note && <p className={`export-note${note.error ? ' export-error' : ''}`}>{note.text}</p>}
       {versions === null ? (
         <p className="export-note">Завантаження…</p>
@@ -132,11 +129,9 @@ export function VersionHistory({ boardId, canManage }: Props) {
                   {v.createdByName}, {relativeTime(v.createdAt)}
                 </span>
               </div>
-              {canManage && (
-                <button type="button" disabled={!!busy} onClick={() => void handleRestore(v)}>
-                  {busy === v.id ? 'Відкочую…' : 'Відкотити'}
-                </button>
-              )}
+              <button type="button" disabled={!!busy} onClick={() => void handleRestore(v)}>
+                {busy === v.id ? 'Відкочую…' : 'Відкотити'}
+              </button>
             </li>
           ))}
         </ul>

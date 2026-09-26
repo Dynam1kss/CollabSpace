@@ -197,11 +197,9 @@ export function BoardPage() {
     <ExportButton title={board.title} capture={() => canvasRef.current?.capture() ?? null} />
   );
 
-  // історія — там само, де пошук і експорт; зберігати й відкочувати — ті самі
-  // власник і адмін, що й «показати мій вид»
-  const historyButton = board && (
-    <VersionHistory key={board.id} boardId={board.id} canManage={canShowView} />
-  );
+  // історія версій — лише власнику й адміну, як і «показати мій вид»: решті
+  // її не видно зовсім, і сервер список їм теж не віддає
+  const historyButton = board && canShowView && <VersionHistory key={board.id} boardId={board.id} />;
 
   // точка дошки під серединою полотна: сюди лягають стікери з канбану і
   // вставлені картинки — щоб були перед очима, а не в (0,0) десь далеко

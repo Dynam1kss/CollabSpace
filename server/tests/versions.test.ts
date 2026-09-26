@@ -160,11 +160,12 @@ describe('версії дошки', () => {
     ).toBe(400);
   });
 
-  it('редактор і глядач бачать список, але зберегти й відкотити сервер не дає; чужому — 404', async () => {
-    const { id, owner, editor, viewer, stranger } = await boardWith();
+  it('редактору й глядачу сервер не дає ні списку, ні збереження, ні відкату; чужому — 404', async () => {
+    const { id, owner, admin, editor, viewer, stranger } = await boardWith();
     const v = await owner.agent.post(`/api/boards/${id}/versions`).send({ label: 'точка' });
+    expect((await admin.agent.get(`/api/boards/${id}/versions`)).status).toBe(200);
     for (const who of [editor, viewer]) {
-      expect((await who.agent.get(`/api/boards/${id}/versions`)).status).toBe(200);
+      expect((await who.agent.get(`/api/boards/${id}/versions`)).status).toBe(403);
       expect((await who.agent.post(`/api/boards/${id}/versions`).send({ label: 'моя' })).status).toBe(403);
       expect((await who.agent.post(`/api/boards/${id}/versions/${v.body.id}/restore`)).status).toBe(403);
     }
