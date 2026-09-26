@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardObject } from 'shared';
 import { contentBounds } from './fit-to-objects';
-import { EXPORT_PADDING, exportFileName, exportFrame, pdfPageSize } from './board-export';
+import { EXPORT_PADDING, exportFileName, exportFrame, exportTargets, pdfPageSize } from './board-export';
 
 const base = {
   rotation: 0,
@@ -127,5 +127,40 @@ describe('імʼя файла', () => {
   it('довга назва обрізається', () => {
     const name = exportFileName('x'.repeat(200), day, 'png');
     expect(name).toBe('x'.repeat(60) + '-2026-09-26.png');
+  });
+});
+
+describe('що експортувати', () => {
+  const a = rect('a', 0, 0, 100, 50);
+  const b = rect('b', 60, 20, 100, 50);
+  const c = rect('c', 1000, 1000, 10, 10);
+  const all = { a, b, c };
+
+  it('без виділення — уся дошка', () => {
+    expect(exportTargets(all, [])).toEqual({ objects: [a, b, c], onlySelected: false });
+  });
+
+  it('з виділенням — лише виділені, і межі тільки по них', () => {
+    const t = exportTargets(all, ['a', 'c']);
+    expect(t.onlySelected).toBe(true);
+    expect(t.objects).toEqual([a, c]);
+    expect(contentBounds(t.objects)).toEqual({ minX: 0, minY: 0, maxX: 1010, maxY: 1010 });
+  });
+
+  it('один виділений — рамка по ньому, сусід, що перекриває, у межі не входить', () => {
+    expect(contentBounds(exportTargets(all, ['a']).objects)).toEqual({
+      minX: 0,
+      minY: 0,
+      maxX: 100,
+      maxY: 50,
+    });
+  });
+
+  it('виділення лише із застарілих id — назад до всієї дошки', () => {
+    expect(exportTargets(all, ['gone'])).toEqual({ objects: [a, b, c], onlySelected: false });
+  });
+
+  it('застарілі id серед живих просто відкидаються', () => {
+    expect(exportTargets(all, ['gone', 'b'])).toEqual({ objects: [b], onlySelected: true });
   });
 });

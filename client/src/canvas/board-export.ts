@@ -1,3 +1,4 @@
+import type { BoardObject } from 'shared';
 import type { Bounds } from './fit-to-objects';
 
 // відступ навколо вмісту в одиницях дошки: обведення й стрілки конекторів
@@ -30,6 +31,15 @@ export function exportFrame(bounds: Bounds): ExportFrame {
     Math.sqrt(MAX_CANVAS_AREA / (width * height)),
   );
   return { x: bounds.minX - EXPORT_PADDING, y: bounds.minY - EXPORT_PADDING, width, height, pixelRatio };
+}
+
+// що йде у файл: виділене, якщо воно є, інакше вся дошка. id, яких уже нема
+// (обʼєкт видалили, поки він був виділений), відкидаємо — і якщо не лишилось
+// нічого, це знову вся дошка, а не порожній файл
+export function exportTargets(objects: Record<string, BoardObject>, selectedIds: string[]) {
+  const selected = selectedIds.map((id) => objects[id]).filter((o): o is BoardObject => !!o);
+  if (selected.length > 0) return { objects: selected, onlySelected: true };
+  return { objects: Object.values(objects), onlySelected: false };
 }
 
 // одиниця дошки = 1pt, завелике зменшуємо зі збереженням пропорцій

@@ -6,7 +6,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { Grid } from './Grid';
 import { TextEditOverlay } from './TextEditOverlay';
 import { useBoardStore } from './board-store';
-import { exportFrame } from './board-export';
+import { exportFrame, exportTargets } from './board-export';
 import type { ExportFrame } from './board-export';
 import { getVisibleBoardRect, screenToBoard } from './coordinates';
 import type { Point, Viewport } from './coordinates';
@@ -197,11 +197,26 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
       capture() {
         const layer = objectsLayerRef.current;
         const stage = layer?.getStage();
-        const bounds = contentBounds(Object.values(useBoardStore.getState().objects));
+        const targets = exportTargets(
+          useBoardStore.getState().objects,
+          useEditorStore.getState().selectedIds,
+        );
+        const bounds = contentBounds(targets.objects);
         if (!layer || !stage || !bounds) return null;
         const frame = exportFrame(bounds);
+        // toCanvas малює ввесь шар і лише потім обрізає по рамці — невиділений
+        // обʼєкт, що заходить у рамку виділеного, запікся б у файл. Тому решту
+        // ховаємо, і прямо на вузлах konva: через react це був би перемонтаж,
+        // і картинки після нього довантажувались би наново, з миганням
+        const keep = new Set(targets.objects.map((o) => o.id));
+        const hidden = targets.onlySelected
+          ? Object.entries(nodesById.current)
+              .filter(([id, node]) => !keep.has(id) && node.visible())
+              .map(([, node]) => node)
+          : [];
         flushSync(() => setExporting(true));
         try {
+          for (const node of hidden) node.visible(false);
           const scale = stage.scaleX();
           const canvas = layer.toCanvas({
             x: frame.x * scale + stage.x(),
@@ -212,6 +227,8 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
           });
           return { canvas, frame };
         } finally {
+          // назад у тому ж таску — кадру з прихованими людина не побачить
+          for (const node of hidden) node.visible(true);
           flushSync(() => setExporting(false));
         }
       },

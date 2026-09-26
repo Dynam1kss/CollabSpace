@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useBoardStore } from './board-store';
-import { exportFileName, pdfPageSize } from './board-export';
+import { exportFileName, exportTargets, pdfPageSize } from './board-export';
 import type { BoardCanvasHandle } from './BoardCanvas';
+import { useEditorStore } from './editor-store';
 import { ExportIcon } from './icons';
 import { useNarrow } from '../use-narrow';
 
@@ -35,11 +36,17 @@ function downloadBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// експорт усієї дошки в png чи pdf. Це знімок, не зміна — тому доступний
-// будь-якій ролі, як пошук і «показати все»
+// експорт у png чи pdf — виділеного, якщо щось виділено, інакше всієї дошки.
+// Це знімок, не зміна — тому доступний будь-якій ролі, як пошук і «показати все»
 export function ExportButton({ title, capture }: Props) {
   const narrow = useNarrow();
-  const empty = useBoardStore((s) => Object.keys(s.objects).length === 0);
+  const objects = useBoardStore((s) => s.objects);
+  const selectedIds = useEditorStore((s) => s.selectedIds);
+  const empty = Object.keys(objects).length === 0;
+  // те саме правило, що в capture, — щоб напис не обіцяв виділене, коли id
+  // уже застарілі і піде вся дошка
+  const onlySelected = exportTargets(objects, selectedIds).onlySelected;
+  const label = onlySelected ? 'Експорт виділеного' : 'Експорт дошки';
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Kind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +105,7 @@ export function ExportButton({ title, capture }: Props) {
     <p className="export-note">На дошці порожньо — нема що експортувати</p>
   ) : (
     <>
+      {onlySelected && <p className="export-note">Лише виділені обʼєкти</p>}
       <ul className="export-list">
         <li>
           <button type="button" disabled={!!busy} onClick={() => run('png')}>
@@ -118,8 +126,8 @@ export function ExportButton({ title, capture }: Props) {
     <button
       type="button"
       className={`${narrow ? 'board-island ' : ''}icon-button export-toggle${open ? ' active' : ''}`}
-      title="Експорт дошки"
-      aria-label="Експорт дошки"
+      title={label}
+      aria-label={label}
       aria-expanded={open}
       disabled={!!busy}
       onClick={() => setOpen(!open)}
@@ -135,7 +143,7 @@ export function ExportButton({ title, capture }: Props) {
         {open && (
           <div className="board-island sheet-full">
             <header className="sheet-head">
-              <span>Експорт дошки</span>
+              <span>{label}</span>
               <button
                 type="button"
                 className="icon-button"
