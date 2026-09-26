@@ -7,6 +7,7 @@ import {
   mapIntoBox,
   resizeFromPointer,
   scaledStrokeWidth,
+  toModelRect,
 } from './transform-math';
 
 // прямокутник 200x100 з лівим верхнім кутом у (100, 50)
@@ -184,7 +185,9 @@ describe('група обʼєктів', () => {
 
 describe('товщина обведення', () => {
   it('росте пропорційно до розміру', () => {
-    expect(scaledStrokeWidth({ strokeWidth: 2, width: 100, height: 100 }, { width: 200, height: 200 })).toBe(4);
+    expect(scaledStrokeWidth({ strokeWidth: 2, width: 100, height: 100 }, { width: 200, height: 200 })).toBe(
+      4,
+    );
   });
 
   it('рахується від початку жесту, тому прохід крізь поріг її не розганяє', () => {
@@ -196,7 +199,71 @@ describe('товщина обведення', () => {
   });
 
   it('за межі допустимого не виходить', () => {
-    expect(scaledStrokeWidth({ strokeWidth: 2, width: 10, height: 10 }, { width: 5000, height: 5000 })).toBe(20);
+    expect(scaledStrokeWidth({ strokeWidth: 2, width: 10, height: 10 }, { width: 5000, height: 5000 })).toBe(
+      20,
+    );
     expect(scaledStrokeWidth({ strokeWidth: 2, width: 500, height: 500 }, { width: 8, height: 8 })).toBe(1);
   });
+});
+
+// повернутий обʼєкт. Точки рахуємо незалежно — так, як їх ставить konva:
+// поворот навколо центру повороту, зсунутого від лівого верхнього кута на pivot
+describe('повернутий обʼєкт: ручка, нерухомий кут і модель', () => {
+  const box: Rect = { x: 100, y: 50, width: 200, height: 100 };
+  const RECT_PIVOT = { x: 0, y: 0 };
+  const ELLIPSE_PIVOT = { x: 100, y: 50 };
+  function konvaPoint(r: Rect, angle: number, pivot: { x: number; y: number }, lx: number, ly: number) {
+    const rad = (angle * Math.PI) / 180;
+    const dx = lx - pivot.x;
+    const dy = ly - pivot.y;
+    return {
+      x: r.x + pivot.x + dx * Math.cos(rad) - dy * Math.sin(rad),
+      y: r.y + pivot.y + dx * Math.sin(rad) + dy * Math.cos(rad),
+    };
+  }
+  const close = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    expect(a.x).toBeCloseTo(b.x, 6);
+    expect(a.y).toBeCloseTo(b.y, 6);
+  };
+
+  for (const [name, pivot] of [
+    ['прямокутник', RECT_PIVOT],
+    ['еліпс', ELLIPSE_PIVOT],
+  ] as const) {
+    for (const angle of [0, 15, 45, 90, 135, 179]) {
+      it(`${name} ${angle}°: ручка й нерухомий кут — там, де їх малює konva`, () => {
+        close(handlePoint(box, 'bottom-right', angle, pivot), konvaPoint(box, angle, pivot, 200, 100));
+        close(gripFor(box, angle, 'bottom-right', pivot), konvaPoint(box, angle, pivot, 0, 0));
+        close(handlePoint(box, 'top-left', angle, pivot), konvaPoint(box, angle, pivot, 0, 0));
+        close(gripFor(box, angle, 'top-left', pivot), konvaPoint(box, angle, pivot, 200, 100));
+        close(handlePoint(box, 'middle-right', angle, pivot), konvaPoint(box, angle, pivot, 200, 50));
+      });
+
+      it(`${name} ${angle}°: курсор на самій ручці — модель не змінюється`, () => {
+        const g = gripFor(box, angle, 'bottom-right', pivot);
+        const r = resizeFromPointer(g, handlePoint(box, 'bottom-right', angle, pivot), false);
+        const model = toModelRect(r, angle, { x: pivot.x ? r.width / 2 : 0, y: pivot.y ? r.height / 2 : 0 });
+        expect(model.x).toBeCloseTo(box.x, 6);
+        expect(model.y).toBeCloseTo(box.y, 6);
+        expect(model.width).toBeCloseTo(box.width, 6);
+        expect(model.height).toBeCloseTo(box.height, 6);
+      });
+
+      it(`${name} ${angle}°: +60/+40 у власних осях — той самий розмір, що й на 0°, кут напроти стоїть`, () => {
+        const rad = (angle * Math.PI) / 180;
+        const h = handlePoint(box, 'bottom-right', angle, pivot);
+        const pointer = {
+          x: h.x + 60 * Math.cos(rad) - 40 * Math.sin(rad),
+          y: h.y + 60 * Math.sin(rad) + 40 * Math.cos(rad),
+        };
+        const r = resizeFromPointer(gripFor(box, angle, 'bottom-right', pivot), pointer, false);
+        expect(r.width).toBeCloseTo(260, 6);
+        expect(r.height).toBeCloseTo(140, 6);
+        const model = toModelRect(r, angle, { x: pivot.x ? r.width / 2 : 0, y: pivot.y ? r.height / 2 : 0 });
+        const newPivot = { x: pivot.x ? model.width / 2 : 0, y: pivot.y ? model.height / 2 : 0 };
+        // нерухомий лівий верхній кут на дошці — той самий, що до жесту
+        close(konvaPoint(model, angle, newPivot, 0, 0), konvaPoint(box, angle, pivot, 0, 0));
+      });
+    }
+  }
 });

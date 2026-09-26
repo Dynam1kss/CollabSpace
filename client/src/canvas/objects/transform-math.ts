@@ -33,18 +33,31 @@ export interface ResizeGrip {
   rotation: number;
 }
 
+const NO_PIVOT: Point = { x: 0, y: 0 };
+
+// точка рамки в координатах дошки. local — від лівого верхнього кута
+// неповернутої рамки, pivot — центр повороту від того самого кута: konva крутить
+// прямокутник навколо лівого верхнього кута, а еліпс — навколо центру. Раніше
+// тут брались неповернуті координати, і на повернутому обʼєкті ручка й нерухома
+// точка відʼїжджали на 2·r·sin(θ/2) — звідси «чим більше повернуто, тим гірше»
+function toBoard(rect: Rect, rotation: number, pivot: Point, local: Point): Point {
+  const origin = { x: rect.x + pivot.x, y: rect.y + pivot.y };
+  return rotateAround({ x: rect.x + local.x, y: rect.y + local.y }, origin, (rotation * Math.PI) / 180);
+}
+
 // нерухома точка для кожної з восьми ручок — та, що напроти. Правило одне на
 // всі: ліву ручку тягнемо — нерухомий правий край, верхню — нижній, і навпаки.
 // Ручка без сторони по осі (наприклад «середина праворуч» по вертикалі) цю
 // вісь не чіпає зовсім
-export function gripFor(rect: Rect, rotation: number, handle: string): ResizeGrip {
+export function gripFor(rect: Rect, rotation: number, handle: string, pivot = NO_PIVOT): ResizeGrip {
   const left = handle.includes('left');
   const right = handle.includes('right');
   const top = handle.includes('top');
   const bottom = handle.includes('bottom');
+  const fixed = toBoard(rect, rotation, pivot, { x: left ? rect.width : 0, y: top ? rect.height : 0 });
   return {
-    x: left ? rect.x + rect.width : rect.x,
-    y: top ? rect.y + rect.height : rect.y,
+    x: fixed.x,
+    y: fixed.y,
     signX: left ? -1 : 1,
     signY: top ? -1 : 1,
     drivesX: left || right,
@@ -57,15 +70,15 @@ export function gripFor(rect: Rect, rotation: number, handle: string): ResizeGri
 
 // точка самої ручки — потрібна лише щоб запамʼятати, на скільки курсор
 // схибив повз неї на натисканні, і далі цю поправку віднімати
-export function handlePoint(rect: Rect, handle: string): Point {
+export function handlePoint(rect: Rect, handle: string, rotation = 0, pivot = NO_PIVOT): Point {
   const left = handle.includes('left');
   const right = handle.includes('right');
   const top = handle.includes('top');
   const bottom = handle.includes('bottom');
-  return {
-    x: left ? rect.x : right ? rect.x + rect.width : rect.x + rect.width / 2,
-    y: top ? rect.y : bottom ? rect.y + rect.height : rect.y + rect.height / 2,
-  };
+  return toBoard(rect, rotation, pivot, {
+    x: left ? 0 : right ? rect.width : rect.width / 2,
+    y: top ? 0 : bottom ? rect.height : rect.height / 2,
+  });
 }
 
 // кутова ручка тягне обидві осі, ребро — лише одну
@@ -145,6 +158,15 @@ export function resizeFromPointer(
     mirroredX: rawW * grip.signX < 0,
     mirroredY: rawH * grip.signY < 0,
   };
+}
+
+// resizeFromPointer каже, де на дошці опинився лівий верхній кут ПОВЕРНУТОЇ
+// рамки. Модель тримає інше — неповернуту рамку, яку konva крутить навколо свого
+// центру повороту. У прямокутника центр повороту і є тим кутом, тож це та сама
+// точка; у еліпса — ні, і без переведення він на куті зʼїжджав убік
+export function toModelRect(r: Rect, rotation: number, pivot: Point): Rect {
+  const center = rotateAround({ x: r.x + pivot.x, y: r.y + pivot.y }, r, (rotation * Math.PI) / 180);
+  return { x: center.x - pivot.x, y: center.y - pivot.y, width: r.width, height: r.height };
 }
 
 // як окремий обʼєкт виділення лягає в нову рамку. Для одинокого обʼєкта його

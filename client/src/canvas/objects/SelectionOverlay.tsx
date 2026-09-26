@@ -22,6 +22,7 @@ import {
   mapIntoBox,
   resizeFromPointer,
   scaledStrokeWidth,
+  toModelRect,
 } from './transform-math';
 import type { Rect, ResizeGrip, ResizeResult } from './transform-math';
 
@@ -305,7 +306,7 @@ export function SelectionOverlay({
     // результату: кут — це шрифт, ребро — ширина переносу
     if (soleText) {
       const from = { x: soleText.x, y: soleText.y, width: soleText.width, height: soleText.height };
-      const grabbed = handlePoint(from, handle);
+      const grabbed = handlePoint(from, handle, soleText.rotation);
       return {
         grip: gripFor(from, soleText.rotation, handle),
         from,
@@ -330,9 +331,11 @@ export function SelectionOverlay({
     const from = unionRect(rects);
     // поворот враховуємо лише для одинокого обʼєкта: у групи в рамки свій кут
     const rotation = rects.length === 1 ? rects[0].rotation : 0;
-    const grabbed = handlePoint(from, handle);
+    // і центр повороту — той самий, навколо якого konva крутить цей обʼєкт
+    const pivot = rects.length === 1 ? pivotOffset(rects[0]) : { x: 0, y: 0 };
+    const grabbed = handlePoint(from, handle, rotation, pivot);
     return {
-      grip: gripFor(from, rotation, handle),
+      grip: gripFor(from, rotation, handle, pivot),
       from,
       lockRatio: keepRatio,
       grabOffset: { x: pointer.x - grabbed.x, y: pointer.y - grabbed.y },
@@ -376,7 +379,12 @@ export function SelectionOverlay({
       const obj = objects[item.id];
       const node = nodesByIdRef.current?.[item.id];
       if (!obj || !node || !isRectObject(obj)) continue;
-      const rect = mapIntoBox(item.start, gesture.from, box);
+      const placed = mapIntoBox(item.start, gesture.from, box);
+      const rect = toModelRect(
+        placed,
+        gesture.grip.rotation,
+        pivotOffset({ ...obj, width: placed.width, height: placed.height }),
+      );
       applyRect(node, obj, rect, box);
       updateObject(item.id, storePatch(obj, item, rect, box));
     }
