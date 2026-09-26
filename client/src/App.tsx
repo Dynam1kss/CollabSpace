@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { fetchMe } from './api/auth';
+import { AUTH_CHANGED_KEY, fetchMe } from './api/auth';
 import { ServerStatus } from './components/ServerStatus';
 import { BoardPage } from './pages/BoardPage';
 import { BoardsPage } from './pages/BoardsPage';
@@ -35,6 +35,16 @@ export function App() {
       .then((data) => setUser(data.user))
       .catch(() => setUser(null));
   }, [setUser]);
+
+  // storage приходить лише в ІНШІ вкладки. Перезавантаження — найпростіший
+  // спосіб перепідключити сокети й скинути стори вже під новою людиною
+  useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key === AUTH_CHANGED_KEY) window.location.reload();
+    }
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   if (status === 'loading') {
     return (
