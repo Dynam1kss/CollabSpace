@@ -3,7 +3,7 @@ import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 import { CHAT_MAX_LENGTH, CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import type { BoardRole, PresenceMember, RosterMessage } from 'shared';
+import type { BoardRole, PresenceMember, RestoredMessage, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getDisplayName } from './boards.service';
@@ -88,6 +88,24 @@ export function applyRoleChange(boardId: string, userId: string, role: BoardRole
     client.roleGrantedBy = grantedBy;
     send(socket, jsonFrame(SYNC_MSG.ROLE, { role }));
   }
+}
+
+// снепшот у базі щойно замінили версією — кажемо про це всій кімнаті, і
+// сокету того, хто відкочував, теж: його вкладка приймає новий стан тим самим
+// шляхом, що й решта. Вміст у кадр не кладемо — у сервера немає Y.Doc, дельту
+// скласти нема з чого. Замість цього призначаємо writer — одного редактора,
+// який перечитає снепшот і запише його в документ; решта дістане це звичайними
+// дельтами. Правило вибору те саме, що для SYNC_REQUEST: найстарший відкритий
+// не-глядач
+export function broadcastRestore(boardId: string) {
+  const room = rooms.get(boardId);
+  if (!room) return;
+  const writer = [...room.values()].find(
+    (socket) => socket.readyState === WebSocket.OPEN && clients.get(socket)?.role !== 'VIEWER',
+  );
+  const message: RestoredMessage = { writer: writer ? (clients.get(writer)?.id ?? null) : null };
+  diag('відкат: розсилаю кімнаті', { boardId, у_кімнаті: room.size, writer: message.writer });
+  for (const socket of room.values()) send(socket, jsonFrame(SYNC_MSG.RESTORED, message));
 }
 
 // true — шлях наш (апгрейд або відмова вже наші); false — хай роутить далі

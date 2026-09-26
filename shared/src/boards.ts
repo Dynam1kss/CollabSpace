@@ -100,6 +100,25 @@ export interface SaveSnapshotRequest {
   objects: BoardObject[];
 }
 
+// рядок списку версій — без самого стану: список відкривають часто, а
+// стан потрібен лише на відкаті, і його сервер бере з бази сам
+export interface BoardVersionInfo {
+  id: string;
+  createdAt: string;
+  // null — автозбереження або ручне без підпису
+  label: string | null;
+  isManual: boolean;
+  createdByName: string;
+}
+
+export interface VersionsResponse {
+  versions: BoardVersionInfo[];
+}
+
+export interface SaveVersionRequest {
+  label?: string;
+}
+
 export interface UploadImageResponse {
   url: string;
 }

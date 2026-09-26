@@ -40,6 +40,7 @@ model Board {
   snapshot  BoardSnapshot?
   chat      ChatMessage[]
   seats     BoardSeat[]
+  versions  BoardVersion[]
 }
 
 model BoardMember {
@@ -95,4 +96,21 @@ model BoardSnapshot {
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   state     Bytes
   updatedAt DateTime @updatedAt
+}
+
+// історія вмісту дошки — копії BoardSnapshot.state на певну мить. Автоматичні
+// складає сам сервер під час збережень, ручні — власник чи адмін із підписом.
+// createdBy — рядок без звʼязку, як roleGrantedBy: людина може піти з сервісу,
+// а версія, яку вона зробила, лишитись має
+model BoardVersion {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  state     Bytes
+  createdAt DateTime @default(now())
+  createdBy String
+  label     String?
+  isManual  Boolean
+
+  @@index([boardId, createdAt])
 }

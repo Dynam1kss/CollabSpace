@@ -695,6 +695,37 @@ describe('кімнати дошок поверх ws', () => {
     expect(await gotV).toBeNull();
   });
 
+  it('відкат: кадр отримує вся кімната, writer — найстарший редактор; без редакторів — null', async () => {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    // глядач зайшов першим — writer він однаково бути не може
+    const v = connect(boardId, viewer.cookie);
+    const rosterV = nextOfType(v, SYNC_MSG.ROSTER);
+    await opened(v);
+    await rosterV;
+    const e = connect(boardId, editor.cookie);
+    const rosterE = nextOfType(e, SYNC_MSG.ROSTER);
+    await opened(e);
+    const editorId = JSON.parse((await rosterE)!.subarray(1).toString()).you as number;
+    const o = connect(boardId, owner.cookie);
+    await opened(o);
+
+    const version = await owner.agent.post(`/api/boards/${boardId}/versions`).send({ label: 'точка' });
+    const got = [v, e, o].map((ws) => nextOfType(ws, SYNC_MSG.RESTORED));
+    await owner.agent.post(`/api/boards/${boardId}/versions/${version.body.id}/restore`).expect(204);
+    // той, хто відкочував, отримує той самий кадр, що й решта
+    for (const frame of await Promise.all(got)) {
+      expect(JSON.parse(frame!.subarray(1).toString())).toEqual({ writer: editorId });
+    }
+
+    // редактори пішли — лишився глядач, і писати в документ нікому
+    e.close();
+    o.close();
+    await new Promise((r) => setTimeout(r, 100));
+    const alone = nextOfType(v, SYNC_MSG.RESTORED);
+    await owner.agent.post(`/api/boards/${boardId}/versions/${version.body.id}/restore`).expect(204);
+    expect(JSON.parse((await alone)!.subarray(1).toString())).toEqual({ writer: null });
+  });
+
   it('close прибирає сокет, порожня кімната зникає', async () => {
     const { boardId, owner, editor } = await boardWithMembers();
     const a = connect(boardId, owner.cookie);
