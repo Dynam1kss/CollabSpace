@@ -216,8 +216,43 @@ export function clearUndoHistory() {
   boardUndo.clear();
 }
 
-export function resetBoardDoc() {
-  diag('resetBoardDoc: новий порожній документ', { було: yObjects.size });
+// глядач. Його записи в документ сервер нікуди не шле, тож власний запис того
+// самого ключа, що й у редактора, у y.map стає конфліктом, який бачить лише він:
+// за меншого clientID редактора лишається його варіант, і правки та видалення
+// цього обʼєкта до глядача вже не доходять (журнал 27.09). Тому глядач у
+// документ не пише ніколи: те, що він прочитав із rest, кладемо лише в
+// дзеркало, а документ тримає тільки записи редакторів
+export function seedMirror(objects: BoardObject[]) {
+  useBoardStore.setState({ objects: Object.fromEntries(objects.map((o) => [o.id, o])) });
+}
+
+// документ отримав чужу історію — тепер правда в ньому, а не в тому, що глядач
+// сам прочитав із rest (там міг лишитись уже видалений обʼєкт)
+export function rebuildMirrorFromDoc() {
+  useBoardStore.setState({ objects: yObjects.toJSON() as Record<string, BoardObject> });
+}
+
+// чи є в документі хоч якась історія. Редактор, що ще не встиг завантажити
+// снепшот, відповідає порожнім документом — таку відповідь за правду не беремо
+export function docHasHistory() {
+  return boardDoc.store.clients.size > 0;
+}
+
+// глядача підняли до редактора: те, що він бачив лише в дзеркалі, має стати
+// записами документа, інакше update() такого обʼєкта не знайде. Тепер його
+// записи вже йдуть решті, тож це безпечно
+export function materializeMirror() {
+  const missing = Object.values(useBoardStore.getState().objects).filter((o) => !yObjects.has(o.id));
+  if (missing.length === 0) return;
+  asAppEdit(() => {
+    for (const object of missing) yObjects.set(object.id, object);
+  });
+}
+
+// keepMirror — глядач міняє документ посеред сеансу, а на екрані має лишитись
+// те саме, поки не прийде історія нового редактора
+export function resetBoardDoc(keepMirror = false) {
+  diag('resetBoardDoc: новий порожній документ', { було: yObjects.size, keepMirror });
   // недописаний жест зі старої дошки в нову не переносимо
   queued = null;
   // історія правок теж прив'язана до документа: на новій дошці ctrl+z не має
@@ -230,6 +265,6 @@ export function resetBoardDoc() {
   boardUndo = createUndo();
   refreshUndoState();
   emptiedBy = null;
-  useBoardStore.setState({ objects: {} });
+  if (!keepMirror) useBoardStore.setState({ objects: {} });
   return boardDoc;
 }

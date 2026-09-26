@@ -38,7 +38,16 @@ import {
   resetVoice,
 } from '../voice/voice-mesh';
 import { fetchBoardSnapshot } from '../api/boards';
-import { clearUndoHistory, replaceBoardContent, resetBoardDoc, useBoardStore } from './board-store';
+import {
+  clearUndoHistory,
+  docHasHistory,
+  materializeMirror,
+  rebuildMirrorFromDoc,
+  replaceBoardContent,
+  resetBoardDoc,
+  seedMirror,
+  useBoardStore,
+} from './board-store';
 import { diag } from './diag';
 import { usePresenceStore } from './presence-store';
 
@@ -90,7 +99,10 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
   // через ref, щоб зміна прав не перезапускала ефект (він скидає документ)
   const canWriteRef = useRef(canWrite);
   useEffect(() => {
+    const was = canWriteRef.current;
+    // спершу право, потім запис: інакше handleLocalUpdate ще вважав би нас глядачем
     canWriteRef.current = canWrite;
+    if (canWrite && !was) materializeMirror();
   }, [canWrite]);
 
   useEffect(() => {
@@ -98,7 +110,8 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     const setStatus = (value: SyncStatus) => setState({ boardId, status: value });
     // свіжий документ на дошку — до того, як useBoardPersistence (він нижче в
     // BoardPage, тому його ефект іде після цього) почне вантажити снепшот
-    const doc = resetBoardDoc();
+    // let: глядач міняє документ посеред сеансу, коли приходить новий редактор
+    let doc = resetBoardDoc();
     // присутність — ефемерна й прив'язана до цього сокета: на новій дошці
     // починаємо з порожнього списку, чужі записи зі старої кімнати не тягнемо
     usePresenceStore.getState().reset();
@@ -147,6 +160,16 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       send(frame(SYNC_MSG.SYNC_REQUEST, Y.encodeStateVector(doc)));
     }
 
+    function adoptFreshEditor() {
+      diag('глядач: новий редактор без попередників — беру його історію', { boardId });
+      doc.off('update', handleLocalUpdate);
+      doc = resetBoardDoc(true);
+      doc.on('update', handleLocalUpdate);
+      window.clearInterval(syncRetry);
+      askForHistory();
+      syncRetry = window.setInterval(askForHistory, SYNC_RETRY_MS);
+    }
+
     ws.onopen = () => {
       diag('ws відкрито', { boardId, обʼєктів: useBoardStore.getState().getAll().length });
       // віддаємо свій стан цілком — інакше сусід не зможе прийняти жодної
@@ -173,6 +196,8 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           // порожня відповідь — сервер каже «відповідати нема кому», віддавати
           // нічого, але рукостискання закрите: далі можна зберігати
           if (payload.length > 0) Y.applyUpdate(doc, payload, REMOTE_ORIGIN);
+          // глядачу правда — документ редактора, а не власне читання з rest
+          if (!canWriteRef.current && docHasHistory()) rebuildMirrorFromDoc();
           diag('SYNC_REPLY', {
             boardId,
             байтів: payload.length,
@@ -207,8 +232,19 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           }
           return;
         }
-        case SYNC_MSG.JOIN:
-          usePresenceStore.getState().addMember(JSON.parse(text(payload)) as PresenceMember);
+        case SYNC_MSG.JOIN: {
+          const member = JSON.parse(text(payload)) as PresenceMember;
+          // прийшов редактор, а інших редакторів у кімнаті нема: відповісти йому
+          // нікому (глядач не може), і він почне з rest власними записами. Моя
+          // історія — від тих, хто вже пішов, або жодна; з його записами вона
+          // конфліктувала б так само, як мій власний снепшот. Тому глядач кидає
+          // свій документ і бере історію новенького — екран лишається як був
+          const presence = usePresenceStore.getState();
+          const editorsHere = Object.values(presence.members).some(
+            (m) => m.clientId !== presence.selfClientId && m.role !== 'VIEWER',
+          );
+          if (!canWriteRef.current && member.role !== 'VIEWER' && !editorsHere) adoptFreshEditor();
+          usePresenceStore.getState().addMember(member);
           // новачок про чуже виділення, замок і вікно нізвідки не дізнається —
           // вони могли не мінятись годину. Тому на кожен вхід переспівуємо своє
           publishSelection(useEditorStore.getState().selectedIds);
@@ -216,6 +252,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           republishViewport();
           republishSeat();
           return;
+        }
         case SYNC_MSG.LEAVE: {
           const { clientId } = JSON.parse(text(payload)) as LeaveMessage;
           usePresenceStore.getState().removeMember(clientId);
@@ -285,7 +322,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           fetchBoardSnapshot(boardId)
             .then(({ objects }) => {
               if (ws.readyState !== WebSocket.OPEN) return;
-              replaceBoardContent(objects);
+              // writer null і я глядач — у документ однаково не пишу
+              if (canWriteRef.current) replaceBoardContent(objects);
+              else seedMirror(objects);
               diag('відкат записано в документ', { boardId, обʼєктів: objects.length });
             })
             .catch((err) => diag('відкат: снепшот не прочитався', { boardId, err: String(err) }));

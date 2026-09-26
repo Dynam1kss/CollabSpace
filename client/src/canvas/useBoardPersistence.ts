@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchBoardSnapshot, saveBoardSnapshot } from '../api/boards';
-import { asAppEdit, lastEmptiedBy, useBoardStore } from './board-store';
+import { asAppEdit, docHasHistory, lastEmptiedBy, seedMirror, useBoardStore } from './board-store';
 import { diag, diagAlarm } from './diag';
 import { useEditorStore } from './editor-store';
 
@@ -152,11 +152,17 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
       .then(({ objects }) => {
         diag('снепшот: відповідь', { boardId, обʼєктів: objects.length, скасовано: cancelled });
         if (cancelled) return;
-        // під позначкою застосунку: завантаження дошки — не правка людини,
-        // і ctrl+z не має зносити щойно прочитаний знімок (журнал 20.09)
-        asAppEdit(() => {
-          for (const object of objects) useBoardStore.getState().add(object);
-        });
+        if (canWriteRef.current) {
+          // під позначкою застосунку: завантаження дошки — не правка людини,
+          // і ctrl+z не має зносити щойно прочитаний знімок (журнал 20.09)
+          asAppEdit(() => {
+            for (const object of objects) useBoardStore.getState().add(object);
+          });
+        } else if (!docHasHistory()) {
+          // глядач — лише в дзеркало, у документ ні (див. seedMirror). Якщо
+          // історія редактора вже прийшла, rest запізнився і правда вже є
+          seedMirror(objects);
+        }
         lastKnownCountRef.current = Math.max(lastKnownCountRef.current, objects.length);
         loaded = true;
         setStatus(idleStatus());
