@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Ellipse, Layer, Line, Rect, Stage } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { Grid } from './Grid';
 import { TextEditOverlay } from './TextEditOverlay';
 import { useBoardStore } from './board-store';
+import { exportFrame } from './board-export';
+import type { ExportFrame } from './board-export';
 import { getVisibleBoardRect, screenToBoard } from './coordinates';
 import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
+import { contentBounds } from './fit-to-objects';
 import { ObjectRenderer } from './objects/ObjectRenderer';
 import { RemoteCursors } from './objects/RemoteCursors';
 import { LockedBadges } from './objects/LockedBadges';
@@ -43,19 +47,23 @@ interface Props {
   currentUserId: string;
 }
 
+export interface BoardCanvasHandle {
+  // null — на дошці нема що знімати
+  capture: () => { canvas: HTMLCanvasElement; frame: ExportFrame } | null;
+}
+
 // суто відображення — пан/зум живуть у useCanvasViewport, обʼєкти й
 // виділення — у useObjectInteractions + board-store/editor-store; цей
 // компонент лише міряє розмір, малює Stage і зводить усі обробники разом
-export function BoardCanvas({
-  boardId,
-  viewport,
-  spaceHeld,
-  stageHandlers,
-  touchInput,
-  onSizeChange,
-  currentUserId,
-}: Props) {
+export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCanvas(
+  { boardId, viewport, spaceHeld, stageHandlers, touchInput, onSizeChange, currentUserId },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const objectsLayerRef = useRef<Konva.Layer>(null);
+  // на час знімка гасить виділення, чужі замки й бейджі — вони сидять у тому
+  // ж шарі, що й обʼєкти, і інакше запеклися б у файл
+  const [exporting, setExporting] = useState(false);
   // екранна точка з останнього mousemove — щоб переспівати курсор при пані/зумі
   const lastPointer = useRef<Point | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -175,6 +183,42 @@ export function BoardCanvas({
   const saveSeat = useMySeat(boardId, currentUserId);
   const imageDrop = useImageDrop(boardId, currentUserId, containerRef, viewport);
 
+  // знімок усієї дошки, а не того, що видно. Камеру людини не чіпаємо взагалі:
+  // шар малюється зі своїм поточним трансформом, тому рамку дошки переводимо
+  // в екранні координати, а pixelRatio ділимо на масштаб — на виході ті самі
+  // frame.pixelRatio пікселів на одиницю дошки. toCanvas не обрізає по розміру
+  // Stage, тож обʼєкти за краєм екрана теж потрапляють.
+  // flushSync комітить «exporting» синхронно, а браузер малює лише після
+  // завершення таску — кадру без виділення людина не побачить. Через стор
+  // виділення не знімаємо навмисно: його підписка шле виділення іншим
+  useImperativeHandle(
+    ref,
+    () => ({
+      capture() {
+        const layer = objectsLayerRef.current;
+        const stage = layer?.getStage();
+        const bounds = contentBounds(Object.values(useBoardStore.getState().objects));
+        if (!layer || !stage || !bounds) return null;
+        const frame = exportFrame(bounds);
+        flushSync(() => setExporting(true));
+        try {
+          const scale = stage.scaleX();
+          const canvas = layer.toCanvas({
+            x: frame.x * scale + stage.x(),
+            y: frame.y * scale + stage.y(),
+            width: frame.width * scale,
+            height: frame.height * scale,
+            pixelRatio: frame.pixelRatio / scale,
+          });
+          return { canvas, frame };
+        } finally {
+          flushSync(() => setExporting(false));
+        }
+      },
+    }),
+    [],
+  );
+
   const cursor = spaceHeld ? 'grab' : activeTool === 'select' ? 'default' : 'crosshair';
 
   return (
@@ -201,7 +245,7 @@ export function BoardCanvas({
             <Grid viewport={viewport} width={size.width} height={size.height} />
           </Layer>
 
-          <Layer>
+          <Layer ref={objectsLayerRef}>
             {/* eslint-disable-next-line react-hooks/refs -- getRegisterRef читає
             registerRefCache.current лише для кешування функції за id, не для
             виводу в рендер; без кешу React бачив би нову ref-функцію щоразу */}
@@ -209,22 +253,26 @@ export function BoardCanvas({
               <ObjectRenderer
                 key={object.id}
                 object={object}
-                isSelected={selectedIds.includes(object.id)}
-                isEditing={editingTextId === object.id}
+                isSelected={!exporting && selectedIds.includes(object.id)}
+                isEditing={!exporting && editingTextId === object.id}
                 draggable={draggableObjects && isMovable(object, lockedByOthers)}
                 viewportScale={viewport.scale}
                 registerRef={getRegisterRef(object.id)}
               />
             ))}
 
-            <RemoteSelections objects={objectsMap} viewportScale={viewport.scale} />
-            <RemoteLocks objects={objectsMap} viewportScale={viewport.scale} />
-            {/* замочок бачить і глядач: зняти його він не може, але знати,
-            чому обʼєкт не рухається, має */}
-            <LockedBadges objects={sortedObjects} viewportScale={viewport.scale} />
+            {!exporting && (
+              <>
+                <RemoteSelections objects={objectsMap} viewportScale={viewport.scale} />
+                <RemoteLocks objects={objectsMap} viewportScale={viewport.scale} />
+                {/* замочок бачить і глядач: зняти його він не може, але знати,
+                чому обʼєкт не рухається, має */}
+                <LockedBadges objects={sortedObjects} viewportScale={viewport.scale} />
 
-            {draft && <DraftPreview tool={draft.tool} start={draft.start} current={draft.current} />}
-            {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}
+                {draft && <DraftPreview tool={draft.tool} start={draft.start} current={draft.current} />}
+                {rubberBand && <RubberBandRect start={rubberBand.start} current={rubberBand.current} />}
+              </>
+            )}
           </Layer>
 
           {/* стільці — окремим шаром: свій тягається, тому шар ловить події */}
@@ -259,7 +307,7 @@ export function BoardCanvas({
       {editingObject && <TextEditOverlay object={editingObject} viewport={viewport} />}
     </div>
   );
-}
+});
 
 function RubberBandRect({
   start,

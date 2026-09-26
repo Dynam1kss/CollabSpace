@@ -305,3 +305,13 @@ export function LocateIcon() {
     </Svg>
   );
 }
+
+// стрілка вниз у лоток — «зберегти файлом»
+export function ExportIcon() {
+  return (
+    <Svg>
+      <path d="M10 3v9M6 8.5l4 4 4-4" />
+      <path d="M3.5 13v2.5a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V13" />
+    </Svg>
+  );
+}

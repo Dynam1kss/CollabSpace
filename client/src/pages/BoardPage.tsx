@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { BoardDetail } from 'shared';
 import { ApiError, fetchBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
 import { BoardCanvas } from '../canvas/BoardCanvas';
+import type { BoardCanvasHandle } from '../canvas/BoardCanvas';
 import { useBoardStore } from '../canvas/board-store';
 import { useEditorStore } from '../canvas/editor-store';
 import { useBoardPersistence } from '../canvas/useBoardPersistence';
@@ -23,6 +24,7 @@ import { diag } from '../canvas/diag';
 import { BackIcon, FitIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { BoardSearch } from '../canvas/BoardSearch';
+import { ExportButton } from '../canvas/ExportButton';
 import { centerOnObject } from '../canvas/board-search';
 import { publishShowView } from '../canvas/presence-channel';
 import { ShowViewButton } from '../canvas/ShowViewButton';
@@ -70,6 +72,7 @@ export function BoardPage() {
   const [state, setState] = useState<LoadState>('loading');
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [view, setView] = useState<View>('canvas');
+  const canvasRef = useRef<BoardCanvasHandle>(null);
   const currentUserId = useAuthStore((s) => s.user?.id) ?? '';
   const objects = useBoardStore((s) => s.objects);
   const setCanEdit = useEditorStore((s) => s.setCanEdit);
@@ -189,6 +192,10 @@ export function BoardPage() {
     />
   );
 
+  const exportButton = board && (
+    <ExportButton title={board.title} capture={() => canvasRef.current?.capture() ?? null} />
+  );
+
   // точка дошки під серединою полотна: сюди лягають стікери з канбану і
   // вставлені картинки — щоб були перед очима, а не в (0,0) десь далеко
   const visibleCenter = screenToBoard(center, viewport);
@@ -260,6 +267,7 @@ export function BoardPage() {
           <div className="zoom-controls">
             <BoardSearch viewport={viewport} canvasSize={canvasSize} onJump={setViewport} />
             {!narrow && showViewButton}
+            {!narrow && exportButton}
             {!narrow && (
               <>
                 <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
@@ -288,6 +296,7 @@ export function BoardPage() {
           <>
             <Toolbar boardId={board.id} currentUserId={currentUserId} visibleCenter={visibleCenter} />
             <BoardCanvas
+              ref={canvasRef}
               boardId={board.id}
               viewport={viewport}
               spaceHeld={spaceHeld}
@@ -309,6 +318,7 @@ export function BoardPage() {
         розповзаються по кутах і налазять одне на одне */}
         <div className={narrow ? 'mobile-rail' : 'contents'}>
           {narrow && view === 'canvas' && showViewButton}
+          {narrow && view === 'canvas' && exportButton}
           <Participants />
           <ChatPanel boardId={board.id} />
           <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />

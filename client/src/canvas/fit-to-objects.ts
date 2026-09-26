@@ -4,17 +4,52 @@ import type { Viewport } from './coordinates';
 
 const FIT_PADDING_PX = 60;
 
+export interface Bounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+// повернутий обʼєкт вилазить за свої x/y/width/height, тому беремо всі
+// чотири кути. konva крутить навколо x/y, а еліпс — навколо центру (у нього
+// offset на пів розміру, див. ShapeNode)
+export function contentBounds(objects: BoardObject[]): Bounds | null {
+  if (objects.length === 0) return null;
+  const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  for (const o of objects) {
+    const pivotX = o.type === 'shape' && o.shapeKind === 'ellipse' ? o.x + o.width / 2 : o.x;
+    const pivotY = o.type === 'shape' && o.shapeKind === 'ellipse' ? o.y + o.height / 2 : o.y;
+    const angle = (o.rotation * Math.PI) / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    for (const [cx, cy] of [
+      [o.x, o.y],
+      [o.x + o.width, o.y],
+      [o.x, o.y + o.height],
+      [o.x + o.width, o.y + o.height],
+    ]) {
+      const dx = cx - pivotX;
+      const dy = cy - pivotY;
+      const x = pivotX + dx * cos - dy * sin;
+      const y = pivotY + dx * sin + dy * cos;
+      bounds.minX = Math.min(bounds.minX, x);
+      bounds.minY = Math.min(bounds.minY, y);
+      bounds.maxX = Math.max(bounds.maxX, x);
+      bounds.maxY = Math.max(bounds.maxY, y);
+    }
+  }
+  return bounds;
+}
+
 // новий viewport, у якому всі передані обʼєкти вписані у видиму область
 // з відступом; без обʼєктів — той самий дефолт, що й на старті (100%, центр)
 export function fitToObjects(objects: BoardObject[], canvasWidth: number, canvasHeight: number): Viewport {
-  if (objects.length === 0) {
+  const bounds = contentBounds(objects);
+  if (!bounds) {
     return { x: canvasWidth / 2, y: canvasHeight / 2, scale: 1 };
   }
-
-  const minX = Math.min(...objects.map((o) => o.x));
-  const minY = Math.min(...objects.map((o) => o.y));
-  const maxX = Math.max(...objects.map((o) => o.x + o.width));
-  const maxY = Math.max(...objects.map((o) => o.y + o.height));
+  const { minX, minY, maxX, maxY } = bounds;
 
   const contentWidth = Math.max(1, maxX - minX);
   const contentHeight = Math.max(1, maxY - minY);

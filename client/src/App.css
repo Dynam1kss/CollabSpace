@@ -1634,7 +1634,8 @@ elementFromPoint повертав би її саму замість колонк
 
   /* у колонці кнопка — такий самий острівець, як сусіди */
   .mobile-rail > .show-view,
-  .mobile-rail > .show-view-pick {
+  .mobile-rail > .show-view-pick,
+  .mobile-rail > .export-toggle {
     width: 44px;
     height: 44px;
     color: var(--text-muted);
@@ -1780,6 +1781,10 @@ elementFromPoint повертав би її саму замість колонк
 
   /* ціль під палець — увесь рядок списку, сам чекбокс лишається дрібним */
   .show-view-list label {
+    min-height: 44px;
+  }
+
+  .export-list button {
     min-height: 44px;
   }
 
@@ -1964,4 +1969,49 @@ elementFromPoint повертав би її саму замість колонк
   padding: 5px 6px;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* ───── експорт ─────
+той самий попап під кнопкою, що в «показати мій вид» */
+.export-group {
+  position: relative;
+}
+
+.board-page .export-toggle.active {
+  color: var(--accent);
+}
+
+.export-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 3;
+  width: 200px;
+  padding: 6px;
+  text-align: left;
+}
+
+.export-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.board-page .export-list button {
+  width: 100%;
+  text-align: left;
+  border-color: transparent;
+}
+
+.export-note {
+  margin: 4px 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.export-error {
+  color: var(--danger);
 }
