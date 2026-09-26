@@ -59,6 +59,9 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     ...base,
     type: z.literal('image'),
     url: z.string().min(1),
+    // без них zod різав віддзеркалення при кожному збереженні
+    flipX: z.boolean().optional(),
+    flipY: z.boolean().optional(),
   }),
 ]);
 

@@ -93,6 +93,33 @@ describe('снепшот дошки', () => {
     expect(plain.body.objects[0].locked).toBeUndefined();
   });
 
+  it('віддзеркалення картинки не губиться при збереженні', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const image = {
+      id: 'img1',
+      type: 'image',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-09-17T00:00:00.000Z',
+      url: '/api/images/x.png',
+      flipX: true,
+      flipY: false,
+    };
+
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [image] })
+      .expect(204);
+    const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    expect(res.body.objects[0]).toMatchObject({ flipX: true, flipY: false });
+  });
+
   it('невалідний обʼєкт — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });
