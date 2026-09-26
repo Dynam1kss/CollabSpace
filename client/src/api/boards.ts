@@ -6,6 +6,7 @@ import type {
   BoardObject,
   BoardRole,
   BoardSummary,
+  BoardVersionInfo,
   ChatHistoryResponse,
   CreateBoardRequest,
   IceConfigResponse,
@@ -13,11 +14,13 @@ import type {
   RemoveBoardMemberRequest,
   SaveSeatRequest,
   SaveSnapshotRequest,
+  SaveVersionRequest,
   SeatResponse,
   SnapshotResponse,
   UpdateBoardMemberRequest,
   UpdateBoardRequest,
   UploadImageResponse,
+  VersionsResponse,
 } from 'shared';
 
 // несе статус відповіді — щоб відрізнити "не знайдено" (404) від решти помилок
@@ -164,6 +167,28 @@ export async function saveBoardSnapshot(id: string, objects: BoardObject[], keep
     body: JSON.stringify(payload),
     keepalive,
   });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');
+  }
+}
+
+export function fetchVersions(boardId: string) {
+  return fetch(`/api/boards/${boardId}/versions`).then((res) => parseResponse<VersionsResponse>(res));
+}
+
+export function saveVersion(boardId: string, label: string) {
+  const payload: SaveVersionRequest = { label };
+  return fetch(`/api/boards/${boardId}/versions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((res) => parseResponse<BoardVersionInfo>(res));
+}
+
+// відповідь порожня: новий вміст приходить не звідси, а кадром RESTORED усій кімнаті
+export async function restoreVersion(boardId: string, versionId: string) {
+  const res = await fetch(`/api/boards/${boardId}/versions/${versionId}/restore`, { method: 'POST' });
   if (!res.ok) {
     const data = await res.json();
     throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');

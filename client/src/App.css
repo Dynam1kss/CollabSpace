@@ -1635,7 +1635,8 @@ elementFromPoint повертав би її саму замість колонк
   /* у колонці кнопка — такий самий острівець, як сусіди */
   .mobile-rail > .show-view,
   .mobile-rail > .show-view-pick,
-  .mobile-rail > .export-toggle {
+  .mobile-rail > .export-toggle,
+  .mobile-rail > .history-toggle {
     width: 44px;
     height: 44px;
     color: var(--text-muted);
@@ -1784,7 +1785,8 @@ elementFromPoint повертав би її саму замість колонк
     min-height: 44px;
   }
 
-  .export-list button {
+  .export-list button,
+  .history-list button {
     min-height: 44px;
   }
 
@@ -2014,4 +2016,89 @@ elementFromPoint повертав би її саму замість колонк
 
 .export-error {
   color: var(--danger);
+}
+
+/* ───── історія версій ─────
+попап ширший за експорт: у рядку назва, хто й коли, і кнопка відкату */
+.board-page .history-toggle.active {
+  color: var(--accent);
+}
+
+.history-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 3;
+  width: 350px;
+  padding: 8px;
+  text-align: left;
+}
+
+.history-save {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.history-save .search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.board-page .history-save button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.history-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+/* ручні — свідомі точки, їх видно одразу серед автозбережень */
+.history-list li.manual .history-title {
+  font-weight: 600;
+}
+
+.history-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.board-page .history-list button {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+}
+
+.sheet-full .history-save,
+.sheet-full .history-list {
+  margin: 10px 14px;
+}
+
+.sheet-full .history-list {
+  max-height: none;
 }

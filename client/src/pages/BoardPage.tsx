@@ -25,6 +25,7 @@ import { BackIcon, FitIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { BoardSearch } from '../canvas/BoardSearch';
 import { ExportButton } from '../canvas/ExportButton';
+import { VersionHistory } from '../canvas/VersionHistory';
 import { centerOnObject } from '../canvas/board-search';
 import { publishShowView } from '../canvas/presence-channel';
 import { ShowViewButton } from '../canvas/ShowViewButton';
@@ -196,6 +197,12 @@ export function BoardPage() {
     <ExportButton title={board.title} capture={() => canvasRef.current?.capture() ?? null} />
   );
 
+  // історія — там само, де пошук і експорт; зберігати й відкочувати — ті самі
+  // власник і адмін, що й «показати мій вид»
+  const historyButton = board && (
+    <VersionHistory key={board.id} boardId={board.id} canManage={canShowView} />
+  );
+
   // точка дошки під серединою полотна: сюди лягають стікери з канбану і
   // вставлені картинки — щоб були перед очима, а не в (0,0) десь далеко
   const visibleCenter = screenToBoard(center, viewport);
@@ -268,6 +275,7 @@ export function BoardPage() {
             <BoardSearch viewport={viewport} canvasSize={canvasSize} onJump={setViewport} />
             {!narrow && showViewButton}
             {!narrow && exportButton}
+            {!narrow && historyButton}
             {!narrow && (
               <>
                 <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
@@ -319,6 +327,7 @@ export function BoardPage() {
         <div className={narrow ? 'mobile-rail' : 'contents'}>
           {narrow && view === 'canvas' && showViewButton}
           {narrow && view === 'canvas' && exportButton}
+          {narrow && view === 'canvas' && historyButton}
           <Participants />
           <ChatPanel boardId={board.id} />
           <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />

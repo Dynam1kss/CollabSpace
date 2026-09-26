@@ -315,3 +315,14 @@ export function ExportIcon() {
     </Svg>
   );
 }
+
+// годинник зі стрілкою назад — історія версій
+export function HistoryIcon() {
+  return (
+    <Svg>
+      <path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6" />
+      <path d="M3.5 3.5v3h3" />
+      <path d="M10 6.5V10l2.5 1.5" />
+    </Svg>
+  );
+}

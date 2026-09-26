@@ -195,6 +195,27 @@ function mirror(event: Y.YMapEvent<BoardObject>) {
 }
 yObjects.observe(mirror);
 
+// відкат до версії: документ стає рівно таким, як у переданому списку, однією
+// транзакцією під позначкою застосунку (ctrl+z її не бачить). Ключ, значення
+// якого не змінилось, не переписуємо — кожен зайвий set у y.map це ще один
+// запис, що конкурує з чужими
+export function replaceBoardContent(objects: BoardObject[]) {
+  const next = new Map(objects.map((o) => [o.id, o]));
+  asAppEdit(() => {
+    for (const id of [...yObjects.keys()]) if (!next.has(id)) yObjects.delete(id);
+    for (const object of objects) {
+      const current = yObjects.get(object.id);
+      if (!current || JSON.stringify(current) !== JSON.stringify(object)) yObjects.set(object.id, object);
+    }
+  });
+}
+
+// після відкату старі кроки undo вказують на вміст, якого вже нема: ctrl+z
+// повернув би шматки стану до відкату поверх нового. Тож історію правок чистимо
+export function clearUndoHistory() {
+  boardUndo.clear();
+}
+
 export function resetBoardDoc() {
   diag('resetBoardDoc: новий порожній документ', { було: yObjects.size });
   // недописаний жест зі старої дошки в нову не переносимо

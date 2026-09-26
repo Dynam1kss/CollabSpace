@@ -16,6 +16,7 @@ import type {
   LockMessage,
   PresenceMember,
   ForceVoiceMessage,
+  RestoredMessage,
   RoleChangedMessage,
   RosterMessage,
   SeatPosition,
@@ -36,7 +37,8 @@ import {
   handleVoiceState,
   resetVoice,
 } from '../voice/voice-mesh';
-import { resetBoardDoc, useBoardStore } from './board-store';
+import { fetchBoardSnapshot } from '../api/boards';
+import { clearUndoHistory, replaceBoardContent, resetBoardDoc, useBoardStore } from './board-store';
 import { diag } from './diag';
 import { usePresenceStore } from './presence-store';
 
@@ -263,6 +265,30 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
             useEditorStore.getState().stopEditingText();
             useEditorStore.getState().clearSelection();
           }
+          return;
+        }
+
+        // дошку відкотили: снепшот у базі вже новий, документ ще старий. Пише
+        // в документ лише призначений сервером writer — решта дістане його
+        // записи звичайними дельтами. Якби перечитували й писали всі, кожен
+        // ключ отримав би по запису від кожного клієнта; редактори це зводять,
+        // а в глядача, чиї записи нікуди не йдуть, лишався б свій варіант, і
+        // чужі правки того обʼєкта він далі не бачив би (журнал 26.09)
+        case SYNC_MSG.RESTORED: {
+          const { writer } = JSON.parse(text(payload)) as RestoredMessage;
+          const self = usePresenceStore.getState().selfClientId;
+          diag('RESTORED', { boardId, writer, self });
+          clearUndoHistory();
+          // null — редакторів у кімнаті нема: мої записи нікуди не підуть,
+          // тож перечитую сам, як на відкритті дошки
+          if (writer !== null && writer !== self) return;
+          fetchBoardSnapshot(boardId)
+            .then(({ objects }) => {
+              if (ws.readyState !== WebSocket.OPEN) return;
+              replaceBoardContent(objects);
+              diag('відкат записано в документ', { boardId, обʼєктів: objects.length });
+            })
+            .catch((err) => diag('відкат: снепшот не прочитався', { boardId, err: String(err) }));
           return;
         }
 
