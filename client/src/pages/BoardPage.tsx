@@ -23,6 +23,7 @@ import { diag } from '../canvas/diag';
 import { BackIcon, FitIcon } from '../canvas/icons';
 import { Toolbar } from '../canvas/Toolbar';
 import { BoardSearch } from '../canvas/BoardSearch';
+import { centerOnObject } from '../canvas/board-search';
 import { publishShowView } from '../canvas/presence-channel';
 import { ShowViewButton } from '../canvas/ShowViewButton';
 import { useShowView } from '../canvas/use-show-view';
@@ -163,6 +164,15 @@ export function BoardPage() {
     publishShowView({ centerX, centerY, scale: viewport.scale, targets });
   }
 
+  // з картки канбану на полотно — те саме, що стрибок із пошуку
+  function handleLocate(id: string) {
+    const object = useBoardStore.getState().getById(id);
+    if (!object) return;
+    useEditorStore.getState().select(id);
+    setViewport(centerOnObject(object, viewport, canvasSize.width, canvasSize.height));
+    setView('canvas');
+  }
+
   function handleFitAll() {
     setViewport(fitToObjects(Object.values(objects), canvasSize.width, canvasSize.height));
   }
@@ -292,7 +302,7 @@ export function BoardPage() {
             )}
           </>
         ) : (
-          <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} />
+          <KanbanView currentUserId={currentUserId} origin={kanbanOrigin} onLocate={handleLocate} />
         )}
         {/* чат і голос не залежать від того, що показано — полотно чи канбан.
         На телефоні всі три збираються в одну колонку праворуч, інакше вони

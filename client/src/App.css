@@ -1036,6 +1036,33 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
 }
 
 /* без touch-action браузер забирає pointer під скрол, щойно палець рушив */
+/* кнопка «на полотно» сидить у правому верхньому куті, тексту лишаємо місце */
+.kanban-card {
+  position: relative;
+  padding-right: 32px;
+}
+
+.board-page .kanban-locate {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+}
+
+.board-page .kanban-locate:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .kanban-card.draggable {
   cursor: grab;
   touch-action: none;
@@ -1711,6 +1738,17 @@ elementFromPoint повертав би її саму замість колонк
   .board-page button,
   .board-page input {
     min-height: 44px;
+  }
+
+  /* на картці 44px з'їли б пів тексту — компроміс */
+  .board-page .kanban-locate {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .kanban-card {
+    padding-right: 42px;
   }
 
   /* пігулка голосу вузька через іконку — ширину їй теж доводимо до цілі */

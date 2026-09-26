@@ -7,6 +7,7 @@ import { useEditorStore } from '../canvas/editor-store';
 import { createSticky } from '../canvas/object-defaults';
 import { nextZIndex } from '../canvas/selection-actions';
 import { TextEditor } from '../canvas/TextEditor';
+import { LocateIcon } from '../canvas/icons';
 import { colorForUser } from '../canvas/presence-colors';
 import { lockOwner, usePresenceStore } from '../canvas/presence-store';
 
@@ -44,12 +45,13 @@ interface Props {
   currentUserId: string;
   // точка на полотні (в координатах дошки), куди класти стікери, створені звідси
   origin: Point;
+  onLocate: (id: string) => void;
 }
 
 // канбан — інший погляд на ті самі стікери з board-store: перетягування
 // між колонками міняє лише column, x/y на полотні не чіпає. Драг вручну на
 // pointer-подіях (pointermove/pointerup на window, як у гумової рамки)
-export function KanbanView({ currentUserId, origin }: Props) {
+export function KanbanView({ currentUserId, origin, onLocate }: Props) {
   const objects = useBoardStore((s) => s.objects);
   const canEdit = useEditorStore((s) => s.canEdit);
   const editingTextId = useEditorStore((s) => s.editingTextId);
@@ -194,6 +196,21 @@ export function KanbanView({ currentUserId, origin }: Props) {
                         {locked.displayName}
                       </span>
                     )}
+                    {/* клік по картці вже зайнятий редагуванням/розгортанням,
+                    тому окрема кнопка, і вона не пускає подію далі в картку */}
+                    <button
+                      type="button"
+                      className="kanban-locate"
+                      title="Показати на полотні"
+                      aria-label="Показати на полотні"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLocate(sticky.id);
+                      }}
+                    >
+                      <LocateIcon />
+                    </button>
                     {editingTextId === sticky.id ? (
                       <TextEditor
                         object={sticky}

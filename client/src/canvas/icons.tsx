@@ -294,3 +294,14 @@ export function UnlockIcon() {
     </Svg>
   );
 }
+
+// приціл — «знайти на полотні» з картки канбану
+export function LocateIcon() {
+  return (
+    <Svg size={14}>
+      <circle cx="10" cy="10" r="5.5" />
+      <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none" />
+      <path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3" />
+    </Svg>
+  );
+}
