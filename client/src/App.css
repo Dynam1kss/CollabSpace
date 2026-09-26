@@ -1634,7 +1634,6 @@ elementFromPoint повертав би її саму замість колонк
 
   /* у колонці кнопка — такий самий острівець, як сусіди */
   .mobile-rail > .show-view,
-  .mobile-rail > .show-view-pick,
   .mobile-rail > .export-toggle,
   .mobile-rail > .history-toggle {
     width: 44px;
@@ -1901,20 +1900,40 @@ elementFromPoint повертав би її саму замість колонк
   color: var(--accent);
 }
 
-/* кнопка й шеврон вибору адресатів стоять упритул — це одна дія, просто
-з двома входами */
+/* одна кнопка — панель під нею, як у експорту й історії */
 .show-view-group {
   position: relative;
-  display: flex;
-  gap: 2px;
 }
 
-.board-toolbar .show-view-pick {
-  width: 22px;
-}
-
-.board-page .show-view-pick.active {
+.board-page .show-view.active {
   color: var(--accent);
+}
+
+/* сама дія внизу панелі: після вибору адресатів — одне натискання */
+.board-page .show-view-send {
+  width: 100%;
+  margin-top: 6px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sheet-full .show-view-send {
+  width: auto;
+  margin: 10px 14px;
+}
+
+/* загальні :hover/:active кнопок дошки перефарбували б її в сіре */
+@media (hover: hover) {
+  .board-page .show-view-send:hover {
+    background: #3450e6;
+    border-color: #3450e6;
+  }
+}
+
+.board-page .show-view-send:active {
+  background: #2c45cc;
+  border-color: #2c45cc;
 }
 
 .show-view-popover {

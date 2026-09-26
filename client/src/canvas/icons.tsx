@@ -267,15 +267,6 @@ export function ShowViewIcon() {
   );
 }
 
-// шеврон донизу — «тут відкриється список»
-export function ChevronIcon() {
-  return (
-    <Svg size={14}>
-      <path d="M5 8l5 5 5-5" />
-    </Svg>
-  );
-}
-
 // замок закритий і відкритий: дужка та сама, у відкритого зсунута вбік
 export function LockIcon() {
   return (

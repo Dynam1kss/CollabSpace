@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronIcon, ShowViewIcon } from './icons';
+import { ShowViewIcon } from './icons';
 import { otherMembers, usePresenceStore } from './presence-store';
 import { loadShowViewTargets, saveShowViewTargets } from './show-view-targets';
 import type { ShowViewTargets } from './show-view-targets';
@@ -16,9 +16,10 @@ interface Props {
   onShare: (targets?: string[]) => void;
 }
 
-// «показати всім мій вид» плюс вибір адресатів поруч. Натискання самої
-// кнопки шле одразу по тому, що вибрано минулого разу — відкривати список
-// щоразу посеред обговорення нікому не треба
+// «показати мій вид» — одна кнопка, як експорт та історія: відкриває панель,
+// де і кому показувати, і сама дія. Дві кнопки поруч (показати й шеврон вибору)
+// плутали — незрозуміло було, що з них що робить. Вибір адресатів памʼятаємо
+// між сеансами, тож наступного разу лишається лише натиснути «показати»
 export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
   const narrow = useNarrow();
   const members = usePresenceStore(otherMembers);
@@ -67,12 +68,15 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
     apply(next.length === 0 ? 'all' : next);
   }
 
+  // панель закриваємо одразу — камери адресатів уже поїхали, а що кадр пішов,
+  // каже спалах на самій кнопці
   function share() {
     onShare(targets === 'all' ? undefined : targets);
     setSent(true);
+    setOpen(false);
   }
 
-  const label = targets === 'all' ? 'Показати всім мій вид' : `Показати мій вид (${targets.length})`;
+  const action = targets === 'all' ? 'Показати всім' : `Показати вибраним (${targets.length})`;
 
   const list = (
     <ul className="show-view-list">
@@ -98,28 +102,25 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
     </ul>
   );
 
-  const mainButton = (
-    <button
-      type="button"
-      className={`${narrow ? 'board-island ' : ''}icon-button show-view${sent ? ' sent' : ''}`}
-      title={label}
-      aria-label={label}
-      onClick={share}
-    >
-      <ShowViewIcon />
-    </button>
+  const body = (
+    <>
+      {list}
+      <button type="button" className="show-view-send" onClick={share}>
+        {action}
+      </button>
+    </>
   );
 
-  const pickButton = (
+  const toggleButton = (
     <button
       type="button"
-      className={`${narrow ? 'board-island ' : ''}icon-button show-view-pick${open ? ' active' : ''}`}
-      title="Кому показувати"
-      aria-label="Кому показувати"
+      className={`${narrow ? 'board-island ' : ''}icon-button show-view${sent ? ' sent' : ''}${open ? ' active' : ''}`}
+      title="Показати мій вид"
+      aria-label="Показати мій вид"
       aria-expanded={open}
       onClick={() => setOpen(!open)}
     >
-      <ChevronIcon />
+      <ShowViewIcon />
     </button>
   );
 
@@ -128,12 +129,11 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
   if (narrow) {
     return (
       <>
-        {mainButton}
-        {pickButton}
+        {toggleButton}
         {open && (
           <div className="board-island sheet-full">
             <header className="sheet-head">
-              <span>Кому показувати</span>
+              <span>Показати мій вид</span>
               <button
                 type="button"
                 className="icon-button"
@@ -144,7 +144,7 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
                 ×
               </button>
             </header>
-            {list}
+            {body}
           </div>
         )}
       </>
@@ -153,9 +153,8 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
 
   return (
     <div className="show-view-group" ref={ref}>
-      {mainButton}
-      {pickButton}
-      {open && <div className="board-island show-view-popover">{list}</div>}
+      {toggleButton}
+      {open && <div className="board-island show-view-popover">{body}</div>}
     </div>
   );
 }
