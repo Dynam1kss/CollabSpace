@@ -59,6 +59,13 @@ export function SettingsPage() {
       return;
     }
     setAvatarError(null);
+    // gif кадрування не проходить: через canvas лишився б один кадр, а анімація
+    // тут важливіша за точну рамку — вантажимо як є, у кружечках він просто
+    // обрізається по центру
+    if (file.type === 'image/gif') {
+      void handleCropped(file);
+      return;
+    }
     setCropping(file);
   }
 

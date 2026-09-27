@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type Konva from 'konva';
 import { Circle, Group, Image as KonvaImage, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
@@ -10,6 +11,8 @@ import { useEditorStore } from '../canvas/editor-store';
 import { nearestFreeSeat } from './seat-position';
 import { useSeatStore } from './seat-store';
 import { useVoiceStore } from './voice-store';
+import { frameAt, loadGifFrames } from './gif-frames';
+import { watchGif } from './gif-ticker';
 import { useCanvasColors } from '../theme';
 import { useTranslation } from 'react-i18next';
 
@@ -134,8 +137,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
 }
 
 // той самий прийом, що в ImageShape: звичайний Image, поки вантажиться — нічого.
-// gif малюється першим кадром: konva сама кадри не гортає, а після
-// кадрування (налаштування) нових gif-аватарів і не буває
+// gif konva сама не гортає — див. gif-ticker
 function useAvatarImage(url: string | null | undefined) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -167,6 +169,39 @@ interface BodyProps {
 function SeatBody({ color, initials, name, avatarUrl, inVoice, speaking, k, touch }: BodyProps) {
   const labelColor = useCanvasColors().label;
   const photo = useAvatarImage(avatarUrl);
+  const photoRef = useRef<Konva.Image>(null);
+  const isGif = !!avatarUrl && /\.gif$/i.test(avatarUrl);
+  // кадри з декодера вже квадратні — обрізати їх, як img, не треба
+  const [animated, setAnimated] = useState(false);
+  // gif: поки кадри не декодовані (чи браузер не вміє ImageDecoder) — перший
+  // кадр із самого img; далі таймер підставляє потрібний за часом
+  useEffect(() => {
+    if (!photo || !isGif || !avatarUrl) return;
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void loadGifFrames(avatarUrl).then((gif) => {
+      const node = photoRef.current;
+      const layer = node?.getLayer();
+      if (cancelled || !gif || !node || !layer) return;
+      setAnimated(true);
+      stop = watchGif(layer, (now) => {
+        const frame = frameAt(gif, now);
+        if (node.image() === frame) return false;
+        node.image(frame);
+        return true;
+      });
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+      setAnimated(false);
+    };
+  }, [photo, isGif, avatarUrl]);
+  // не квадратне фото (gif не кадрується) — центральний квадрат, як object-fit: cover.
+  // нулі — без обрізання (так konva і розуміє)
+  const side = photo && !animated ? Math.min(photo.naturalWidth, photo.naturalHeight) : 0;
+  const cropX = photo && side ? (photo.naturalWidth - side) / 2 : 0;
+  const cropY = photo && side ? (photo.naturalHeight - side) / 2 : 0;
   const r = RADIUS * k;
   return (
     <>
@@ -193,7 +228,18 @@ function SeatBody({ color, initials, name, avatarUrl, inVoice, speaking, k, touc
               ctx.arc(0, 0, r, 0, Math.PI * 2);
             }}
           >
-            <KonvaImage image={photo} x={-r} y={-r} width={r * 2} height={r * 2} />
+            <KonvaImage
+              ref={photoRef}
+              image={photo}
+              cropX={cropX}
+              cropY={cropY}
+              cropWidth={side}
+              cropHeight={side}
+              x={-r}
+              y={-r}
+              width={r * 2}
+              height={r * 2}
+            />
           </Group>
           <Circle radius={r} stroke="#fff" strokeWidth={RING * k} listening={false} />
         </>

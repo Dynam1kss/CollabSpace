@@ -13,8 +13,8 @@ interface Props {
   onConfirm: (blob: Blob) => void;
 }
 
-// jpeg лишаємо jpeg (менший), решту — png: у png/webp/gif може бути прозорість.
-// gif після кадрування — лише перший кадр, анімація через canvas не проходить
+// jpeg лишаємо jpeg (менший), решту — png: у png/webp може бути прозорість.
+// gif сюди не потрапляє — його налаштування вантажать без кадрування
 function outputType(file: File) {
   return file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
 }
