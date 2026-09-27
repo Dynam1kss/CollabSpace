@@ -4,6 +4,7 @@ import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { TextEditor } from './TextEditor';
 import { fitTextBox, TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from './text-layout';
+import { inkFor, useTheme } from '../theme';
 
 interface Props {
   object: BoardObject;
@@ -20,6 +21,7 @@ const MIN_INPUT_FONT_PX = 16;
 // поверх полотна (Konva сам по собі текст не редагує), позиціюємо його за
 // screen-координатами обʼєкта; сам textarea і коміт — у TextEditor
 export function TextEditOverlay({ object, viewport }: Props) {
+  const theme = useTheme();
   // текстовий блок росте під час набору так само, як виросте після коміту
   const [textSize, setTextSize] = useState(() =>
     object.type === 'text' ? { width: object.width, height: object.height } : null,
@@ -29,7 +31,8 @@ export function TextEditOverlay({ object, viewport }: Props) {
 
   const screen = boardToScreen({ x: object.x, y: object.y }, viewport);
   const padding = object.type === 'sticky' ? 10 : 0;
-  const color = object.type === 'sticky' ? object.textColor : object.color;
+  // вільний текст лежить на полотні — те саме підмінене чорнило, що й у TextShape
+  const color = object.type === 'sticky' ? object.textColor : inkFor(object.color, theme);
   const size = textSize ?? { width: object.width, height: object.height };
 
   // потрібний розмір на екрані може бути скільки завгодно малим, а полю

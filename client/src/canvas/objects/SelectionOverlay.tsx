@@ -25,6 +25,7 @@ import {
   toModelRect,
 } from './transform-math';
 import type { Rect, ResizeGrip, ResizeResult } from './transform-math';
+import { useCanvasColors } from '../../theme';
 
 // обʼєкти, чия геометрія — звичайний прямокутник: саме їх тягне нова
 // математика. Текст (шрифт/перенос) і конектор (точки) лишаються на своєму
@@ -184,6 +185,7 @@ export function SelectionOverlay({
   lockedByOthers,
   touchInput,
 }: Props) {
+  const colors = useCanvasColors();
   const transformerRef = useRef<Konva.Transformer>(null);
   // розмір і обведення на початку жесту — база для scaledStrokeWidth
   const strokeStartRef = useRef<Record<string, { strokeWidth: number; width: number; height: number }>>({});
@@ -613,8 +615,8 @@ export function SelectionOverlay({
       onTransform={handleTransform}
       onTransformEnd={handleTransformEnd}
       anchorSize={ANCHOR_SIZE}
-      borderStroke="#4262ff"
-      anchorStroke="#4262ff"
+      borderStroke={colors.accent}
+      anchorStroke={colors.accent}
       anchorStrokeWidth={1.5}
       anchorCornerRadius={6}
       anchorFill="#fff"

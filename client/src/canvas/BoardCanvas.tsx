@@ -26,6 +26,7 @@ import { useObjectInteractions } from './useObjectInteractions';
 import { useImageDrop } from './use-image-drop';
 import { BoardSeats } from '../voice/BoardSeats';
 import { useMySeat } from '../voice/use-my-seat';
+import { useCanvasColors } from '../theme';
 
 interface StageHandlers {
   onWheel: (e: KonvaEventObject<WheelEvent>) => void;
@@ -91,6 +92,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
     return fn;
   }
 
+  const colors = useCanvasColors();
   const activeTool = useEditorStore((s) => s.activeTool);
   const canEdit = useEditorStore((s) => s.canEdit);
   const selectedIds = useEditorStore((s) => s.selectedIds);
@@ -259,7 +261,13 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
           onTap={handleStageTap}
         >
           <Layer listening={false}>
-            <Grid viewport={viewport} width={size.width} height={size.height} />
+            <Grid
+              viewport={viewport}
+              width={size.width}
+              height={size.height}
+              rgb={colors.gridRgb}
+              lineAlpha={colors.gridAlpha}
+            />
           </Layer>
 
           <Layer ref={objectsLayerRef}>
@@ -333,6 +341,7 @@ function RubberBandRect({
   start: { x: number; y: number };
   current: { x: number; y: number };
 }) {
+  const colors = useCanvasColors();
   const x = Math.min(start.x, current.x);
   const y = Math.min(start.y, current.y);
   return (
@@ -341,8 +350,8 @@ function RubberBandRect({
       y={y}
       width={Math.abs(current.x - start.x)}
       height={Math.abs(current.y - start.y)}
-      fill="rgba(66, 98, 255, 0.08)"
-      stroke="#4262ff"
+      fill={colors.accentFill}
+      stroke={colors.accent}
       strokeWidth={1}
       dash={[4, 4]}
       listening={false}
@@ -359,6 +368,7 @@ function DraftPreview({
   start: { x: number; y: number };
   current: { x: number; y: number };
 }) {
+  const colors = useCanvasColors();
   const x = Math.min(start.x, current.x);
   const y = Math.min(start.y, current.y);
   const width = Math.abs(current.x - start.x);
@@ -371,7 +381,7 @@ function DraftPreview({
         y={y + height / 2}
         radiusX={width / 2}
         radiusY={height / 2}
-        stroke="#4262ff"
+        stroke={colors.accent}
         dash={[6, 4]}
         listening={false}
       />
@@ -381,12 +391,14 @@ function DraftPreview({
     return (
       <Line
         points={[start.x, start.y, current.x, current.y]}
-        stroke="#4262ff"
+        stroke={colors.accent}
         strokeWidth={2}
         dash={[6, 4]}
         listening={false}
       />
     );
   }
-  return <Rect x={x} y={y} width={width} height={height} stroke="#4262ff" dash={[6, 4]} listening={false} />;
+  return (
+    <Rect x={x} y={y} width={width} height={height} stroke={colors.accent} dash={[6, 4]} listening={false} />
+  );
 }

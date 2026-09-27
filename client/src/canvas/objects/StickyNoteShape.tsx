@@ -7,6 +7,7 @@ import { useEditorStore } from '../editor-store';
 import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from '../text-layout';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
+import { useCanvasColors } from '../../theme';
 
 interface Props {
   object: StickyObject;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function StickyNoteShape({ object, isSelected, isEditing, draggable, registerRef }: Props) {
+  const colors = useCanvasColors();
   const updateSoon = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const startEditingText = useEditorStore((s) => s.startEditingText);
@@ -63,7 +65,7 @@ export function StickyNoteShape({ object, isSelected, isEditing, draggable, regi
         shadowOpacity={0.15}
         shadowBlur={6}
         shadowOffsetY={2}
-        stroke={isSelected ? '#4262ff' : undefined}
+        stroke={isSelected ? colors.accent : undefined}
         strokeWidth={isSelected ? 1.5 : 0}
         strokeScaleEnabled={false}
       />

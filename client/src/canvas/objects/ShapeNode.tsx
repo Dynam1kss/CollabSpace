@@ -5,6 +5,7 @@ import type { ShapeObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
+import { CANVAS_COLORS, inkFor, useTheme } from '../../theme';
 
 interface Props {
   object: ShapeObject;
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export function ShapeNode({ object, isSelected, draggable, registerRef }: Props) {
+  const theme = useTheme();
+  const accent = CANVAS_COLORS[theme].accent;
   const updateSoon = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const handlePointerDown = useSelectOnPointerDown(object.id);
@@ -41,7 +44,7 @@ export function ShapeNode({ object, isSelected, draggable, registerRef }: Props)
     y: object.y,
     rotation: object.rotation,
     fill: object.fillColor,
-    stroke: isSelected ? '#4262ff' : object.strokeColor,
+    stroke: isSelected ? accent : inkFor(object.strokeColor, theme),
     strokeWidth: object.strokeWidth,
     draggable,
     onMouseDown: handlePointerDown,

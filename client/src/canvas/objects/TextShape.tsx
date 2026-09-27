@@ -7,6 +7,7 @@ import { useEditorStore } from '../editor-store';
 import { TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from '../text-layout';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
+import { CANVAS_COLORS, inkFor, useTheme } from '../../theme';
 
 interface Props {
   object: TextObject;
@@ -21,6 +22,7 @@ interface Props {
 // а Text малюється з авто-висотою — konva з фіксованою height обрізає рядки,
 // що не влізли, а нам текст не можна обрізати ніколи
 export function TextShape({ object, isSelected, isEditing, draggable, registerRef }: Props) {
+  const theme = useTheme();
   const updateSoon = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const startEditingText = useEditorStore((s) => s.startEditingText);
@@ -62,7 +64,7 @@ export function TextShape({ object, isSelected, isEditing, draggable, registerRe
         width={object.width}
         height={object.height}
         fill="transparent"
-        stroke={isSelected ? '#4262ff' : undefined}
+        stroke={isSelected ? CANVAS_COLORS[theme].accent : undefined}
         strokeWidth={isSelected ? 1 : 0}
         strokeScaleEnabled={false}
       />
@@ -75,7 +77,7 @@ export function TextShape({ object, isSelected, isEditing, draggable, registerRe
         fontSize={object.fontSize}
         fontFamily={TEXT_FONT_FAMILY}
         lineHeight={TEXT_LINE_HEIGHT}
-        fill={object.color}
+        fill={inkFor(object.color, theme)}
         listening={false}
       />
     </Group>

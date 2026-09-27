@@ -4,12 +4,13 @@ import { getVisibleBoardRect } from './coordinates';
 import type { Viewport } from './coordinates';
 import { FACTOR, gridLevels } from './grid-levels';
 
-const LINE_ALPHA = 0.09;
-
 interface Props {
   viewport: Viewport;
   width: number;
   height: number;
+  // колір лінії і її сила — з теми; новий sceneFunc змушує konva перемалювати
+  rgb: string;
+  lineAlpha: number;
 }
 
 // фон дошки — вкладені рівні сітки, як у miro. Клітинки мають розмір у
@@ -19,7 +20,7 @@ interface Props {
 // видимості, нумерація зсувається на один — і всередині нього починає
 // проявлятись наступний, ще дрібніший. У зворотний бік так само: дрібний
 // тане, грубий лишається
-export function Grid({ viewport, width, height }: Props) {
+export function Grid({ viewport, width, height, rgb, lineAlpha }: Props) {
   if (width === 0 || height === 0) return null;
 
   const rect = getVisibleBoardRect(viewport, width, height);
@@ -38,8 +39,8 @@ export function Grid({ viewport, width, height }: Props) {
         // грубому. Інакше спільні лінії штрихуються двічі й темнішають тим
         // більше, чим яскравіший дрібний рівень: на переході рівнів це давало
         // помітний стрибок, хоч самі лінії й лишались на місці
-        drawLevel(context, rect, fineSpacing, fineAlpha, true);
-        drawLevel(context, rect, coarseSpacing, 1, false);
+        drawLevel(context, rect, fineSpacing, fineAlpha * lineAlpha, rgb, true);
+        drawLevel(context, rect, coarseSpacing, lineAlpha, rgb, false);
       }}
     />
   );
@@ -54,9 +55,11 @@ function drawLevel(
   rect: { x: number; y: number; width: number; height: number },
   spacing: number,
   alpha: number,
+  rgb: string,
   skipCoarse: boolean,
 ) {
-  if (alpha < 0.02) return;
+  // поріг відносно повної сили рівня — інакше з малою альфою теми зник би й грубий
+  if (alpha < 0.002) return;
   const endX = rect.x + rect.width;
   const endY = rect.y + rect.height;
   context.beginPath();
@@ -70,6 +73,6 @@ function drawLevel(
     context.moveTo(rect.x, j * spacing);
     context.lineTo(endX, j * spacing);
   }
-  context.strokeStyle = `rgba(0, 0, 0, ${alpha * LINE_ALPHA})`;
+  context.strokeStyle = `rgba(${rgb}, ${alpha})`;
   context.stroke();
 }

@@ -8,6 +8,7 @@ import { useEditorStore } from '../editor-store';
 import { CONNECTOR_TENSION, flattenPoints, midpoints, withPoints } from './connector-geometry';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
+import { CANVAS_COLORS, inkFor, useTheme } from '../../theme';
 
 const HANDLE_SCREEN_RADIUS = 7; // px на екрані, не в координатах дошки — тому ділимо на масштаб нижче
 const MID_HANDLE_SCREEN_RADIUS = 5;
@@ -31,6 +32,8 @@ interface Props {
 // Групову трансформацію (кілька виділених) так само запікає в points
 // SelectionOverlay — тому лінія має name, щоб він її знайшов
 export function ConnectorShape({ object, isSelected, draggable, viewportScale, registerRef }: Props) {
+  const theme = useTheme();
+  const accent = CANVAS_COLORS[theme].accent;
   const updateObject = useBoardStore((s) => s.update);
   const updateSoon = useBoardStore((s) => s.updateSoon);
   // точки на момент захвату. Поки жест іде, малюємо саме їх, а зсув несе x/y
@@ -138,7 +141,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
     e.cancelBubble = true;
   };
 
-  const strokeColor = isSelected ? '#4262ff' : object.strokeColor;
+  const strokeColor = isSelected ? accent : inkFor(object.strokeColor, theme);
   const points = dragBase ?? object.points;
 
   const lineProps = {
@@ -179,7 +182,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
             y={p.y}
             radius={MID_HANDLE_SCREEN_RADIUS / viewportScale}
             hitStrokeWidth={touchHit(MID_HANDLE_SCREEN_RADIUS)}
-            fill="#4262ff"
+            fill={accent}
             stroke="#fff"
             strokeWidth={handleStrokeWidth}
             onMouseDown={startInsertDrag(i)}
@@ -195,7 +198,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
             radius={HANDLE_SCREEN_RADIUS / viewportScale}
             hitStrokeWidth={touchHit(HANDLE_SCREEN_RADIUS)}
             fill="#fff"
-            stroke="#4262ff"
+            stroke={accent}
             strokeWidth={handleStrokeWidth}
             draggable={draggable}
             onMouseDown={stopBubble}

@@ -12,6 +12,7 @@ import type {
 import type { Point } from './coordinates';
 import { withPoints } from './objects/connector-geometry';
 import { fitTextBox } from './text-layout';
+import { DEFAULT_INK } from '../theme';
 
 // 8 заготовлених кольорів — без піпетки, свідомо обмежений вибір
 export const PALETTE = [
@@ -22,11 +23,11 @@ export const PALETTE = [
   '#86efac',
   '#d8b4fe',
   '#fdba74',
-  '#1f2937',
+  DEFAULT_INK,
 ];
 
 export const DEFAULT_STROKE_COLOR = PALETTE[7];
-export const DEFAULT_TEXT_COLOR = '#1f2937';
+export const DEFAULT_TEXT_COLOR = DEFAULT_INK;
 
 // межі для полів панелі властивостей і для перерахунку при трансформації
 export { FONT_SIZE_MAX, FONT_SIZE_MIN, STROKE_WIDTH_MAX, STROKE_WIDTH_MIN } from './limits';

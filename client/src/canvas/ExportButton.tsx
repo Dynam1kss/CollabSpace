@@ -5,6 +5,7 @@ import type { BoardCanvasHandle } from './BoardCanvas';
 import { useEditorStore } from './editor-store';
 import { ExportIcon } from './icons';
 import { useNarrow } from '../use-narrow';
+import { useCanvasColors } from '../theme';
 
 type Kind = 'png' | 'pdf';
 
@@ -13,14 +14,15 @@ interface Props {
   capture: BoardCanvasHandle['capture'];
 }
 
-// konva віддає прозоре тло — у pdf і в переглядачах воно стає чорним чи в клітинку
-function onWhite(source: HTMLCanvasElement) {
+// konva віддає прозоре тло — у pdf і в переглядачах воно стає чорним чи в клітинку.
+// тло з теми: у темній чорнило вже підмінене світлим і на білому б зникло
+function onBackground(source: HTMLCanvasElement, background: string) {
   const canvas = document.createElement('canvas');
   canvas.width = source.width;
   canvas.height = source.height;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('нема 2d-контексту');
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(source, 0, 0);
   return canvas;
@@ -40,6 +42,7 @@ function downloadBlob(blob: Blob, name: string) {
 // Це знімок, не зміна — тому доступний будь-якій ролі, як пошук і «показати все»
 export function ExportButton({ title, capture }: Props) {
   const narrow = useNarrow();
+  const exportBg = useCanvasColors().exportBg;
   const objects = useBoardStore((s) => s.objects);
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const empty = Object.keys(objects).length === 0;
@@ -74,7 +77,7 @@ export function ExportButton({ title, capture }: Props) {
         setError('На дошці порожньо');
         return;
       }
-      const image = onWhite(shot.canvas);
+      const image = onBackground(shot.canvas, exportBg);
       const name = exportFileName(title, new Date(), kind);
       if (kind === 'png') {
         const blob = await new Promise<Blob | null>((resolve) => image.toBlob(resolve, 'image/png'));

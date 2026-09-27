@@ -10,6 +10,7 @@ import { useEditorStore } from '../canvas/editor-store';
 import { nearestFreeSeat } from './seat-position';
 import { useSeatStore } from './seat-store';
 import { useVoiceStore } from './voice-store';
+import { useCanvasColors } from '../theme';
 
 // розмір в екранних пікселях: стілець не має розпухати разом із зумом —
 // він позначка людини, а не обʼєкт дошки
@@ -141,15 +142,14 @@ interface BodyProps {
 // поки людина не в розмові, стілець блідий: місце за нею лишається, але на
 // гучність воно ще ні на що не впливає (крок C)
 function SeatBody({ color, initials, name, inVoice, speaking, k, touch }: BodyProps) {
+  const labelColor = useCanvasColors().label;
   const r = RADIUS * k;
   return (
     <>
       {/* кільце «говорить» — те саме зелене, що й у панелі голосу, щоб це
       читалось як один сигнал у двох місцях. Малюємо ПІД кружечком і ширшим
       за нього, тому воно лишається видним і коли стілець блідий */}
-      {speaking && (
-        <Circle radius={r + SPEAK_RING * k} fill="#22c55e" opacity={0.9} listening={false} />
-      )}
+      {speaking && <Circle radius={r + SPEAK_RING * k} fill="#22c55e" opacity={0.9} listening={false} />}
       <Circle
         radius={r}
         fill={color}
@@ -177,7 +177,7 @@ function SeatBody({ color, initials, name, inVoice, speaking, k, touch }: BodyPr
         text={name}
         align="center"
         fontSize={10 * k}
-        fill="#4b5563"
+        fill={labelColor}
         listening={false}
       />
     </>

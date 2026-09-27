@@ -6,6 +6,7 @@ import type { ImageObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
+import { useCanvasColors } from '../../theme';
 
 interface Props {
   object: ImageObject;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ImageShape({ object, isSelected, draggable, registerRef }: Props) {
+  const colors = useCanvasColors();
   const updateSoon = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
   const handlePointerDown = useSelectOnPointerDown(object.id);
@@ -73,9 +75,9 @@ export function ImageShape({ object, isSelected, draggable, registerRef }: Props
       height={object.height}
       rotation={object.rotation}
       image={source ?? undefined}
-      fill={image ? undefined : '#d1d5db'}
+      fill={image ? undefined : colors.placeholder}
       // konva малює stroke під картинкою, видно лише зовнішню половину — тому 3, а не 1.5
-      stroke={isSelected ? '#4262ff' : undefined}
+      stroke={isSelected ? colors.accent : undefined}
       strokeWidth={isSelected ? 3 : 0}
       strokeScaleEnabled={false}
       draggable={draggable}
