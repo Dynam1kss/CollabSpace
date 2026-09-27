@@ -8,12 +8,16 @@ import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/board
 import { useAuthStore } from '../store/auth-store';
 import { BoardMembers } from './BoardMembers';
 import { EmptyBoardsIcon, MoreIcon } from '../canvas/icons';
-import { colorForBoard, LISTS_POLL_MS, relativeTime, ROLE_TEXT } from './board-card';
+import { colorForBoard, LISTS_POLL_MS, relativeTime } from './board-card';
 import { PendingInvites } from './PendingInvites';
 import { useNarrow } from '../use-narrow';
 import { usePoll } from '../use-poll';
+import { useTranslation } from 'react-i18next';
+import { i18n } from '../i18n';
+import { errorText } from '../i18n/api-error';
 
 export function BoardsPage() {
+  const { t } = useTranslation();
   const { user, setUser } = useAuthStore();
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +34,7 @@ export function BoardsPage() {
   const loadBoards = () =>
     fetchBoards()
       .then((data) => setBoards(data.boards))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Помилка завантаження'))
+      .catch((err) => setError(errorText(err, i18n.t('boards.loadFailed'))))
       .finally(() => setLoading(false));
 
   useEffect(() => {
@@ -58,7 +62,7 @@ export function BoardsPage() {
       setBoards((prev) => [board, ...prev]);
       setNewTitle('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося створити дошку');
+      setError(errorText(err, t('boards.createFailed')));
     }
   };
 
@@ -75,18 +79,18 @@ export function BoardsPage() {
       setBoards((prev) => prev.map((b) => (b.id === id ? updated : b)));
       setEditingId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося перейменувати дошку');
+      setError(errorText(err, t('boards.renameFailed')));
     }
   };
 
   const handleDelete = async (id: string) => {
     setMenuOpenId(null);
-    if (!window.confirm('Видалити дошку? Цю дію не можна скасувати.')) return;
+    if (!window.confirm(t('boards.deleteConfirm'))) return;
     try {
       await deleteBoard(id);
       setBoards((prev) => prev.filter((b) => b.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося видалити дошку');
+      setError(errorText(err, t('boards.deleteFailed')));
     }
   };
 
@@ -104,37 +108,37 @@ export function BoardsPage() {
         )}
         <span className="boards-header-actions">
           <Link to="/settings" className="button-link">
-            Налаштування
+            {t('boards.settings')}
           </Link>
           <button type="button" onClick={handleLogout} className="button-link">
-            Вийти
+            {t('boards.logout')}
           </button>
         </span>
       </header>
-      <h1 className="boards-title">Мої дошки</h1>
+      <h1 className="boards-title">{t('boards.title')}</h1>
 
       <form onSubmit={handleCreate} className="board-create-form">
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="Назва нової дошки"
-          aria-label="Назва нової дошки"
+          placeholder={t('boards.newBoard')}
+          aria-label={t('boards.newBoard')}
         />
         <button type="submit" className="button-primary" disabled={!newTitle.trim()}>
-          Створити
+          {t('boards.create')}
         </button>
       </form>
 
       <PendingInvites onAccepted={() => void loadBoards()} />
 
       {error && <p className="form-error">{error}</p>}
-      {loading && <p>Завантаження…</p>}
+      {loading && <p>{t('common.loading')}</p>}
       {!loading && boards.length === 0 && (
         <div className="boards-empty">
           <EmptyBoardsIcon />
           <p>
-            <strong>Тут поки порожньо</strong>
-            Назвіть першу дошку у полі вище — і можна малювати.
+            <strong>{t('boards.emptyTitle')}</strong>
+            {t('boards.emptyText')}
           </p>
         </div>
       )}
@@ -151,15 +155,15 @@ export function BoardsPage() {
                 <input
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
-                  aria-label="Назва дошки"
+                  aria-label={t('boards.boardName')}
                   autoFocus
                 />
                 <div className="board-rename-actions">
                   <button type="button" onClick={() => submitRename(board.id)}>
-                    Зберегти
+                    {t('common.save')}
                   </button>
                   <button type="button" onClick={() => setEditingId(null)}>
-                    Скасувати
+                    {t('common.cancel')}
                   </button>
                 </div>
               </div>
@@ -169,8 +173,8 @@ export function BoardsPage() {
                   {board.title}
                 </Link>
                 <span className="board-meta">
-                  <span>оновлено {relativeTime(board.updatedAt)}</span>
-                  {!board.isOwner && <span className="role-chip">{ROLE_TEXT[board.myRole]}</span>}
+                  <span>{t('boards.updated', { when: relativeTime(board.updatedAt) })}</span>
+                  {!board.isOwner && <span className="role-chip">{t(`roles.${board.myRole}`)}</span>}
                 </span>
                 {(board.isOwner || board.myRole === 'ADMIN') && (
                   <BoardCardMenu
@@ -180,7 +184,7 @@ export function BoardsPage() {
                   >
                     {board.isOwner && (
                       <button type="button" onClick={() => startRename(board)}>
-                        Перейменувати
+                        {t('boards.rename')}
                       </button>
                     )}
                     <button
@@ -190,11 +194,11 @@ export function BoardsPage() {
                         setMembersOpenId(membersOpenId === board.id ? null : board.id);
                       }}
                     >
-                      Учасники
+                      {t('boards.members')}
                     </button>
                     {board.isOwner && (
                       <button type="button" className="danger" onClick={() => handleDelete(board.id)}>
-                        Видалити
+                        {t('common.delete')}
                       </button>
                     )}
                   </BoardCardMenu>
@@ -205,12 +209,12 @@ export function BoardsPage() {
               (narrow ? (
                 <div className="sheet-full members-sheet">
                   <header className="sheet-head">
-                    <span>Учасники — {board.title}</span>
+                    <span>{t('boards.membersOf', { title: board.title })}</span>
                     <button
                       type="button"
                       className="icon-button"
-                      title="Закрити"
-                      aria-label="Закрити"
+                      title={t('common.close')}
+                      aria-label={t('common.close')}
                       onClick={() => setMembersOpenId(null)}
                     >
                       ×
@@ -243,6 +247,7 @@ function BoardCardMenu({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
+  const { t } = useTranslation();
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: PointerEvent) {
@@ -257,8 +262,8 @@ function BoardCardMenu({
       <button
         type="button"
         className="board-menu-button"
-        title="Дії з дошкою"
-        aria-label="Дії з дошкою"
+        title={t('boards.actions')}
+        aria-label={t('boards.actions')}
         aria-expanded={open}
         onClick={onToggle}
       >

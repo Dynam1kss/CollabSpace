@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { detectInstallPath, detectPlatform, installText, pickInstallBanner } from './install-rules';
+import { uk } from '../i18n/uk';
+import { detectInstallPath, detectPlatform, installTextKey, pickInstallBanner } from './install-rules';
 
 const IPHONE_SAFARI =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
@@ -83,7 +84,11 @@ function bannerText(ua: string, maxTouchPoints: number) {
     path: detectInstallPath(ua, maxTouchPoints),
   });
   if (kind === null || kind === 'prompt') return kind;
-  return installText(kind, detectPlatform(ua, maxTouchPoints));
+  const key = installTextKey(kind, detectPlatform(ua, maxTouchPoints));
+  // перевіряємо на українському тексті — ключ сам по собі нічого не каже
+  return key
+    .split('.')
+    .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], uk) as string;
 }
 
 describe('detectPlatform', () => {

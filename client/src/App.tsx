@@ -13,6 +13,7 @@ import { applyLocale, applyTheme, THEME_KEY } from './prefs';
 import { LOCALE_KEY } from './i18n';
 import { LOCALES } from 'shared';
 import type { Locale } from 'shared';
+import { useTranslation } from 'react-i18next';
 
 // картка й назва застосунку — спільні для входу й реєстрації, самі сторінки
 // всередині лишаються тільки формою
@@ -35,6 +36,7 @@ function AuthGate() {
 
 export function App() {
   const { user, status, setUser } = useAuthStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     fetchMe()
@@ -79,7 +81,7 @@ export function App() {
   if (status === 'loading') {
     return (
       <main className="app-shell auth-shell">
-        <p>Завантаження…</p>
+        <p>{t('common.loading')}</p>
         <ServerStatus />
       </main>
     );

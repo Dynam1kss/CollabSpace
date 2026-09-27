@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+// ініціалізація i18n — relativeTime бере тексти з неї
+import '../i18n';
 import { colorForBoard, relativeTime } from './board-card';
 
 const NOW = new Date('2026-09-22T12:00:00Z').getTime();

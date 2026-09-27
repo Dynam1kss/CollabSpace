@@ -3,7 +3,16 @@ import type { FormEvent } from 'react';
 import { canManageMember } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
 import { Avatar } from '../components/Avatar';
-import { ApiError, addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
+import {
+  ApiError,
+  addBoardMember,
+  fetchBoard,
+  removeBoardMember,
+  updateBoardMemberRole,
+} from '../api/boards';
+import { useTranslation } from 'react-i18next';
+import { i18n } from '../i18n';
+import { errorText } from '../i18n/api-error';
 
 interface Props {
   boardId: string;
@@ -18,6 +27,7 @@ interface Props {
 // розкривна секція під дошкою у списку (лише для власника): список
 // учасників приходить окремим GET /boards/:id — у списку дошок його нема
 export function BoardMembers({ boardId, myRole, ownerId }: Props) {
+  const { t } = useTranslation();
   // та сама ієрархія, що й на сервері — щоб не показувати дію, яка дасть 403
   const canManage = (m: BoardMemberInfo) => canManageMember(myRole, m, ownerId);
   const [members, setMembers] = useState<BoardMemberInfo[] | null>(null);
@@ -36,22 +46,23 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
   const handleFailure = (err: unknown, fallback: string) => {
     if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
       setLost(true);
-      setError('Ваші права на цій дошці змінились — оновіть сторінку');
+      setError(t('members.rightsChanged'));
       return;
     }
-    setError(err instanceof Error ? err.message : fallback);
+    setError(errorText(err, fallback));
   };
 
   useEffect(() => {
     fetchBoard(boardId)
       .then((board) => setMembers(board.members))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Помилка завантаження'));
+      // i18n.t, а не t: інакше ефект перезапитував би учасників на кожну зміну мови
+      .catch((err) => setError(errorText(err, i18n.t('boards.loadFailed'))));
   }, [boardId]);
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      setError('Введіть пошту користувача');
+      setError(t('members.enterEmail'));
       return;
     }
     try {
@@ -60,7 +71,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
       setEmail('');
       setError(null);
     } catch (err) {
-      handleFailure(err, 'Не вдалося запросити учасника');
+      handleFailure(err, t('members.inviteFailed'));
     }
   };
 
@@ -71,7 +82,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
       setMembers(board.members);
       setError(null);
     } catch (err) {
-      handleFailure(err, 'Не вдалося змінити роль');
+      handleFailure(err, t('members.roleFailed'));
     } finally {
       setBusyUserId(null);
     }
@@ -83,7 +94,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
       setMembers((prev) => prev?.filter((m) => m.userId !== userId) ?? null);
       setError(null);
     } catch (err) {
-      handleFailure(err, 'Не вдалося видалити учасника');
+      handleFailure(err, t('members.removeFailed'));
     }
   };
 
@@ -97,8 +108,8 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
 
   return (
     <div className="board-members">
-      {members === null && !error && <p>Завантаження…</p>}
-      {members && members.length === 0 && <p className="board-role">Учасників ще немає.</p>}
+      {members === null && !error && <p>{t('common.loading')}</p>}
+      {members && members.length === 0 && <p className="board-role">{t('members.none')}</p>}
       {members && members.length > 0 && (
         <ul className="member-list">
           {members.map((m) => (
@@ -109,23 +120,23 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
                 {m.displayName}
                 <span className="board-role"> {m.email}</span>
                 {m.status === 'PENDING' && (
-                  <span className="member-pending" title="Запрошення ще не прийняте">
-                    очікує
+                  <span className="member-pending" title={t('members.pendingHint')}>
+                    {t('members.pending')}
                   </span>
                 )}
               </span>
               <select
                 value={m.role}
                 disabled={busyUserId === m.userId || !canManage(m)}
-                aria-label={`Роль: ${m.email}`}
+                aria-label={t('members.roleOf', { email: m.email })}
                 onChange={(e) => handleRoleChange(m.userId, e.target.value as BoardRole)}
               >
-                <option value="ADMIN">Адміністратор</option>
-                <option value="EDITOR">Редактор</option>
-                <option value="VIEWER">Глядач</option>
+                <option value="ADMIN">{t('roleNames.ADMIN')}</option>
+                <option value="EDITOR">{t('roleNames.EDITOR')}</option>
+                <option value="VIEWER">{t('roleNames.VIEWER')}</option>
               </select>
               <button type="button" disabled={!canManage(m)} onClick={() => handleRemove(m.userId)}>
-                Видалити
+                {t('common.delete')}
               </button>
             </li>
           ))}
@@ -136,14 +147,14 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Пошта користувача"
+          placeholder={t('members.emailPlaceholder')}
         />
         <select value={role} onChange={(e) => setRole(e.target.value as BoardRole)}>
-          <option value="ADMIN">Адміністратор</option>
-          <option value="EDITOR">Редактор</option>
-          <option value="VIEWER">Глядач</option>
+          <option value="ADMIN">{t('roleNames.ADMIN')}</option>
+          <option value="EDITOR">{t('roleNames.EDITOR')}</option>
+          <option value="VIEWER">{t('roleNames.VIEWER')}</option>
         </select>
-        <button type="submit">Запросити</button>
+        <button type="submit">{t('members.invite')}</button>
       </form>
       {error && <p className="form-error">{error}</p>}
     </div>

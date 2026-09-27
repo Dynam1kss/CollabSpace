@@ -3,7 +3,9 @@ import type { BoardInvite } from 'shared';
 import { Avatar } from '../components/Avatar';
 import { acceptInvite, declineInvite, fetchInvites } from '../api/invites';
 import { usePoll } from '../use-poll';
-import { LISTS_POLL_MS, ROLE_TEXT } from './board-card';
+import { LISTS_POLL_MS } from './board-card';
+import { useTranslation } from 'react-i18next';
+import { errorText } from '../i18n/api-error';
 
 interface Props {
   // після «прийняти» дошка має зʼявитись у списку — його тягне сторінка
@@ -11,6 +13,7 @@ interface Props {
 }
 
 export function PendingInvites({ onAccepted }: Props) {
+  const { t } = useTranslation();
   const [invites, setInvites] = useState<BoardInvite[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +38,7 @@ export function PendingInvites({ onAccepted }: Props) {
       if (accept) onAccepted();
     } catch (err) {
       // 404 — запрошення вже відкликали, тож просто перечитаємо список
-      setError(err instanceof Error ? err.message : 'Не вдалося відповісти на запрошення');
+      setError(errorText(err, t('invites.answerFailed')));
     } finally {
       setBusyId(null);
       void load();
@@ -46,7 +49,7 @@ export function PendingInvites({ onAccepted }: Props) {
 
   return (
     <section className="invites">
-      <h2 className="invites-title">Запрошення</h2>
+      <h2 className="invites-title">{t('invites.title')}</h2>
       <ul className="invite-list">
         {invites.map((inv) => (
           <li key={inv.boardId}>
@@ -62,10 +65,10 @@ export function PendingInvites({ onAccepted }: Props) {
               <strong>{inv.boardTitle}</strong>
               <span className="board-role">
                 {inv.invitedBy
-                  ? `Запросив: ${inv.invitedBy.displayName} (${inv.invitedBy.email})`
-                  : 'Запросив: акаунт видалено'}
+                  ? t('invites.invitedBy', { name: inv.invitedBy.displayName, email: inv.invitedBy.email })
+                  : t('invites.invitedByDeleted')}
                 {' · '}
-                {ROLE_TEXT[inv.role]}
+                {t(`roles.${inv.role}`)}
               </span>
             </span>
             <span className="invite-actions">
@@ -75,14 +78,14 @@ export function PendingInvites({ onAccepted }: Props) {
                 disabled={busyId === inv.boardId}
                 onClick={() => void answer(inv.boardId, true)}
               >
-                Прийняти
+                {t('invites.accept')}
               </button>
               <button
                 type="button"
                 disabled={busyId === inv.boardId}
                 onClick={() => void answer(inv.boardId, false)}
               >
-                Відхилити
+                {t('invites.decline')}
               </button>
             </span>
           </li>

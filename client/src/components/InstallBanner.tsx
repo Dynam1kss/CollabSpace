@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { detectInstallPath, detectPlatform, installText, pickInstallBanner } from './install-rules';
+import { detectInstallPath, detectPlatform, installTextKey, pickInstallBanner } from './install-rules';
+import { useTranslation } from 'react-i18next';
 
 // у lib.dom цього типу нема — лише хроміум його шле
 interface BeforeInstallPromptEvent extends Event {
@@ -42,6 +43,7 @@ function isStandalone() {
 // без «закрити» навмисно: це єдине місце, де людина дізнається, що застосунок
 // можна поставити. зникає лише тоді, коли вже встановлено
 export function InstallBanner() {
+  const { t } = useTranslation();
   const [, rerender] = useState(0);
 
   useEffect(() => {
@@ -77,16 +79,14 @@ export function InstallBanner() {
     <aside className="install-banner" role="status">
       {kind === 'prompt' ? (
         <>
-          <span className="install-banner-text">
-            Встановіть CollabSpace як застосунок — на весь екран і з іконкою
-          </span>
+          <span className="install-banner-text">{t('install.prompt')}</span>
           <button type="button" className="button-primary" onClick={() => void install()}>
-            Встановити
+            {t('install.install')}
           </button>
         </>
       ) : (
         <span className="install-banner-text">
-          {installText(kind, detectPlatform(navigator.userAgent, navigator.maxTouchPoints))}
+          {t(installTextKey(kind, detectPlatform(navigator.userAgent, navigator.maxTouchPoints)))}
         </span>
       )}
     </aside>
