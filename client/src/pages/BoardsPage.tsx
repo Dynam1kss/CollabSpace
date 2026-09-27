@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { Avatar } from '../components/Avatar';
 import type { BoardSummary } from 'shared';
 import { logout } from '../api/auth';
 import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/boards';
@@ -92,13 +93,23 @@ export function BoardsPage() {
   return (
     <div>
       <header className="boards-header">
-        <span className="boards-me">
-          <strong>{user?.displayName}</strong>
-          <span className="board-role">{user?.email}</span>
+        {user && (
+          <span className="boards-me-row">
+            <Avatar userId={user.id} name={user.displayName} url={user.avatarUrl} size={36} />
+            <span className="boards-me">
+              <strong>{user.displayName}</strong>
+              <span className="board-role">{user.email}</span>
+            </span>
+          </span>
+        )}
+        <span className="boards-header-actions">
+          <Link to="/settings" className="button-link">
+            Налаштування
+          </Link>
+          <button type="button" onClick={handleLogout} className="button-link">
+            Вийти
+          </button>
         </span>
-        <button type="button" onClick={handleLogout} className="button-link">
-          Вийти
-        </button>
       </header>
       <h1 className="boards-title">Мої дошки</h1>
 

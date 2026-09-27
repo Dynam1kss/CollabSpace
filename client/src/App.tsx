@@ -7,6 +7,7 @@ import { BoardPage } from './pages/BoardPage';
 import { BoardsPage } from './pages/BoardsPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { useAuthStore } from './store/auth-store';
 
 // картка й назва застосунку — спільні для входу й реєстрації, самі сторінки
@@ -68,6 +69,18 @@ export function App() {
               <InstallBanner />
               <ServerStatus />
             </main>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            status === 'authenticated' ? (
+              <main className="app-shell settings-shell">
+                <SettingsPage />
+              </main>
+            ) : (
+              <Navigate to="/" replace />
+            )
           }
         />
         <Route

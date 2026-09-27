@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { canManageMember } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
+import { Avatar } from '../components/Avatar';
 import { ApiError, addBoardMember, fetchBoard, removeBoardMember, updateBoardMemberRole } from '../api/boards';
 
 interface Props {
@@ -103,6 +104,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
           {members.map((m) => (
             <li key={m.userId}>
               {/* імʼя і пошта поруч: імена бувають однакові, пошта — ні */}
+              <Avatar userId={m.userId} name={m.displayName} url={m.avatarUrl} size={28} />
               <span className="member-who">
                 {m.displayName}
                 <span className="board-role"> {m.email}</span>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { BoardInvite } from 'shared';
+import { Avatar } from '../components/Avatar';
 import { acceptInvite, declineInvite, fetchInvites } from '../api/invites';
 import { usePoll } from '../use-poll';
 import { LISTS_POLL_MS, ROLE_TEXT } from './board-card';
@@ -49,6 +50,14 @@ export function PendingInvites({ onAccepted }: Props) {
       <ul className="invite-list">
         {invites.map((inv) => (
           <li key={inv.boardId}>
+            {inv.invitedBy && (
+              <Avatar
+                userId={inv.invitedBy.userId}
+                name={inv.invitedBy.displayName}
+                url={inv.invitedBy.avatarUrl}
+                size={36}
+              />
+            )}
             <span className="invite-info">
               <strong>{inv.boardTitle}</strong>
               <span className="board-role">

@@ -91,6 +91,7 @@ export function toBoardDetail(
     userId: m.userId,
     email: m.user.email,
     displayName: m.user.displayName,
+    avatarUrl: m.user.avatarUrl,
     role: m.role,
     roleGrantedBy: m.roleGrantedBy,
     status: m.status,

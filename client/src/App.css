@@ -270,6 +270,108 @@ header {
   border-radius: 12px;
 }
 
+.boards-me-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.boards-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 0 0 auto;
+}
+
+.boards-header-actions a {
+  text-decoration: none;
+}
+
+/* кружечок людини: фото або буква на її кольорі */
+.avatar {
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+
+/* ───── налаштування ───── */
+.settings-shell {
+  max-width: 560px;
+  margin: 1.5rem auto 3rem;
+}
+
+.settings-back {
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.settings-card {
+  margin-bottom: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+}
+
+.settings-card h2 {
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+}
+
+.settings-card label {
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.settings-card .button-primary {
+  align-self: flex-start;
+}
+
+.settings-avatar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.settings-avatar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.settings-avatar-actions button {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.form-ok {
+  margin: 0;
+  color: #1e8e3e;
+  font-size: 0.85rem;
+}
+
 .boards-me {
   display: flex;
   flex-direction: column;

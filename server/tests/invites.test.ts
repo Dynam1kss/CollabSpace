@@ -39,7 +39,12 @@ describe('запрошення на дошку', () => {
         boardId,
         boardTitle: 'Запрошувальна',
         role: 'VIEWER',
-        invitedBy: { displayName: 'Власниця', email: owner.payload.email },
+        invitedBy: {
+          userId: owner.user.id,
+          displayName: 'Власниця',
+          email: owner.payload.email,
+          avatarUrl: null,
+        },
         createdAt: expect.any(String),
       },
     ]);

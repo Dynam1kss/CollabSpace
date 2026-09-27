@@ -34,6 +34,7 @@ export interface BoardMemberInfo {
   userId: string;
   email: string;
   displayName: string;
+  avatarUrl: string | null;
   role: BoardRole;
   // хто дав цю роль — від цього залежить, чи зможе цього адміністратора
   // зняти інший адміністратор (див. canManageMember)
@@ -47,7 +48,7 @@ export interface BoardInvite {
   boardTitle: string;
   role: BoardRole;
   // null — той, хто кликав, уже видалив акаунт
-  invitedBy: { displayName: string; email: string } | null;
+  invitedBy: { userId: string; displayName: string; email: string; avatarUrl: string | null } | null;
   createdAt: string;
 }
 
