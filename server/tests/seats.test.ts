@@ -2,7 +2,7 @@ import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { app } from '../src/app';
 import { prisma } from '../src/prisma';
-import { registerUser } from './helpers';
+import { addMember, registerUser } from './helpers';
 
 afterEach(async () => {
   await prisma.user.deleteMany();
@@ -12,9 +12,7 @@ async function boardWithViewer() {
   const owner = await registerUser();
   const viewer = await registerUser();
   const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
-  await owner.agent
-    .post(`/api/boards/${board.body.id}/members`)
-    .send({ email: viewer.payload.email, role: 'VIEWER' });
+  await addMember(owner, board.body.id, viewer, 'VIEWER');
   return { owner, viewer, boardId: board.body.id as string };
 }
 

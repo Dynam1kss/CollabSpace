@@ -5,7 +5,7 @@ import request from 'supertest';
 import { app } from '../src/app';
 import { UPLOADS_DIR } from '../src/boards/images.routes';
 import { prisma } from '../src/prisma';
-import { registerUser } from './helpers';
+import { addMember, registerUser } from './helpers';
 
 // мінімальний валідний png 1×1 — щоб було що покласти на диск
 const PNG = Buffer.from(
@@ -18,7 +18,7 @@ async function boardWith(role?: 'EDITOR' | 'VIEWER') {
   const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
   if (!role) return { agent: owner.agent, boardId: board.body.id as string };
   const member = await registerUser();
-  await owner.agent.post(`/api/boards/${board.body.id}/members`).send({ email: member.payload.email, role });
+  await addMember(owner, board.body.id, member, role);
   return { agent: member.agent, boardId: board.body.id as string };
 }
 

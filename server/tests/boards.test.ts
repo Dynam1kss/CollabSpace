@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/prisma';
-import { registerUser } from './helpers';
+import { addMember, registerUser } from './helpers';
 
 afterEach(async () => {
   await prisma.user.deleteMany();
@@ -71,9 +71,7 @@ describe('дошки — CRUD і права доступу', () => {
     const member = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Спільна дошка' });
 
-    const addRes = await owner.agent
-      .post(`/api/boards/${board.body.id}/members`)
-      .send({ email: member.payload.email, role: 'EDITOR' });
+    const addRes = await addMember(owner, board.body.id, member, 'EDITOR');
     expect(addRes.status).toBe(201);
 
     const readRes = await member.agent.get(`/api/boards/${board.body.id}`);
@@ -85,9 +83,7 @@ describe('дошки — CRUD і права доступу', () => {
     const deleteRes = await member.agent.delete(`/api/boards/${board.body.id}`);
     expect(deleteRes.status).toBe(403);
 
-    const addMemberRes = await member.agent
-      .post(`/api/boards/${board.body.id}/members`)
-      .send({ email: owner.payload.email, role: 'VIEWER' });
+    const addMemberRes = await addMember(member, board.body.id, owner, 'VIEWER');
     expect(addMemberRes.status).toBe(403);
   });
 
@@ -97,9 +93,7 @@ describe('дошки — CRUD і права доступу', () => {
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
 
-    await owner.agent
-      .post(`/api/boards/${boardId}/members`)
-      .send({ email: member.payload.email, role: 'EDITOR' });
+    await addMember(owner, boardId, member, 'EDITOR');
     const before = await prisma.boardMember.findFirst({ where: { boardId, userId: member.user.id } });
 
     const res = await owner.agent
@@ -133,9 +127,7 @@ describe('дошки — CRUD і права доступу', () => {
     const stranger = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent
-      .post(`/api/boards/${boardId}/members`)
-      .send({ email: member.payload.email, role: 'EDITOR' });
+    await addMember(owner, boardId, member, 'EDITOR');
 
     // учасник-редактор ролями не розпоряджається
     const byMember = await member.agent
@@ -185,9 +177,7 @@ describe('дошки — CRUD і права доступу', () => {
       [editor, 'EDITOR'],
       [other, 'ADMIN'],
     ] as const) {
-      const res = await owner.agent
-        .post(`/api/boards/${boardId}/members`)
-        .send({ email: who.payload.email, role });
+      const res = await addMember(owner, boardId, who, role);
       expect(res.status).toBe(201);
     }
 
@@ -237,8 +227,8 @@ describe('дошки — CRUD і права доступу', () => {
     const viewer = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: editor.payload.email, role: 'EDITOR' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: viewer.payload.email, role: 'VIEWER' });
+    await addMember(owner, boardId, editor, 'EDITOR');
+    await addMember(owner, boardId, viewer, 'VIEWER');
 
     for (const who of [editor, viewer]) {
       expect(
@@ -249,7 +239,7 @@ describe('дошки — CRUD і права доступу', () => {
         (await who.agent.delete(`/api/boards/${boardId}/members`).send({ userId: viewer.user.id })).status,
       ).toBe(403);
       expect(
-        (await who.agent.post(`/api/boards/${boardId}/members`).send({ email: owner.payload.email, role: 'VIEWER' }))
+        (await addMember(who, boardId, owner, 'VIEWER'))
           .status,
       ).toBe(403);
     }
@@ -260,7 +250,7 @@ describe('дошки — CRUD і права доступу', () => {
     const admin = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
+    await addMember(owner, boardId, admin, 'ADMIN');
 
     expect((await admin.agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] })).status).toBe(204);
     // і бачить свою роль у списку дошок
@@ -279,8 +269,8 @@ describe('дошки — CRUD і права доступу', () => {
     const outsider = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: victim.payload.email, role: 'EDITOR' });
+    await addMember(owner, boardId, admin, 'ADMIN');
+    await addMember(owner, boardId, victim, 'EDITOR');
 
     expect(
       (await owner.agent.delete(`/api/boards/${boardId}/members`).send({ userId: admin.user.id })).status,
@@ -288,7 +278,7 @@ describe('дошки — CRUD і права доступу', () => {
 
     // доступу немає взагалі — тому 404, як і в будь-якого чужого
     expect(
-      (await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: outsider.payload.email, role: 'EDITOR' }))
+      (await addMember(admin, boardId, outsider, 'EDITOR'))
         .status,
     ).toBe(404);
     expect(
@@ -315,8 +305,8 @@ describe('дошки — CRUD і права доступу', () => {
     const outsider = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: victim.payload.email, role: 'EDITOR' });
+    await addMember(owner, boardId, admin, 'ADMIN');
+    await addMember(owner, boardId, victim, 'EDITOR');
 
     expect(
       (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: admin.user.id, role: 'VIEWER' }))
@@ -325,7 +315,7 @@ describe('дошки — CRUD і права доступу', () => {
 
     // дошку він ще бачить, тому 403, а не 404
     for (const res of [
-      await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: outsider.payload.email, role: 'EDITOR' }),
+      await addMember(admin, boardId, outsider, 'EDITOR'),
       await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: victim.user.id, role: 'VIEWER' }),
       await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: victim.user.id }),
       await admin.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: victim.user.id, mute: true }),
@@ -346,15 +336,15 @@ describe('дошки — CRUD і права доступу', () => {
     const other = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: other.payload.email, role: 'ADMIN' });
+    await addMember(owner, boardId, admin, 'ADMIN');
+    await addMember(owner, boardId, other, 'ADMIN');
 
     expect(
-      (await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: other.payload.email, role: 'VIEWER' }))
+      (await addMember(admin, boardId, other, 'VIEWER'))
         .status,
     ).toBe(403);
     expect(
-      (await admin.agent.post(`/api/boards/${boardId}/members`).send({ email: owner.payload.email, role: 'VIEWER' }))
+      (await addMember(admin, boardId, owner, 'VIEWER'))
         .status,
     ).toBe(400);
   });
@@ -370,10 +360,10 @@ describe('дошки — CRUD і права доступу', () => {
     const boardId = board.body.id as string;
 
     // цих двох підняв власник — вони недоторканні один для одного
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminB.payload.email, role: 'ADMIN' });
+    await addMember(owner, boardId, adminA, 'ADMIN');
+    await addMember(owner, boardId, adminB, 'ADMIN');
     // а цього підняв adminA
-    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+    await addMember(adminA, boardId, promoted, 'ADMIN');
 
     const detail = await owner.agent.get(`/api/boards/${boardId}`);
     const infoOf = (userId: string) =>
@@ -402,8 +392,8 @@ describe('дошки — CRUD і права доступу', () => {
     const promoted = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
-    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+    await addMember(owner, boardId, adminA, 'ADMIN');
+    await addMember(adminA, boardId, promoted, 'ADMIN');
 
     expect(
       (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'VIEWER' }))
@@ -423,9 +413,9 @@ describe('дошки — CRUD і права доступу', () => {
     const promoted = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminB.payload.email, role: 'ADMIN' });
-    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+    await addMember(owner, boardId, adminA, 'ADMIN');
+    await addMember(owner, boardId, adminB, 'ADMIN');
+    await addMember(adminA, boardId, promoted, 'ADMIN');
 
     await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'ADMIN' });
 
@@ -443,9 +433,9 @@ describe('дошки — CRUD і права доступу', () => {
     const promoted = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
     const boardId = board.body.id as string;
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminA.payload.email, role: 'ADMIN' });
-    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: adminB.payload.email, role: 'ADMIN' });
-    await adminA.agent.post(`/api/boards/${boardId}/members`).send({ email: promoted.payload.email, role: 'ADMIN' });
+    await addMember(owner, boardId, adminA, 'ADMIN');
+    await addMember(owner, boardId, adminB, 'ADMIN');
+    await addMember(adminA, boardId, promoted, 'ADMIN');
 
     expect(
       (await adminB.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: promoted.user.id, mute: true })).status,
@@ -463,9 +453,7 @@ describe('дошки — CRUD і права доступу', () => {
     const member = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
 
-    await owner.agent
-      .post(`/api/boards/${board.body.id}/members`)
-      .send({ email: member.payload.email, role: 'VIEWER' });
+    await addMember(owner, board.body.id, member, 'VIEWER');
 
     const removeRes = await owner.agent
       .delete(`/api/boards/${board.body.id}/members`)

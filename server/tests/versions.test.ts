@@ -6,7 +6,7 @@ import {
   pickEvictions,
   shouldCreateAutoVersion,
 } from '../src/boards/versions.service';
-import { registerUser } from './helpers';
+import { addMember, registerUser } from './helpers';
 
 afterEach(async () => {
   await prisma.user.deleteMany();
@@ -89,9 +89,9 @@ async function boardWith() {
   const stranger = await registerUser();
   const board = await owner.agent.post('/api/boards').send({ title: 'Історія' });
   const id = board.body.id as string;
-  await owner.agent.post(`/api/boards/${id}/members`).send({ email: admin.payload.email, role: 'ADMIN' });
-  await owner.agent.post(`/api/boards/${id}/members`).send({ email: editor.payload.email, role: 'EDITOR' });
-  await owner.agent.post(`/api/boards/${id}/members`).send({ email: viewer.payload.email, role: 'VIEWER' });
+  await addMember(owner, id, admin, 'ADMIN');
+  await addMember(owner, id, editor, 'EDITOR');
+  await addMember(owner, id, viewer, 'VIEWER');
   return { id, owner, admin, editor, viewer, stranger };
 }
 

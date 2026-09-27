@@ -27,6 +27,9 @@ export function canManageMember(
   return target.roleGrantedBy !== boardOwnerId;
 }
 
+// PENDING — запросили, але ще не прийняв; доступу поки нема
+export type MemberStatus = 'PENDING' | 'ACCEPTED';
+
 export interface BoardMemberInfo {
   userId: string;
   email: string;
@@ -35,6 +38,21 @@ export interface BoardMemberInfo {
   // хто дав цю роль — від цього залежить, чи зможе цього адміністратора
   // зняти інший адміністратор (див. canManageMember)
   roleGrantedBy: string | null;
+  status: MemberStatus;
+}
+
+// запрошення очима того, кого кличуть
+export interface BoardInvite {
+  boardId: string;
+  boardTitle: string;
+  role: BoardRole;
+  // null — той, хто кликав, уже видалив акаунт
+  invitedBy: { displayName: string; email: string } | null;
+  createdAt: string;
+}
+
+export interface InvitesResponse {
+  invites: BoardInvite[];
 }
 
 export interface BoardSummary {

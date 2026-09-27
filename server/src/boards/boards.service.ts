@@ -14,7 +14,8 @@ export interface BoardAccess {
 export async function getBoardAccess(boardId: string, userId: string): Promise<BoardAccess | null> {
   const board = await prisma.board.findUnique({
     where: { id: boardId },
-    include: { members: { where: { userId } } },
+    // PENDING — ще лише запрошення, доступу не дає
+    include: { members: { where: { userId, status: 'ACCEPTED' } } },
   });
   if (!board) return null;
   if (board.ownerId === userId) return { board, role: 'OWNER', roleGrantedBy: null };
@@ -92,6 +93,7 @@ export function toBoardDetail(
     displayName: m.user.displayName,
     role: m.role,
     roleGrantedBy: m.roleGrantedBy,
+    status: m.status,
   }));
 
   const mine = members.find((m) => m.userId === userId);

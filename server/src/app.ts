@@ -8,6 +8,7 @@ import { authRouter } from './auth/auth.routes';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
 import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
+import { invitesRouter } from './boards/invites.routes';
 import { seatsRouter } from './boards/seats.routes';
 import { snapshotsRouter } from './boards/snapshots.routes';
 import { versionsRouter } from './boards/versions.routes';
@@ -53,6 +54,7 @@ app.get('/api/ice-config', requireAuth, (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/boards', boardsRouter);
+app.use('/api/invites', invitesRouter);
 app.use('/api/boards/:id/snapshot', snapshotsRouter);
 app.use('/api/boards/:id/chat', chatRouter);
 app.use('/api/boards/:id/seat', seatsRouter);

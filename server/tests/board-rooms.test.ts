@@ -5,6 +5,7 @@ import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CHAT_MAX_LENGTH, SYNC_MSG } from 'shared';
 import { app } from '../src/app';
+import { addMember } from './helpers';
 import { roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
 import { prisma } from '../src/prisma';
 
@@ -122,8 +123,8 @@ async function boardWithMembers() {
   const viewer = await user();
   const board = await owner.agent.post('/api/boards').send({ title: 'Кімната' });
   const boardId = board.body.id as string;
-  await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: editor.email, role: 'EDITOR' });
-  await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: viewer.email, role: 'VIEWER' });
+  await addMember(owner, boardId, editor, 'EDITOR');
+  await addMember(owner, boardId, viewer, 'VIEWER');
   return { boardId, owner, editor, viewer };
 }
 
@@ -136,6 +137,15 @@ describe('кімнати дошок поверх ws', () => {
     expect(await rejected(connect('no-such-board', editor.cookie))).toBe(404);
     await opened(connect(boardId, editor.cookie));
     expect(roomSize(boardId)).toBe(1);
+  });
+
+  it('запрошений, але ще не прийняв — у кімнату не пускає', async () => {
+    const { boardId, owner } = await boardWithMembers();
+    const guest = await user();
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: guest.email, role: 'EDITOR' });
+    expect(await rejected(connect(boardId, guest.cookie))).toBe(404);
+    await guest.agent.post(`/api/invites/${boardId}/accept`);
+    await opened(connect(boardId, guest.cookie));
   });
 
   it('update редактора летить усім іншим як є, собі — ні; глядача — нікому', async () => {

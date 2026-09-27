@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/prisma';
-import { registerUser } from './helpers';
+import { addMember, registerUser } from './helpers';
 
 afterEach(async () => {
   await prisma.user.deleteMany();
@@ -150,12 +150,8 @@ describe('снепшот дошки', () => {
     const editor = await registerUser();
     const viewer = await registerUser();
     const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
-    await owner.agent
-      .post(`/api/boards/${board.body.id}/members`)
-      .send({ email: editor.payload.email, role: 'EDITOR' });
-    await owner.agent
-      .post(`/api/boards/${board.body.id}/members`)
-      .send({ email: viewer.payload.email, role: 'VIEWER' });
+    await addMember(owner, board.body.id, editor, 'EDITOR');
+    await addMember(owner, board.body.id, viewer, 'VIEWER');
 
     expect(
       (await editor.agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [sticky] })).status,

@@ -40,10 +40,12 @@ boardsRouter.use(requireAuth);
 boardsRouter.get('/', async (req, res, next) => {
   try {
     const boards = await prisma.board.findMany({
-      where: { OR: [{ ownerId: req.userId }, { members: { some: { userId: req.userId } } }] },
+      where: {
+        OR: [{ ownerId: req.userId }, { members: { some: { userId: req.userId, status: 'ACCEPTED' } } }],
+      },
       orderBy: { updatedAt: 'desc' },
       // лише свій рядок участі — щоб знати власну роль на кожній дошці
-      include: { members: { where: { userId: req.userId } } },
+      include: { members: { where: { userId: req.userId, status: 'ACCEPTED' } } },
     });
 
     const body: BoardListResponse = {
@@ -146,9 +148,12 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
     });
     if (existing) await requireCanManage(access, user.id);
 
+    // новий учасник — лише запрошення, доступ зʼявиться, коли він прийме.
+    // наявному міняємо тільки роль, статус не чіпаємо
+
     await prisma.boardMember.upsert({
       where: { boardId_userId: { boardId: access.board.id, userId: user.id } },
-      create: { boardId: access.board.id, userId: user.id, role, roleGrantedBy: req.userId },
+      create: { boardId: access.board.id, userId: user.id, role, roleGrantedBy: req.userId, status: 'PENDING' },
       update: { role, roleGrantedBy: req.userId },
     });
     // те саме, що й у patch нижче: відкритий сокет живе з роллю, взятою на
