@@ -101,8 +101,10 @@ export function BoardsPage() {
           <span className="boards-me-row">
             <Avatar userId={user.id} name={user.displayName} url={user.avatarUrl} size={36} />
             <span className="boards-me">
-              <strong>{user.displayName}</strong>
-              <span className="board-role">{user.email}</span>
+              <strong title={user.displayName}>{user.displayName}</strong>
+              <span className="board-role" title={user.email}>
+                {user.email}
+              </span>
             </span>
           </span>
         )}

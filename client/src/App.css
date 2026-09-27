@@ -309,6 +309,7 @@ header {
 
 .boards-me-row {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 0.6rem;
   min-width: 0;
@@ -460,6 +461,15 @@ header {
 
 .boards-me strong {
   font-weight: 600;
+}
+
+/* пошта — майже без місць для переносу, і на андроїді її хвіст вилазив поверх
+«налаштувань». один рядок із трикрапкою, повне — у title */
+.boards-me strong,
+.boards-me .board-role {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .boards-title {
