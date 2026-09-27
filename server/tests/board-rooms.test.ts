@@ -3,10 +3,10 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { CHAT_MAX_LENGTH, SYNC_MSG } from 'shared';
+import { CHAT_MAX_LENGTH, encodeCellKey, SYNC_MSG } from 'shared';
 import { app } from '../src/app';
 import { addMember } from './helpers';
-import { roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
+import { cellRoomSize, roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
 import { prisma } from '../src/prisma';
 
 // той самий роутинг апгрейду, що в index.ts, лише на випадковому порту
@@ -773,5 +773,135 @@ describe('кімнати дошок поверх ws', () => {
     b.close();
     await new Promise((r) => setTimeout(r, 100));
     expect(roomSize(boardId)).toBe(0);
+  });
+});
+
+describe('кімнати клітинок (стратегія 3)', () => {
+  const cellMsg = (type: number, cell: string, body: number[] = []) =>
+    Buffer.concat([Buffer.from([type]), Buffer.from(encodeCellKey(cell)), Buffer.from(body)]);
+  const subscribe = (ws: WebSocket, add: string[], remove: string[] = []) =>
+    ws.send(Buffer.concat([Buffer.from([SYNC_MSG.CELL_SUBSCRIBE]), Buffer.from(JSON.stringify({ add, remove }))]));
+  // усі кадри вмісту клітинок за вікно часу — щоб довести, що НЕ прийшло нічого
+  const collectCell = (ws: WebSocket, ms = 250) =>
+    new Promise<Buffer[]>((resolve) => {
+      const got: Buffer[] = [];
+      const on = (data: unknown) => {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+        if (buf[0] >= SYNC_MSG.CELL_SUBSCRIBE && buf[0] <= SYNC_MSG.CELL_RESET) got.push(buf);
+      };
+      ws.on('message', on);
+      setTimeout(() => {
+        ws.off('message', on);
+        resolve(got);
+      }, ms);
+    });
+  const settle = () => new Promise((r) => setTimeout(r, 60));
+
+  async function three() {
+    const { boardId, owner, editor, viewer } = await boardWithMembers();
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, editor.cookie);
+    const v = connect(boardId, viewer.cookie);
+    await Promise.all([opened(a), opened(b), opened(v)]);
+    return { boardId, a, b, v };
+  }
+
+  it('правка клітинки доходить лише до її передплатників', async () => {
+    const { a, b, v } = await three();
+    subscribe(a, ['0:0']);
+    subscribe(b, ['5:5']);
+    subscribe(v, ['0:0']);
+    await settle();
+    const toB = collectCell(b);
+    const toV = nextOfType(v, SYNC_MSG.CELL_UPDATE);
+    const toA = collectCell(a);
+    a.send(cellMsg(SYNC_MSG.CELL_UPDATE, '0:0', [9, 9, 9]));
+    expect([...(await toV)!]).toEqual([...cellMsg(SYNC_MSG.CELL_UPDATE, '0:0', [9, 9, 9])]);
+    expect(await toB).toHaveLength(0);
+    // собі — нічого
+    expect(await toA).toHaveLength(0);
+  });
+
+  it('після виходу з клітинки правки з неї більше не приходять', async () => {
+    const { a, b } = await three();
+    subscribe(a, ['0:0']);
+    subscribe(b, ['0:0']);
+    await settle();
+    const first = nextOfType(b, SYNC_MSG.CELL_UPDATE);
+    a.send(cellMsg(SYNC_MSG.CELL_UPDATE, '0:0', [1]));
+    expect(await first).not.toBeNull();
+    subscribe(b, [], ['0:0']);
+    await settle();
+    const after = collectCell(b);
+    a.send(cellMsg(SYNC_MSG.CELL_UPDATE, '0:0', [2]));
+    expect(await after).toHaveLength(0);
+  });
+
+  it('глядач не пише; у клітинку без передплати не пише ніхто', async () => {
+    const { a, b, v } = await three();
+    subscribe(a, ['0:0']);
+    subscribe(v, ['0:0']);
+    subscribe(b, ['1:0']);
+    await settle();
+    const toA = collectCell(a);
+    v.send(cellMsg(SYNC_MSG.CELL_UPDATE, '0:0', [7]));
+    // b не передплачений на 0:0 — його кадр туди не йде
+    b.send(cellMsg(SYNC_MSG.CELL_UPDATE, '0:0', [8]));
+    expect(await toA).toHaveLength(0);
+  });
+
+  it('sync-запит іде найстаршому редактору саме цієї клітинки, відповідь — лише тому, хто питав', async () => {
+    const { a, b, v } = await three();
+    subscribe(a, ['0:0']);
+    subscribe(b, ['5:5']);
+    await settle();
+    subscribe(v, ['0:0']);
+    await settle();
+    const toA = nextOfType(a, SYNC_MSG.CELL_SYNC_REQUEST);
+    const toB = collectCell(b);
+    v.send(cellMsg(SYNC_MSG.CELL_SYNC_REQUEST, '0:0', [0]));
+    const req = (await toA)!;
+    // [23][id:4][len][cell][sv]
+    const requesterId = req.readUInt32BE(1);
+    expect([...req.subarray(5)]).toEqual([...cellMsg(0, '0:0', [0]).subarray(1)]);
+    expect(await toB).toHaveLength(0);
+
+    const reply = nextOfType(v, SYNC_MSG.CELL_SYNC_REPLY);
+    const idBytes = Buffer.alloc(4);
+    idBytes.writeUInt32BE(requesterId);
+    a.send(
+      Buffer.concat([
+        Buffer.from([SYNC_MSG.CELL_SYNC_REPLY]),
+        idBytes,
+        Buffer.from(encodeCellKey('0:0')),
+        Buffer.from([4, 2]),
+      ]),
+    );
+    expect([...(await reply)!]).toEqual([...cellMsg(SYNC_MSG.CELL_SYNC_REPLY, '0:0', [4, 2])]);
+  });
+
+  it('відповідати нема кому — порожня відповідь, а глядачам клітинки CELL_RESET', async () => {
+    const { a, v } = await three();
+    subscribe(v, ['2:2']);
+    await settle();
+    subscribe(a, ['2:2']);
+    await settle();
+    const reply = nextOfType(a, SYNC_MSG.CELL_SYNC_REPLY);
+    const reset = nextOfType(v, SYNC_MSG.CELL_RESET);
+    a.send(cellMsg(SYNC_MSG.CELL_SYNC_REQUEST, '2:2', [0]));
+    expect([...(await reply)!]).toEqual([...cellMsg(SYNC_MSG.CELL_SYNC_REPLY, '2:2')]);
+    expect([...(await reset)!]).toEqual([...cellMsg(SYNC_MSG.CELL_RESET, '2:2')]);
+  });
+
+  it('закритий сокет зникає з кімнат клітинок', async () => {
+    const { boardId, a, b } = await three();
+    subscribe(a, ['0:0', '1:0']);
+    subscribe(b, ['0:0']);
+    await settle();
+    expect(cellRoomSize(boardId, '0:0')).toBe(2);
+    a.close();
+    await new Promise((r) => setTimeout(r, 150));
+    expect(cellRoomSize(boardId, '0:0')).toBe(1);
+    expect(cellRoomSize(boardId, '1:0')).toBe(0);
   });
 });

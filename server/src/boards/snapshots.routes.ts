@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request } from 'express';
+import { cellOfObject } from 'shared';
 import type { BoardObject, SaveSnapshotRequest, SnapshotResponse } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
 import { AppError } from '../errors';
@@ -42,12 +43,26 @@ snapshotsRouter.put('/', async (req: Request<{ id: string }>, res, next) => {
     if (!parsed.success) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Некоректний стан дошки');
     }
-    const { objects }: SaveSnapshotRequest = parsed.data;
+    const { cells }: SaveSnapshotRequest = parsed.data;
+    let { objects }: SaveSnapshotRequest = parsed.data;
 
     // єдине місце, де вміст дошки лягає в базу. Пишемо в журнал кількість
     // обʼєктів і хто пише: саме тут зникали обʼєкти (журнал 20.09)
     const previous = await readSnapshotState(access.board.id);
-    const wasEmpty = previous ? (JSON.parse(previous.toString('utf8')) as unknown[]).length : 0;
+    const previousObjects = previous ? (JSON.parse(previous.toString('utf8')) as BoardObject[]) : [];
+    const wasEmpty = previousObjects.length;
+
+    // стратегія 3: клієнт бачить лише свої клітинки. Замінюємо в базі рівно їх —
+    // інакше він стер би все, чого не бачить (той самий клас втрати, що 18.09).
+    // обʼєкт поза переліченими клітинками від нього не приймаємо: про ту
+    // клітинку він не знає правди
+    if (cells) {
+      const mine = new Set(cells);
+      objects = [
+        ...previousObjects.filter((o) => !mine.has(cellOfObject(o))),
+        ...objects.filter((o) => mine.has(cellOfObject(o))),
+      ];
+    }
     if (objects.length === 0 && wasEmpty > 0) {
       console.warn(
         `[boardsync-diag] ${new Date().toISOString()} УВАГА: порожній знімок поверх непорожнього`,
@@ -56,7 +71,12 @@ snapshotsRouter.put('/', async (req: Request<{ id: string }>, res, next) => {
     } else {
       console.info(
         `[boardsync-diag] ${new Date().toISOString()} знімок збережено`,
-        JSON.stringify({ boardId: access.board.id, userId: req.userId, було: wasEmpty, стало: objects.length }),
+        JSON.stringify({
+          boardId: access.board.id,
+          userId: req.userId,
+          було: wasEmpty,
+          стало: objects.length,
+        }),
       );
     }
 

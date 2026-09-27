@@ -89,6 +89,30 @@ import type { BoardRole } from './boards';
 //             чиї записи нікуди не йдуть, міг би назавжди лишитись свій варіант.
 //             writer — null, коли редакторів у кімнаті нема: тоді кожен
 //             перечитує в себе сам, як на відкритті дошки
+//
+// стратегія 3 — синхронізація з областю інтересу (журнал 27.09, клітинки —
+// shared/cells). Той самий протокол UPDATE/SYNC_REQUEST/SYNC_REPLY, лише кімната
+// вже не дошка, а (дошка, клітинка): у кожної клітинки своя незалежна історія
+// yjs, і клієнт бере участь лише в історіях клітинок, на які передплачений.
+// У чужій історії він не має жодного клоку — тому пропустити щось у ній не може,
+// і дірки, як 18.09, взятись нізвідки. Ключ клітинки в кадрі — [len:u8][utf8]:
+//   CELL_SUBSCRIBE    [21][json CellSubscribeMessage]  клієнт → серверу: у які
+//             кімнати клітинок увійти й з яких вийти. Presence і решта лишаються
+//             в кімнаті дошки — клітинки лише для вмісту
+//   CELL_UPDATE       [22][len][cell][yjs update]      редактор → решті в кімнаті
+//             клітинки. Сервер читає лише ключ, у вміст не заглядає
+//   CELL_SYNC_REQUEST [23][len][cell][state vector]    як SYNC_REQUEST, але в
+//             межах клітинки: сервер дописує 4 байти id і шле найстаршому живому
+//             редактору цієї клітинки: [23][id][len][cell][sv]
+//   CELL_SYNC_REPLY   [24][id][len][cell][yjs update]  відповідь; сервер знімає id:
+//             [24][len][cell][update]. [24][len][cell] без тіла — «відповідати нема
+//             кому»: тоді правда для клітинки — rest-снепшот
+//   CELL_RESET        [25][len][cell]                  сервер → глядачам клітинки:
+//             редактор зайшов у клітинку, де відповісти йому не було кому, і
+//             почне її історію наново зі снепшоту. Документ глядача з записами
+//             тих, хто вже пішов, конфліктував би з цими записами — тому глядач
+//             кидає його й просить історію знову (та сама причина, що
+//             adoptFreshEditor для цілої дошки)
 // Хто в кімнаті — знає сам сервер, тому роздає це він, а не клієнти
 // здогадуються з чужого трафіку. Присутність ефемерна: у Y.Doc і в базу не
 // потрапляє, з розривом сокета просто зникає. Глядач присутній нарівні з
@@ -121,7 +145,41 @@ export const SYNC_MSG = {
   FORCE_DEAFEN: 18,
   SHOW_VIEW: 19,
   RESTORED: 20,
+  CELL_SUBSCRIBE: 21,
+  CELL_UPDATE: 22,
+  CELL_SYNC_REQUEST: 23,
+  CELL_SYNC_REPLY: 24,
+  CELL_RESET: 25,
 } as const;
+
+export interface CellSubscribeMessage {
+  add: string[];
+  remove: string[];
+}
+
+// ключ клітинки в кадрі: [len:u8][utf8]. «-123:456» вміщається з запасом
+export const CELL_KEY_MAX_BYTES = 32;
+
+const cellEncoder = new TextEncoder();
+const cellDecoder = new TextDecoder();
+
+export function encodeCellKey(cell: string) {
+  const bytes = cellEncoder.encode(cell);
+  const out = new Uint8Array(1 + bytes.length);
+  out[0] = bytes.length;
+  out.set(bytes, 1);
+  return out;
+}
+
+// ключ і де починається решта кадру; null — зіпсований кадр
+export function decodeCellKey(bytes: Uint8Array, offset: number): { cell: string; next: number } | null {
+  if (offset >= bytes.length) return null;
+  const len = bytes[offset];
+  if (len === 0 || len > CELL_KEY_MAX_BYTES || offset + 1 + len > bytes.length) return null;
+  const cell = cellDecoder.decode(bytes.subarray(offset + 1, offset + 1 + len));
+  if (!/^-?\d+:-?\d+$/.test(cell)) return null;
+  return { cell, next: offset + 1 + len };
+}
 
 export const SYNC_REQUESTER_ID_BYTES = 4;
 

@@ -67,4 +67,9 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
 
 export const saveSnapshotSchema = z.object({
   objects: z.array(boardObjectSchema),
+  // стратегія 3: які клітинки клієнт тримає синхронізованими й переписує
+  cells: z
+    .array(z.string().regex(/^-?\d+:-?\d+$/))
+    .max(10_000)
+    .optional(),
 });

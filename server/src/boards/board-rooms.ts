@@ -2,8 +2,15 @@ import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
-import { CHAT_MAX_LENGTH, CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
-import type { BoardRole, PresenceMember, RestoredMessage, RosterMessage } from 'shared';
+import {
+  CHAT_MAX_LENGTH,
+  CURSOR_BYTES,
+  decodeCellKey,
+  encodeCellKey,
+  SYNC_MSG,
+  SYNC_REQUESTER_ID_BYTES,
+} from 'shared';
+import type { BoardRole, CellSubscribeMessage, PresenceMember, RestoredMessage, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getUserCard } from './boards.service';
@@ -42,7 +49,9 @@ const forcedVoice = new Map<string, ForcedVoice>();
 const forcedKey = (boardId: string, userId: string) => `${boardId}:${userId}`;
 
 function forcedFor(boardId: string, userId: string): ForcedVoice {
-  return forcedVoice.get(forcedKey(boardId, userId)) ?? { mute: false, deafen: false, muteBeforeDeafen: false };
+  return (
+    forcedVoice.get(forcedKey(boardId, userId)) ?? { mute: false, deafen: false, muteBeforeDeafen: false }
+  );
 }
 
 // той самий журнал, що й у клієнта: коли обʼєкти зникають, послідовність
@@ -62,6 +71,126 @@ let nextClientId = 1;
 const KEEPALIVE_MS = 10_000;
 
 const PATH = /^\/ws\/boards\/([^/]+)$/;
+
+// стратегія 3: кімнати клітинок. Та сама мапа «id → сокет» з порядком вставки
+// (найстарший відповідає на sync-запит), лише ключ — (дошка, клітинка). Сокет
+// один на дошку, а кімнат клітинок у нього стільки, на скільки передплачений
+const cellRooms = new Map<string, Map<string, Map<number, WebSocket>>>();
+const subscriptions = new WeakMap<WebSocket, Set<string>>();
+
+export function cellRoomSize(boardId: string, cell: string) {
+  return cellRooms.get(boardId)?.get(cell)?.size ?? 0;
+}
+
+function joinCell(client: Client, socket: WebSocket, cell: string) {
+  let board = cellRooms.get(client.boardId);
+  if (!board) {
+    board = new Map();
+    cellRooms.set(client.boardId, board);
+  }
+  let room = board.get(cell);
+  if (!room) {
+    room = new Map();
+    board.set(cell, room);
+  }
+  room.set(client.id, socket);
+}
+
+function leaveCell(client: Client, cell: string) {
+  const board = cellRooms.get(client.boardId);
+  const room = board?.get(cell);
+  if (!board || !room) return;
+  room.delete(client.id);
+  // порожня кімната клітинки просто зникає — як і порожня кімната дошки
+  if (room.size === 0) board.delete(cell);
+  if (board.size === 0) cellRooms.delete(client.boardId);
+}
+
+// [тип][len][cell] + решта — кадр клітинки без id
+function cellFrame(type: number, cell: string, body?: Uint8Array) {
+  const key = encodeCellKey(cell);
+  return Buffer.concat([Buffer.from([type]), key, body ?? Buffer.alloc(0)]);
+}
+
+function handleCellFrame(client: Client, socket: WebSocket, buf: Buffer) {
+  const subscribed = subscriptions.get(socket);
+  switch (buf[0]) {
+    case SYNC_MSG.CELL_SUBSCRIBE: {
+      let body: Partial<CellSubscribeMessage>;
+      try {
+        body = JSON.parse(buf.subarray(1).toString('utf8')) as Partial<CellSubscribeMessage>;
+      } catch {
+        return;
+      }
+      const set = subscribed ?? new Set<string>();
+      subscriptions.set(socket, set);
+      const valid = (c: unknown): c is string => typeof c === 'string' && /^-?\d+:-?\d+$/.test(c);
+      // спершу вийти, потім увійти: клітинка в обох списках (передумали) лишається
+      for (const cell of (body.remove ?? []).filter(valid)) {
+        if (set.delete(cell)) leaveCell(client, cell);
+      }
+      for (const cell of (body.add ?? []).filter(valid)) {
+        if (set.has(cell)) continue;
+        set.add(cell);
+        joinCell(client, socket, cell);
+      }
+      return;
+    }
+
+    case SYNC_MSG.CELL_UPDATE: {
+      if (client.role === 'VIEWER') return;
+      const key = decodeCellKey(buf, 1);
+      // пише лише в клітинку, на яку передплачений: інакше в кімнаті лишились
+      // би записи від того, хто на чужі відповіді ніколи не підписувався
+      if (!key || !subscribed?.has(key.cell)) return;
+      const room = cellRooms.get(client.boardId)?.get(key.cell);
+      if (!room) return;
+      for (const [id, other] of room) if (id !== client.id) send(other, buf);
+      return;
+    }
+
+    case SYNC_MSG.CELL_SYNC_REQUEST: {
+      const key = decodeCellKey(buf, 1);
+      if (!key || !subscribed?.has(key.cell)) return;
+      const room = cellRooms.get(client.boardId)?.get(key.cell);
+      if (!room) return;
+      // найстарший живий редактор саме цієї клітинки — правило те саме, що для дошки
+      const responder = [...room.entries()].find(
+        ([id, other]) =>
+          id !== client.id && other.readyState === WebSocket.OPEN && clients.get(other)?.role !== 'VIEWER',
+      );
+      if (!responder) {
+        send(socket, cellFrame(SYNC_MSG.CELL_SYNC_REPLY, key.cell));
+        // редактор почне історію клітинки наново — глядачі з неї мусять
+        // скинути свій документ, інакше записи тих, хто пішов, переважать нові
+        if (client.role !== 'VIEWER') {
+          for (const [id, other] of room) {
+            if (id !== client.id && clients.get(other)?.role === 'VIEWER') {
+              send(other, cellFrame(SYNC_MSG.CELL_RESET, key.cell));
+            }
+          }
+        }
+        return;
+      }
+      send(responder[1], withClientId(SYNC_MSG.CELL_SYNC_REQUEST, client.id, buf));
+      return;
+    }
+
+    case SYNC_MSG.CELL_SYNC_REPLY: {
+      if (client.role === 'VIEWER' || buf.length < 1 + SYNC_REQUESTER_ID_BYTES) return;
+      const key = decodeCellKey(buf, 1 + SYNC_REQUESTER_ID_BYTES);
+      if (!key) return;
+      const requesterId = buf.readUInt32BE(1);
+      const requester = cellRooms.get(client.boardId)?.get(key.cell)?.get(requesterId);
+      if (!requester || requester === socket) return;
+      const stripped = Buffer.alloc(buf.length - SYNC_REQUESTER_ID_BYTES);
+      stripped[0] = SYNC_MSG.CELL_SYNC_REPLY;
+      buf.copy(stripped, 1, 1 + SYNC_REQUESTER_ID_BYTES);
+      send(requester, stripped);
+      return;
+    }
+  }
+}
 
 export function roomSize(boardId: string) {
   return rooms.get(boardId)?.size ?? 0;
@@ -467,6 +596,13 @@ boardRoomWss.on('connection', (socket) => {
         return;
       }
 
+      case SYNC_MSG.CELL_SUBSCRIBE:
+      case SYNC_MSG.CELL_UPDATE:
+      case SYNC_MSG.CELL_SYNC_REQUEST:
+      case SYNC_MSG.CELL_SYNC_REPLY:
+        handleCellFrame(client, socket, buf);
+        return;
+
       case SYNC_MSG.SYNC_REPLY: {
         if (client.role === 'VIEWER' || buf.length < 1 + SYNC_REQUESTER_ID_BYTES) return;
         const requester = room.get(buf.readUInt32BE(1));
@@ -487,6 +623,10 @@ boardRoomWss.on('connection', (socket) => {
   });
 
   const leave = () => {
+    // з кімнат клітинок — теж, інакше мертвий сокет лишався б найстаршим і
+    // ковтав sync-запити новачків клітинки
+    for (const cell of subscriptions.get(socket) ?? []) leaveCell(client, cell);
+    subscriptions.delete(socket);
     if (!room.delete(client.id)) return;
     diag('з кімнати вийшли', { boardId: client.boardId, clientId: client.id, лишилось: room.size });
     for (const [, other] of room) send(other, jsonFrame(SYNC_MSG.LEAVE, { clientId: client.id }));

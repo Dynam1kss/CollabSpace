@@ -173,3 +173,58 @@ describe('снепшот дошки', () => {
     expect(await prisma.boardSnapshot.count()).toBe(0);
   });
 });
+
+describe('снепшот частинами (стратегія 3)', () => {
+  const at = (id: string, x: number, y: number) => ({ ...sticky, id, x, y });
+
+  it('put з cells замінює лише ці клітинки, решту дошки не чіпає', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Велика' });
+    const id = board.body.id as string;
+    // 0:0, 5:0 і 0:5 — три далекі клітинки
+    await agent
+      .put(`/api/boards/${id}/snapshot`)
+      .send({ objects: [at('a', 10, 10), at('b', 10000, 10), at('c', 10, 10000)] });
+
+    // клієнт бачить лише 0:0: пересунув «a» всередині неї й додав «d» там же
+    const res = await agent
+      .put(`/api/boards/${id}/snapshot`)
+      .send({ objects: [at('a', 300, 300), at('d', 900, 900)], cells: ['0:0'] });
+    expect(res.status).toBe(204);
+
+    const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as { id: string; x: number }[];
+    expect(got.map((o) => o.id).sort()).toEqual(['a', 'b', 'c', 'd']);
+    expect(got.find((o) => o.id === 'a')!.x).toBe(300);
+  });
+
+  it('видалення в своїй клітинці лягає, чужі клітинки цілі', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Велика' });
+    const id = board.body.id as string;
+    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [at('a', 10, 10), at('b', 10000, 10)] });
+    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [], cells: ['0:0'] });
+    const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as { id: string }[];
+    expect(got.map((o) => o.id)).toEqual(['b']);
+  });
+
+  it('чужу клітинку з переліченими не переписати', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Велика' });
+    const id = board.body.id as string;
+    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [at('b', 10000, 10)] });
+    // клієнт тримає 0:0, але підсунув свою версію «b» із 5:0
+    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [at('b', 10500, 10)], cells: ['0:0'] });
+    const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as { id: string; x: number }[];
+    expect(got).toHaveLength(1);
+    expect(got[0].x).toBe(10000);
+  });
+
+  it('зіпсований ключ клітинки — 400', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Велика' });
+    const res = await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [], cells: ['0;0'] });
+    expect(res.status).toBe(400);
+  });
+});

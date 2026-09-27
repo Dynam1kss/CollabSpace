@@ -117,6 +117,9 @@ export interface SnapshotResponse {
 
 export interface SaveSnapshotRequest {
   objects: BoardObject[];
+  // стратегія 3: клієнт має лише частину дошки, тож пише не всю, а ці клітинки —
+  // сервер замінює в базі тільки їх, решту лишає як є. Нема поля — уся дошка
+  cells?: string[];
 }
 
 // рядок списку версій — без самого стану: список відкривають часто, а
