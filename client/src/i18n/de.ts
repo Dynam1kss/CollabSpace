@@ -212,7 +212,7 @@ export const de: Translation = {
   search: {
     open: 'Board durchsuchen',
     title: 'Suche',
-    placeholder: 'Text auf einer Notiz oder in einem Block',
+    placeholder: 'Text in Notizen und Blöcken',
     query: 'Suchbegriff',
     emptyHit: '(leer)',
   },
