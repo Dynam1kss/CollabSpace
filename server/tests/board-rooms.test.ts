@@ -855,6 +855,10 @@ describe('кімнати клітинок (стратегія 3)', () => {
     subscribe(a, ['0:0']);
     subscribe(b, ['5:5']);
     await settle();
+    // a спершу сам синхронізується — лише тоді він може відповідати іншим
+    const own = nextOfType(a, SYNC_MSG.CELL_SYNC_REPLY);
+    a.send(cellMsg(SYNC_MSG.CELL_SYNC_REQUEST, '0:0', [0]));
+    await own;
     subscribe(v, ['0:0']);
     await settle();
     const toA = nextOfType(a, SYNC_MSG.CELL_SYNC_REQUEST);
@@ -903,5 +907,22 @@ describe('кімнати клітинок (стратегія 3)', () => {
     await new Promise((r) => setTimeout(r, 150));
     expect(cellRoomSize(boardId, '0:0')).toBe(1);
     expect(cellRoomSize(boardId, '1:0')).toBe(0);
+  });
+
+  it('двоє зайшли в порожню клітинку разом: другому відповідає перший, лише коли той сам синхронізований', async () => {
+    const { a, b } = await three();
+    subscribe(a, ['3:3']);
+    subscribe(b, ['3:3']);
+    await settle();
+    // a ще не синхронізований — на запит b відповідає сервер, а не a
+    const toA = collectCell(a);
+    const replyB = nextOfType(b, SYNC_MSG.CELL_SYNC_REPLY);
+    b.send(cellMsg(SYNC_MSG.CELL_SYNC_REQUEST, '3:3', [0]));
+    expect([...(await replyB)!]).toEqual([...cellMsg(SYNC_MSG.CELL_SYNC_REPLY, '3:3')]);
+    expect((await toA).filter((f) => f[0] === SYNC_MSG.CELL_SYNC_REQUEST)).toHaveLength(0);
+    // тепер b синхронізований — запит a іде вже йому
+    const toB = nextOfType(b, SYNC_MSG.CELL_SYNC_REQUEST);
+    a.send(cellMsg(SYNC_MSG.CELL_SYNC_REQUEST, '3:3', [0]));
+    expect(await toB).not.toBeNull();
   });
 });

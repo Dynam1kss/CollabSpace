@@ -77,6 +77,20 @@ const PATH = /^\/ws\/boards\/([^/]+)$/;
 // один на дошку, а кімнат клітинок у нього стільки, на скільки передплачений
 const cellRooms = new Map<string, Map<string, Map<number, WebSocket>>>();
 const subscriptions = new WeakMap<WebSocket, Set<string>>();
+// клітинки, по яких сокет уже отримав відповідь на свій sync-запит. Відповідати
+// іншим може лише такий: інакше двоє, що зайшли в порожню клітинку разом,
+// віддали б одне одному порожні документи, обидва вважали б клітинку
+// синхронізованою — і збереження стерло б її вміст у базі
+const syncedCells = new WeakMap<WebSocket, Set<string>>();
+
+function markSynced(socket: WebSocket, cell: string) {
+  let set = syncedCells.get(socket);
+  if (!set) {
+    set = new Set();
+    syncedCells.set(socket, set);
+  }
+  set.add(cell);
+}
 
 export function cellRoomSize(boardId: string, cell: string) {
   return cellRooms.get(boardId)?.get(cell)?.size ?? 0;
@@ -128,6 +142,7 @@ function handleCellFrame(client: Client, socket: WebSocket, buf: Buffer) {
       // спершу вийти, потім увійти: клітинка в обох списках (передумали) лишається
       for (const cell of (body.remove ?? []).filter(valid)) {
         if (set.delete(cell)) leaveCell(client, cell);
+        syncedCells.get(socket)?.delete(cell);
       }
       for (const cell of (body.add ?? []).filter(valid)) {
         if (set.has(cell)) continue;
@@ -157,9 +172,13 @@ function handleCellFrame(client: Client, socket: WebSocket, buf: Buffer) {
       // найстарший живий редактор саме цієї клітинки — правило те саме, що для дошки
       const responder = [...room.entries()].find(
         ([id, other]) =>
-          id !== client.id && other.readyState === WebSocket.OPEN && clients.get(other)?.role !== 'VIEWER',
+          id !== client.id &&
+          other.readyState === WebSocket.OPEN &&
+          clients.get(other)?.role !== 'VIEWER' &&
+          syncedCells.get(other)?.has(key.cell),
       );
       if (!responder) {
+        markSynced(socket, key.cell);
         send(socket, cellFrame(SYNC_MSG.CELL_SYNC_REPLY, key.cell));
         // редактор почне історію клітинки наново — глядачі з неї мусять
         // скинути свій документ, інакше записи тих, хто пішов, переважать нові
@@ -186,6 +205,7 @@ function handleCellFrame(client: Client, socket: WebSocket, buf: Buffer) {
       const stripped = Buffer.alloc(buf.length - SYNC_REQUESTER_ID_BYTES);
       stripped[0] = SYNC_MSG.CELL_SYNC_REPLY;
       buf.copy(stripped, 1, 1 + SYNC_REQUESTER_ID_BYTES);
+      markSynced(requester, key.cell);
       send(requester, stripped);
       return;
     }
