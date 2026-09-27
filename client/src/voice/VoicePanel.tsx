@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { VOICE_MAX_PARTICIPANTS } from 'shared';
 import { usePresenceStore } from '../canvas/presence-store';
-import { colorForUser, initialsOf } from '../canvas/presence-colors';
+import { colorForUser } from '../canvas/presence-colors';
+import { PresenceFace } from '../components/PresenceFace';
 import { forceVoice } from '../api/boards';
 import { canManageMember } from 'shared';
 import { setDeafened, setMicMuted, startVoice, stopVoice, voiceIsFull } from './voice-mesh';
@@ -125,7 +126,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
             })}
           >
             <span className="voice-peer" style={{ background: colorForUser(members[selfClientId].userId) }}>
-              {initialsOf(members[selfClientId].displayName)}
+              <PresenceFace name={members[selfClientId].displayName} url={members[selfClientId].avatarUrl} />
             </span>
           </span>
         </div>
@@ -157,7 +158,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                     }}
                     data-volume={Math.round(peers[clientId].volume * 100)}
                   >
-                    {initialsOf(member.displayName)}
+                    <PresenceFace name={member.displayName} url={member.avatarUrl} />
                   </span>
                 </span>
                 {/* на тачі те, що на десктопі лежить у title кружечка, мусить

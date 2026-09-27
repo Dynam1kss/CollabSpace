@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePresenceStore, otherMembers } from './presence-store';
-import { colorForUser, initialsOf } from './presence-colors';
+import { colorForUser } from './presence-colors';
+import { PresenceFace } from '../components/PresenceFace';
 import { PeopleIcon } from './icons';
 import { useNarrow } from '../use-narrow';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,7 @@ export function Participants() {
                 role: t(`roles.${member.role}`),
               })}
             >
-              {initialsOf(member.displayName)}
+              <PresenceFace name={member.displayName} url={member.avatarUrl} />
             </span>
           ))
         )}
@@ -74,7 +75,7 @@ export function Participants() {
         {members.map((member) => (
           <li key={member.clientId}>
             <span className="participant" style={{ background: colorForUser(member.userId) }}>
-              {initialsOf(member.displayName)}
+              <PresenceFace name={member.displayName} url={member.avatarUrl} />
             </span>
             <span className="member-who">{member.displayName}</span>
             <span className="board-role">{t(`roles.${member.role}`)}</span>
