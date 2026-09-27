@@ -169,6 +169,7 @@ header {
   justify-content: center;
   gap: 0.75rem;
   min-height: 100vh;
+  min-height: 100dvh;
   max-width: none;
   margin: 0;
   padding: 1rem;
@@ -583,7 +584,10 @@ header {
 .board-page {
   display: flex;
   flex-direction: column;
+  /* 100vh на андроїді рахується під сховану адресну панель — низ з
+  інструментами опинявся за екраном. vh лишаю для старих браузерів */
   height: 100vh;
+  height: 100dvh;
   color: var(--text);
 }
 
@@ -1523,13 +1527,16 @@ elementFromPoint повертав би її саму замість колонк
     padding: 0.35rem 0.45rem;
   }
 
-  /* панель інструментів — рядком унизу: збоку вона зʼїдала половину висоти */
+  /* панель інструментів — рядком унизу: збоку вона зʼїдала половину висоти.
+  ширина по вмісту, бо в глядача там одна кнопка і на весь екран виходила порожня смуга */
   .tool-island {
-    left: 8px;
-    right: 8px;
+    left: 50%;
     top: auto;
     bottom: 8px;
-    transform: none;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 16px);
+    box-sizing: border-box;
     flex-direction: row;
     align-items: center;
     padding: 4px;
