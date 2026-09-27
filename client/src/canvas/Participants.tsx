@@ -3,13 +3,7 @@ import { usePresenceStore, otherMembers } from './presence-store';
 import { colorForUser, initialsOf } from './presence-colors';
 import { PeopleIcon } from './icons';
 import { useNarrow } from '../use-narrow';
-
-const ROLE_TEXT = {
-  OWNER: 'власник',
-  ADMIN: 'адміністратор',
-  EDITOR: 'редактор',
-  VIEWER: 'глядач',
-};
+import { useTranslation } from 'react-i18next';
 
 // хто зараз на дошці, крім мене. Порожній список не ховаємо зовсім — інакше
 // незрозуміло, чи я сам, чи індикатор просто не працює.
@@ -17,6 +11,7 @@ const ROLE_TEXT = {
 // яка відкриває список на весь екран (і заразом показує ролі текстом,
 // бо title на тачі ніхто не побачить)
 export function Participants() {
+  const { t } = useTranslation();
   const members = usePresenceStore(otherMembers);
   const narrow = useNarrow();
   const [open, setOpen] = useState(false);
@@ -25,14 +20,17 @@ export function Participants() {
     return (
       <div className="board-island participants">
         {members.length === 0 ? (
-          <span className="participants-empty">сам на дошці</span>
+          <span className="participants-empty">{t('participants.alone')}</span>
         ) : (
           members.map((member) => (
             <span
               key={member.clientId}
               className="participant"
               style={{ background: colorForUser(member.userId) }}
-              title={`${member.displayName} — ${ROLE_TEXT[member.role]}`}
+              title={t('participants.memberRole', {
+                name: member.displayName,
+                role: t(`roles.${member.role}`),
+              })}
             >
               {initialsOf(member.displayName)}
             </span>
@@ -47,8 +45,8 @@ export function Participants() {
       <button
         type="button"
         className="board-island participants participants-toggle"
-        title="Хто на дошці"
-        aria-label="Хто на дошці"
+        title={t('participants.who')}
+        aria-label={t('participants.who')}
         onClick={() => setOpen(true)}
       >
         <PeopleIcon />
@@ -60,26 +58,26 @@ export function Participants() {
   return (
     <div className="board-island sheet-full">
       <header className="sheet-head">
-        <span>На дошці</span>
+        <span>{t('participants.title')}</span>
         <button
           type="button"
           className="icon-button"
-          title="Закрити"
-          aria-label="Закрити"
+          title={t('common.close')}
+          aria-label={t('common.close')}
           onClick={() => setOpen(false)}
         >
           ×
         </button>
       </header>
       <ul className="sheet-list">
-        {members.length === 0 && <li className="participants-empty">сам на дошці</li>}
+        {members.length === 0 && <li className="participants-empty">{t('participants.alone')}</li>}
         {members.map((member) => (
           <li key={member.clientId}>
             <span className="participant" style={{ background: colorForUser(member.userId) }}>
               {initialsOf(member.displayName)}
             </span>
             <span className="member-who">{member.displayName}</span>
-            <span className="board-role">{ROLE_TEXT[member.role]}</span>
+            <span className="board-role">{t(`roles.${member.role}`)}</span>
           </li>
         ))}
       </ul>

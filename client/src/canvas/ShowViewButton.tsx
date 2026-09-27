@@ -4,6 +4,7 @@ import { otherMembers, usePresenceStore } from './presence-store';
 import { loadShowViewTargets, saveShowViewTargets } from './show-view-targets';
 import type { ShowViewTargets } from './show-view-targets';
 import { useNarrow } from '../use-narrow';
+import { useTranslation } from 'react-i18next';
 
 // скільки кнопка світиться «надіслано»: усе видиме відбувається в чужих
 // вкладках, без цього натискання виглядає так, ніби нічого не сталось
@@ -21,6 +22,7 @@ interface Props {
 // плутали — незрозуміло було, що з них що робить. Вибір адресатів памʼятаємо
 // між сеансами, тож наступного разу лишається лише натиснути «показати»
 export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
+  const { t } = useTranslation();
   const narrow = useNarrow();
   const members = usePresenceStore(otherMembers);
   // читаємо сховище один раз на монтування; інша дошка — інший key у
@@ -76,14 +78,15 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
     setOpen(false);
   }
 
-  const action = targets === 'all' ? 'Показати всім' : `Показати вибраним (${targets.length})`;
+  const action =
+    targets === 'all' ? t('showView.toAll') : t('showView.toSelected', { count: targets.length });
 
   const list = (
     <ul className="show-view-list">
       <li>
         <label>
           <input type="checkbox" checked={targets === 'all'} onChange={() => apply('all')} />
-          <span>Усім</span>
+          <span>{t('showView.everyone')}</span>
         </label>
       </li>
       {people.map((p) => (
@@ -98,7 +101,7 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
           </label>
         </li>
       ))}
-      {people.length === 0 && <li className="show-view-empty">на дошці більше нікого</li>}
+      {people.length === 0 && <li className="show-view-empty">{t('showView.nobody')}</li>}
     </ul>
   );
 
@@ -115,8 +118,8 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
     <button
       type="button"
       className={`${narrow ? 'board-island ' : ''}icon-button show-view${sent ? ' sent' : ''}${open ? ' active' : ''}`}
-      title="Показати мій вид"
-      aria-label="Показати мій вид"
+      title={t('showView.title')}
+      aria-label={t('showView.title')}
       aria-expanded={open}
       onClick={() => setOpen(!open)}
     >
@@ -133,12 +136,12 @@ export function ShowViewButton({ boardId, currentUserId, onShare }: Props) {
         {open && (
           <div className="board-island sheet-full">
             <header className="sheet-head">
-              <span>Показати мій вид</span>
+              <span>{t('showView.title')}</span>
               <button
                 type="button"
                 className="icon-button"
-                title="Закрити"
-                aria-label="Закрити"
+                title={t('common.close')}
+                aria-label={t('common.close')}
                 onClick={() => setOpen(false)}
               >
                 ×

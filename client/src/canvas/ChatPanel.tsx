@@ -6,6 +6,8 @@ import { ChatIcon } from './icons';
 import { colorForUser } from './presence-colors';
 import { publishChat } from './presence-channel';
 import { useNarrow } from '../use-narrow';
+import { useTranslation } from 'react-i18next';
+import { dateLocale } from '../i18n';
 
 interface Props {
   boardId: string;
@@ -14,12 +16,13 @@ interface Props {
 // час показуємо лише годину й хвилину: чат дошки — це розмова тут і зараз,
 // дата в кожному рядку лише заважала б
 function timeOf(iso: string) {
-  return new Date(iso).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 // чат дошки: кнопка внизу праворуч і панель над нею. Історію тягнемо з rest
 // при відкритті дошки, живі повідомлення доносить сокет (useBoardSync)
 export function ChatPanel({ boardId }: Props) {
+  const { t } = useTranslation();
   const messages = useChatStore((s) => s.messages);
   const open = useChatStore((s) => s.open);
   const unread = useChatStore((s) => s.unread);
@@ -67,8 +70,8 @@ export function ChatPanel({ boardId }: Props) {
       <button
         type="button"
         className="board-island chat-toggle"
-        title="Чат"
-        aria-label="Чат"
+        title={t('chat.title')}
+        aria-label={t('chat.title')}
         onClick={() => setOpen(true)}
       >
         <ChatIcon />
@@ -80,12 +83,12 @@ export function ChatPanel({ boardId }: Props) {
   return (
     <div className={narrow ? 'board-island chat-panel sheet-full' : 'board-island chat-panel'}>
       <header className="chat-head sheet-head">
-        <span>Чат</span>
+        <span>{t('chat.title')}</span>
         <button
           type="button"
           className="icon-button"
-          title="Згорнути"
-          aria-label="Згорнути"
+          title={t('chat.collapse')}
+          aria-label={t('chat.collapse')}
           onClick={() => setOpen(false)}
         >
           ×
@@ -94,7 +97,7 @@ export function ChatPanel({ boardId }: Props) {
 
       <div className="chat-list" ref={listRef}>
         {messages.length === 0 ? (
-          <p className="chat-empty">Поки порожньо</p>
+          <p className="chat-empty">{t('chat.empty')}</p>
         ) : (
           messages.map((message) => (
             <div key={message.id} className="chat-message">
@@ -115,11 +118,11 @@ export function ChatPanel({ boardId }: Props) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={CHAT_MAX_LENGTH}
-          placeholder="Написати…"
-          aria-label="Повідомлення"
+          placeholder={t('chat.placeholder')}
+          aria-label={t('chat.message')}
         />
         <button type="submit" disabled={!draft.trim()}>
-          Надіслати
+          {t('chat.send')}
         </button>
       </form>
     </div>

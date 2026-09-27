@@ -10,16 +10,18 @@ import { TextEditor } from '../canvas/TextEditor';
 import { LocateIcon } from '../canvas/icons';
 import { colorForUser } from '../canvas/presence-colors';
 import { lockOwner, usePresenceStore } from '../canvas/presence-store';
+import { useTranslation } from 'react-i18next';
 
 type ColumnKey = StickyColumn | null;
 
 // три колонки фіксовані — це подання, а не окрема модель; "без колонки"
 // першою, бо туди падають усі стікери з полотна, і з неї їх розтягують по решті
+// підпис колонки — ключ перекладу
 const COLUMNS: { key: ColumnKey; label: string }[] = [
-  { key: null, label: 'Без колонки' },
-  { key: 'todo', label: 'До зробити' },
-  { key: 'in-progress', label: 'В процесі' },
-  { key: 'done', label: 'Готово' },
+  { key: null, label: 'kanban.none' },
+  { key: 'todo', label: 'kanban.todo' },
+  { key: 'in-progress', label: 'kanban.inProgress' },
+  { key: 'done', label: 'kanban.done' },
 ];
 
 const DRAG_THRESHOLD_PX = 4;
@@ -52,6 +54,7 @@ interface Props {
 // між колонками міняє лише column, x/y на полотні не чіпає. Драг вручну на
 // pointer-подіях (pointermove/pointerup на window, як у гумової рамки)
 export function KanbanView({ currentUserId, origin, onLocate }: Props) {
+  const { t } = useTranslation();
   const objects = useBoardStore((s) => s.objects);
   const canEdit = useEditorStore((s) => s.canEdit);
   const editingTextId = useEditorStore((s) => s.editingTextId);
@@ -170,7 +173,7 @@ export function KanbanView({ currentUserId, origin, onLocate }: Props) {
             className={`kanban-column${col.key === null ? ' unsorted' : ''}${over ? ' over' : ''}`}
           >
             <header className="kanban-column-header">
-              <span>{col.label}</span>
+              <span>{t(col.label)}</span>
               <span className="kanban-count">{cards.length}</span>
             </header>
             <div className="kanban-cards">
@@ -201,8 +204,8 @@ export function KanbanView({ currentUserId, origin, onLocate }: Props) {
                     <button
                       type="button"
                       className="kanban-locate"
-                      title="Показати на полотні"
-                      aria-label="Показати на полотні"
+                      title={t('kanban.locate')}
+                      aria-label={t('kanban.locate')}
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -220,7 +223,7 @@ export function KanbanView({ currentUserId, origin, onLocate }: Props) {
                     ) : sticky.text ? (
                       <p>{sticky.text}</p>
                     ) : (
-                      <p className="kanban-empty">порожній стікер</p>
+                      <p className="kanban-empty">{t('kanban.emptySticky')}</p>
                     )}
                   </div>
                 );

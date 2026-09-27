@@ -4,6 +4,8 @@ import { fetchVersions, restoreVersion, saveVersion } from '../api/boards';
 import { relativeTime } from '../pages/board-card';
 import { HistoryIcon } from './icons';
 import { useNarrow } from '../use-narrow';
+import { useTranslation } from 'react-i18next';
+import { dateLocale, i18n } from '../i18n';
 
 // рендериться лише для власника й адміна (див. BoardPage), тож усе керування
 // тут без окремих перевірок ролі
@@ -12,12 +14,13 @@ interface Props {
 }
 
 function titleOf(v: BoardVersionInfo) {
-  return v.label ?? (v.isManual ? 'Збережена версія' : 'Автозбереження');
+  return v.label ?? (v.isManual ? i18n.t('history.manual') : i18n.t('history.auto'));
 }
 
 // історія версій дошки. Список тягнемо щоразу на відкриття: він короткий,
 // а тримати його живим через сокет заради рідкісного погляду нема сенсу
 export function VersionHistory({ boardId }: Props) {
+  const { t } = useTranslation();
   const narrow = useNarrow();
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<BoardVersionInfo[] | null>(null);
@@ -30,7 +33,7 @@ export function VersionHistory({ boardId }: Props) {
     try {
       setVersions((await fetchVersions(boardId)).versions);
     } catch {
-      setNote({ text: 'Не вдалося завантажити історію', error: true });
+      setNote({ text: t('history.loadFailed'), error: true });
     }
   }
 
@@ -57,10 +60,10 @@ export function VersionHistory({ boardId }: Props) {
     try {
       await saveVersion(boardId, label.trim());
       setLabel('');
-      setNote({ text: 'Версію збережено', error: false });
+      setNote({ text: t('history.saved'), error: false });
       await reload();
     } catch {
-      setNote({ text: 'Не вдалося зберегти версію', error: true });
+      setNote({ text: t('history.saveFailed'), error: true });
     } finally {
       setBusy(null);
     }
@@ -68,22 +71,21 @@ export function VersionHistory({ boardId }: Props) {
 
   async function handleRestore(v: BoardVersionInfo) {
     // той самий прийом підтвердження, що й на видаленні дошки
-    const when = new Date(v.createdAt).toLocaleString('uk-UA', { dateStyle: 'short', timeStyle: 'short' });
-    if (
-      !window.confirm(
-        `Відкотити дошку до «${titleOf(v)}» (${when})? Вміст зміниться у всіх, хто зараз на дошці.`,
-      )
-    ) {
+    const when = new Date(v.createdAt).toLocaleString(dateLocale(), {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+    if (!window.confirm(t('history.confirmRestore', { title: titleOf(v), when }))) {
       return;
     }
     setBusy(v.id);
     setNote(null);
     try {
       await restoreVersion(boardId, v.id);
-      setNote({ text: 'Дошку відкочено. Попередній стан — окремим автозбереженням угорі', error: false });
+      setNote({ text: t('history.restored'), error: false });
       await reload();
     } catch {
-      setNote({ text: 'Не вдалося відкотити', error: true });
+      setNote({ text: t('history.restoreFailed'), error: true });
     } finally {
       setBusy(null);
     }
@@ -107,18 +109,18 @@ export function VersionHistory({ boardId }: Props) {
           maxLength={80}
           onChange={(e) => setLabel(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Підпис (необовʼязково)"
-          aria-label="Підпис версії"
+          placeholder={t('history.labelPlaceholder')}
+          aria-label={t('history.labelAria')}
         />
         <button type="button" disabled={!!busy} onClick={() => void handleSave()}>
-          {busy === 'save' ? 'Зберігаю…' : 'Зберегти версію'}
+          {busy === 'save' ? t('history.saving') : t('history.save')}
         </button>
       </div>
       {note && <p className={`export-note${note.error ? ' export-error' : ''}`}>{note.text}</p>}
       {versions === null ? (
-        <p className="export-note">Завантаження…</p>
+        <p className="export-note">{t('common.loading')}</p>
       ) : versions.length === 0 ? (
-        <p className="export-note">Версій ще нема — перша зʼявиться під час роботи з дошкою</p>
+        <p className="export-note">{t('history.empty')}</p>
       ) : (
         <ul className="history-list">
           {versions.map((v) => (
@@ -130,7 +132,7 @@ export function VersionHistory({ boardId }: Props) {
                 </span>
               </div>
               <button type="button" disabled={!!busy} onClick={() => void handleRestore(v)}>
-                {busy === v.id ? 'Відкочую…' : 'Відкотити'}
+                {busy === v.id ? t('history.restoring') : t('history.restore')}
               </button>
             </li>
           ))}
@@ -143,8 +145,8 @@ export function VersionHistory({ boardId }: Props) {
     <button
       type="button"
       className={`${narrow ? 'board-island ' : ''}icon-button history-toggle${open ? ' active' : ''}`}
-      title="Історія версій"
-      aria-label="Історія версій"
+      title={t('history.title')}
+      aria-label={t('history.title')}
       aria-expanded={open}
       onClick={toggleOpen}
     >
@@ -159,12 +161,12 @@ export function VersionHistory({ boardId }: Props) {
         {open && (
           <div className="board-island sheet-full">
             <header className="sheet-head">
-              <span>Історія версій</span>
+              <span>{t('history.title')}</span>
               <button
                 type="button"
                 className="icon-button"
-                title="Закрити"
-                aria-label="Закрити"
+                title={t('common.close')}
+                aria-label={t('common.close')}
                 disabled={!!busy}
                 onClick={() => setOpen(false)}
               >

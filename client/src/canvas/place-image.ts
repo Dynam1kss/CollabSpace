@@ -11,27 +11,23 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 // вибраний файл → розмір з картинки → на сервер → обʼєкт у центрі видимої
 // області, виділений і з інструментом «вибір» (порядок як у finishDraw).
-// кидає Error з текстом для користувача
+// кидає ApiError з кодом (перекладає errorText) або мережеву помилку як є
 export async function placeImageFromFile(boardId: string, file: File, center: Point, createdBy: string) {
-  if (file.size > MAX_FILE_BYTES) throw new Error('Файл завеликий — до 5 МБ');
+  // статус 0 — відмова ще до запиту, код той самий механізм перекладу
+  if (file.size > MAX_FILE_BYTES) throw new ApiError(0, 'IMAGE_TOO_LARGE', 'file too large');
 
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file);
   } catch {
-    throw new Error('Не вдалося прочитати зображення');
+    throw new ApiError(0, 'IMAGE_UNREADABLE', 'cannot decode image');
   }
   const size = fitImageSize(bitmap.width, bitmap.height);
   bitmap.close();
 
-  let url: string;
-  try {
-    ({ url } = await uploadBoardImage(boardId, file));
-  } catch (err) {
-    // ApiError уже несе текст для користувача (415/413 з сервера), решта — мережа
-    if (err instanceof ApiError) throw err;
-    throw new Error('Немає звʼязку з сервером', { cause: err });
-  }
+  // 415/413 з сервера — ApiError з кодом, збій мережі — TypeError від fetch;
+  // обидва errorText перекладе сам
+  const { url } = await uploadBoardImage(boardId, file);
 
   const object = createImage({ x: center.x - size.width / 2, y: center.y - size.height / 2 }, size, url, {
     createdBy,

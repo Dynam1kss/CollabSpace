@@ -17,14 +17,17 @@ import {
 import { useUndoState } from './board-store';
 import { redoBoard, undoBoard } from './board-undo';
 import { placeImageFromFile } from './place-image';
+import { useTranslation } from 'react-i18next';
+import { errorText } from '../i18n/api-error';
 
-const TOOLS: { id: ToolId; label: string; hotkey: string; icon: ReactNode }[] = [
-  { id: 'select', label: 'Вибір', hotkey: 'V', icon: <SelectIcon /> },
-  { id: 'sticky', label: 'Стікер', hotkey: 'S', icon: <StickyIcon /> },
-  { id: 'text', label: 'Текст', hotkey: 'T', icon: <TextIcon /> },
-  { id: 'rect', label: 'Прямокутник', hotkey: 'R', icon: <RectIcon /> },
-  { id: 'ellipse', label: 'Еліпс', hotkey: 'E', icon: <EllipseIcon /> },
-  { id: 'connector', label: 'Зʼєднувач', hotkey: 'C', icon: <ConnectorIcon /> },
+// підписи — з перекладу за id (tools.<id>)
+const TOOLS: { id: ToolId; hotkey: string; icon: ReactNode }[] = [
+  { id: 'select', hotkey: 'V', icon: <SelectIcon /> },
+  { id: 'sticky', hotkey: 'S', icon: <StickyIcon /> },
+  { id: 'text', hotkey: 'T', icon: <TextIcon /> },
+  { id: 'rect', hotkey: 'R', icon: <RectIcon /> },
+  { id: 'ellipse', hotkey: 'E', icon: <EllipseIcon /> },
+  { id: 'connector', hotkey: 'C', icon: <ConnectorIcon /> },
 ];
 
 const HOTKEY_MAP: Record<string, ToolId> = Object.fromEntries(TOOLS.map((t) => [t.hotkey, t.id]));
@@ -43,6 +46,7 @@ interface Props {
 }
 
 export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
+  const { t } = useTranslation();
   const activeTool = useEditorStore((s) => s.activeTool);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
   const canEdit = useEditorStore((s) => s.canEdit);
@@ -89,7 +93,7 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
     try {
       await placeImageFromFile(boardId, file, visibleCenter, currentUserId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не вдалося додати зображення');
+      setError(errorText(err, t('board.imageFailed')));
     } finally {
       setUploading(false);
       // інакше той самий файл удруге не вибрати — change не спрацює
@@ -104,30 +108,30 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
         (display: contents), на телефоні панель лягає в рядок унизу — і тоді
         інструменти скроляться, а скасувати/повторити лишаються на місці */}
         <div className="tool-group tool-tools">
-        {tools.map((tool) => (
-          <button
-            key={tool.id}
-            type="button"
-            className={tool.id === activeTool ? 'tool-button active' : 'tool-button'}
-            title={`${tool.label} (${tool.hotkey})`}
-            aria-label={tool.label}
-            onClick={() => setActiveTool(tool.id)}
-          >
-            {tool.icon}
-          </button>
-        ))}
-        {canEdit && (
-          <button
-            type="button"
-            className={uploading ? 'tool-button uploading' : 'tool-button'}
-            title={`Зображення (${IMAGE_HOTKEY})`}
-            aria-label="Зображення"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <ImageIcon />
-          </button>
-        )}
+          {tools.map((tool) => (
+            <button
+              key={tool.id}
+              type="button"
+              className={tool.id === activeTool ? 'tool-button active' : 'tool-button'}
+              title={`${t(`tools.${tool.id}`)} (${tool.hotkey})`}
+              aria-label={t(`tools.${tool.id}`)}
+              onClick={() => setActiveTool(tool.id)}
+            >
+              {tool.icon}
+            </button>
+          ))}
+          {canEdit && (
+            <button
+              type="button"
+              className={uploading ? 'tool-button uploading' : 'tool-button'}
+              title={`${t('tools.image')} (${IMAGE_HOTKEY})`}
+              aria-label={t('tools.image')}
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ImageIcon />
+            </button>
+          )}
         </div>
         {/* скасувати/повторити — окрема група, відділена рискою: це не
         інструменти, а дії над тим, що вже зроблено. Для телефона це ще й
@@ -138,8 +142,8 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
             <button
               type="button"
               className="tool-button"
-              title="Скасувати (Ctrl+Z)"
-              aria-label="Скасувати"
+              title={`${t('tools.undo')} (Ctrl+Z)`}
+              aria-label={t('tools.undo')}
               disabled={!canUndo}
               onClick={() => undoBoard()}
             >
@@ -148,8 +152,8 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
             <button
               type="button"
               className="tool-button"
-              title="Повторити (Ctrl+Shift+Z)"
-              aria-label="Повторити"
+              title={`${t('tools.redo')} (Ctrl+Shift+Z)`}
+              aria-label={t('tools.redo')}
               disabled={!canRedo}
               onClick={() => redoBoard()}
             >

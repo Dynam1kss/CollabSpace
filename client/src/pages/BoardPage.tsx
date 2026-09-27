@@ -8,9 +8,7 @@ import type { BoardCanvasHandle } from '../canvas/BoardCanvas';
 import { useBoardStore } from '../canvas/board-store';
 import { useEditorStore } from '../canvas/editor-store';
 import { useBoardPersistence } from '../canvas/useBoardPersistence';
-import type { SaveStatus } from '../canvas/useBoardPersistence';
 import { useBoardSync } from '../canvas/useBoardSync';
-import type { SyncStatus } from '../canvas/useBoardSync';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
 import { screenToBoard } from '../canvas/coordinates';
 import { fitToObjects } from '../canvas/fit-to-objects';
@@ -35,26 +33,12 @@ import { usePreventBrowserZoom } from './usePreventBrowserZoom';
 import { useNarrow } from '../use-narrow';
 import { PinchDebug } from '../canvas/PinchDebug';
 import { PINCH_DEBUG } from '../canvas/pinch-debug';
+import { useTranslation } from 'react-i18next';
 
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
 // що зараз показано — стан сторінки, не редактора: не персиститься, канбан
 // це лише інший погляд на ті самі обʼєкти
 type View = 'canvas' | 'kanban';
-
-const SAVE_STATUS_TEXT: Record<SaveStatus, string> = {
-  loading: 'завантажую…',
-  saving: 'зберігаю…',
-  saved: 'збережено',
-  error: 'не збереглось',
-  readonly: 'лише перегляд',
-};
-
-const SYNC_STATUS_TEXT: Record<SyncStatus, string> = {
-  connecting: 'підключення…',
-  live: 'наживо',
-  offline: 'офлайн',
-  kicked: 'доступ забрано',
-};
 
 // скільки людина бачить пояснення, перш ніж її віднесе до списку дошок
 const KICKED_REDIRECT_MS = 2500;
@@ -69,6 +53,7 @@ function canEdit(board: BoardDetail, userId: string) {
 }
 
 export function BoardPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [board, setBoard] = useState<BoardDetail | null>(null);
@@ -209,15 +194,15 @@ export function BoardPage() {
   const kanbanOrigin = { x: visibleCenter.x - 80, y: visibleCenter.y - 60 };
 
   if (state === 'loading') {
-    return <p className="board-page-message">Завантаження…</p>;
+    return <p className="board-page-message">{t('common.loading')}</p>;
   }
 
   if (state === 'not-found') {
     return (
       <div className="board-page-message">
-        <h1>Дошку не знайдено</h1>
+        <h1>{t('board.notFound')}</h1>
         <p>
-          <Link to="/">До списку дошок</Link>
+          <Link to="/">{t('board.back')}</Link>
         </p>
       </div>
     );
@@ -226,17 +211,17 @@ export function BoardPage() {
   if (syncStatus === 'kicked') {
     return (
       <div className="board-page-message">
-        <h1>Доступ до дошки закрито</h1>
-        <p>Власник видалив вас із цієї дошки.</p>
+        <h1>{t('board.closedTitle')}</h1>
+        <p>{t('board.closedText')}</p>
         <p>
-          <Link to="/">До списку дошок</Link>
+          <Link to="/">{t('board.back')}</Link>
         </p>
       </div>
     );
   }
 
   if (state === 'error' || !board) {
-    return <p className="board-page-message">Не вдалося завантажити дошку</p>;
+    return <p className="board-page-message">{t('board.loadFailed')}</p>;
   }
 
   return (
@@ -245,8 +230,8 @@ export function BoardPage() {
         <button
           type="button"
           className="icon-button board-back"
-          title="До списку дошок"
-          aria-label="До списку дошок"
+          title={t('board.back')}
+          aria-label={t('board.back')}
           onClick={() => navigate('/')}
         >
           <BackIcon />
@@ -258,14 +243,14 @@ export function BoardPage() {
             className={view === 'canvas' ? 'active' : ''}
             onClick={() => setView('canvas')}
           >
-            Полотно
+            {t('board.canvas')}
           </button>
           <button
             type="button"
             className={view === 'kanban' ? 'active' : ''}
             onClick={() => setView('kanban')}
           >
-            Канбан
+            {t('board.kanban')}
           </button>
         </div>
         {/* на телефоні −/100%/+ прибираємо: масштаб там щипком, а в шапці
@@ -278,11 +263,21 @@ export function BoardPage() {
             {!narrow && historyButton}
             {!narrow && (
               <>
-                <button type="button" className="icon-button" title="Зменшити" onClick={() => zoomOut(center)}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  title={t('board.zoomOut')}
+                  onClick={() => zoomOut(center)}
+                >
                   −
                 </button>
                 <span className="zoom-percent">{Math.round(viewport.scale * 100)}%</span>
-                <button type="button" className="icon-button" title="Збільшити" onClick={() => zoomIn(center)}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  title={t('board.zoomIn')}
+                  onClick={() => zoomIn(center)}
+                >
                   +
                 </button>
               </>
@@ -290,11 +285,11 @@ export function BoardPage() {
             <button
               type="button"
               className={narrow ? 'icon-button' : undefined}
-              title="Показати все"
-              aria-label="Показати все"
+              title={t('board.fitAll')}
+              aria-label={t('board.fitAll')}
               onClick={handleFitAll}
             >
-              {narrow ? <FitIcon /> : 'Показати все'}
+              {narrow ? <FitIcon /> : t('board.fitAll')}
             </button>
           </div>
         )}
@@ -333,8 +328,8 @@ export function BoardPage() {
           <ChatPanel boardId={board.id} />
           <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />
         </div>
-        <div className={`board-island sync-status ${syncStatus}`}>{SYNC_STATUS_TEXT[syncStatus]}</div>
-        <div className="board-island save-status">{SAVE_STATUS_TEXT[saveStatus]}</div>
+        <div className={`board-island sync-status ${syncStatus}`}>{t(`board.sync.${syncStatus}`)}</div>
+        <div className="board-island save-status">{t(`board.save.${saveStatus}`)}</div>
       </div>
     </div>
   );

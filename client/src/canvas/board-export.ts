@@ -1,5 +1,6 @@
 import type { BoardObject } from 'shared';
 import type { Bounds } from './fit-to-objects';
+import { i18n } from '../i18n';
 
 // відступ навколо вмісту в одиницях дошки: обведення й стрілки конекторів
 // виходять за x/y/width/height, без запасу їх обрізало б по краю
@@ -60,5 +61,5 @@ export function exportFileName(title: string, date: Date, ext: 'png' | 'pdf') {
     .replace(/^[.-]+|[.-]+$/g, '');
   const pad = (n: number) => String(n).padStart(2, '0');
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return `${base || 'дошка'}-${day}.${ext}`;
+  return `${base || i18n.t('export.fileBase')}-${day}.${ext}`;
 }

@@ -6,6 +6,7 @@ import { useEditorStore } from './editor-store';
 import { ExportIcon } from './icons';
 import { useNarrow } from '../use-narrow';
 import { useCanvasColors } from '../theme';
+import { useTranslation } from 'react-i18next';
 
 type Kind = 'png' | 'pdf';
 
@@ -41,6 +42,7 @@ function downloadBlob(blob: Blob, name: string) {
 // експорт у png чи pdf — виділеного, якщо щось виділено, інакше всієї дошки.
 // Це знімок, не зміна — тому доступний будь-якій ролі, як пошук і «показати все»
 export function ExportButton({ title, capture }: Props) {
+  const { t } = useTranslation();
   const narrow = useNarrow();
   const exportBg = useCanvasColors().exportBg;
   const objects = useBoardStore((s) => s.objects);
@@ -49,7 +51,7 @@ export function ExportButton({ title, capture }: Props) {
   // те саме правило, що в capture, — щоб напис не обіцяв виділене, коли id
   // уже застарілі і піде вся дошка
   const onlySelected = exportTargets(objects, selectedIds).onlySelected;
-  const label = onlySelected ? 'Експорт виділеного' : 'Експорт дошки';
+  const label = onlySelected ? t('export.selection') : t('export.board');
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Kind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export function ExportButton({ title, capture }: Props) {
     try {
       const shot = capture();
       if (!shot) {
-        setError('На дошці порожньо');
+        setError(t('export.empty'));
         return;
       }
       const image = onBackground(shot.canvas, exportBg);
@@ -98,26 +100,26 @@ export function ExportButton({ title, capture }: Props) {
       }
       setOpen(false);
     } catch {
-      setError('Не вдалося зберегти файл');
+      setError(t('export.failed'));
     } finally {
       setBusy(null);
     }
   }
 
   const body = empty ? (
-    <p className="export-note">На дошці порожньо — нема що експортувати</p>
+    <p className="export-note">{t('export.emptyNote')}</p>
   ) : (
     <>
-      {onlySelected && <p className="export-note">Лише виділені обʼєкти</p>}
+      {onlySelected && <p className="export-note">{t('export.onlySelected')}</p>}
       <ul className="export-list">
         <li>
           <button type="button" disabled={!!busy} onClick={() => run('png')}>
-            {busy === 'png' ? 'Готую…' : 'Зображення (PNG)'}
+            {busy === 'png' ? t('export.preparing') : t('export.png')}
           </button>
         </li>
         <li>
           <button type="button" disabled={!!busy} onClick={() => run('pdf')}>
-            {busy === 'pdf' ? 'Готую…' : 'PDF'}
+            {busy === 'pdf' ? t('export.preparing') : t('export.pdf')}
           </button>
         </li>
       </ul>
@@ -150,8 +152,8 @@ export function ExportButton({ title, capture }: Props) {
               <button
                 type="button"
                 className="icon-button"
-                title="Закрити"
-                aria-label="Закрити"
+                title={t('common.close')}
+                aria-label={t('common.close')}
                 disabled={!!busy}
                 onClick={() => setOpen(false)}
               >

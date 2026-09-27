@@ -13,6 +13,7 @@ import type { Point } from './coordinates';
 import { withPoints } from './objects/connector-geometry';
 import { fitTextBox } from './text-layout';
 import { DEFAULT_INK } from '../theme';
+import { i18n } from '../i18n';
 
 // 8 заготовлених кольорів — без піпетки, свідомо обмежений вибір
 export const PALETTE = [
@@ -86,7 +87,14 @@ export function createShapeFromRect(
   if (width < MIN_DRAWN_SIZE && height < MIN_DRAWN_SIZE) {
     return createShape(kind, rect.x, rect.y, SHAPE_SIZE.width, SHAPE_SIZE.height, meta);
   }
-  return createShape(kind, rect.x, rect.y, Math.max(MIN_DRAWN_SIZE, width), Math.max(MIN_DRAWN_SIZE, height), meta);
+  return createShape(
+    kind,
+    rect.x,
+    rect.y,
+    Math.max(MIN_DRAWN_SIZE, width),
+    Math.max(MIN_DRAWN_SIZE, height),
+    meta,
+  );
 }
 
 // протягування для зʼєднувача — кінці саме там, де відпустили/натиснули палець/курсор
@@ -143,7 +151,8 @@ export function createImage(
 }
 
 function createText(x: number, y: number, meta: CreationMeta): TextObject {
-  const base = { text: 'Текст', fontSize: 18, autoWidth: true, minHeight: 0, width: 0 };
+  // вміст дошки, а не інтерфейс — мовою того, хто створює
+  const base = { text: i18n.t('board.defaultText'), fontSize: 18, autoWidth: true, minHeight: 0, width: 0 };
   return {
     ...baseFields(meta),
     ...base,

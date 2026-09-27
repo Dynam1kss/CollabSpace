@@ -4,6 +4,8 @@ import { screenToBoard } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { placeImageFromFile } from './place-image';
+import { i18n } from '../i18n';
+import { errorText } from '../i18n/api-error';
 
 // картинку можна не тільки вибрати кнопкою: кинути файл на полотно або
 // вставити з буфера (скріншот). Обидва шляхи ведуть у той самий
@@ -35,7 +37,7 @@ export function useImageDrop(
       try {
         await placeImageFromFile(boardId, file, point, currentUserId);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Не вдалося додати зображення');
+        setError(errorText(err, i18n.t('board.imageFailed')));
       } finally {
         setUploading(false);
       }

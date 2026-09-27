@@ -21,6 +21,7 @@ import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
+import { useTranslation } from 'react-i18next';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
 const GAP_ABOVE = 44;
@@ -43,6 +44,7 @@ interface Props {
 // застосовує зміну до всіх, кому вона личить. Під час тягання ховається —
 // стор відстає від вузлів до dragend
 export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
+  const { t } = useTranslation();
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const interacting = useEditorStore((s) => s.interacting);
   const objectsMap = useBoardStore((s) => s.objects);
@@ -179,7 +181,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     <div ref={ref} className={narrow ? 'board-island ctx-panel ctx-sheet' : 'board-island ctx-panel'}>
       {fillObject && (fillObject.type === 'sticky' || fillObject.type === 'shape') && (
         <ColorButton
-          label="Заливка"
+          label={t('ctx.fill')}
           color={fillObject.fillColor}
           open={openPicker === 'fill'}
           onToggle={() => togglePicker('fill')}
@@ -188,7 +190,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       )}
       {textColorObject && (textColorObject.type === 'sticky' || textColorObject.type === 'text') && (
         <ColorButton
-          label="Колір тексту"
+          label={t('ctx.textColor')}
           color={textColorObject.type === 'sticky' ? textColorObject.textColor : textColorObject.color}
           open={openPicker === 'text'}
           onToggle={() => togglePicker('text')}
@@ -197,7 +199,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       )}
       {strokeObject && (strokeObject.type === 'shape' || strokeObject.type === 'connector') && (
         <ColorButton
-          label="Обведення"
+          label={t('ctx.stroke')}
           color={strokeObject.strokeColor}
           open={openPicker === 'stroke'}
           onToggle={() => togglePicker('stroke')}
@@ -207,7 +209,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
 
       {strokeObject && (strokeObject.type === 'shape' || strokeObject.type === 'connector') && (
         <NumberField
-          label="Товщина обведення"
+          label={t('ctx.strokeWidth')}
           icon={<StrokeWidthIcon />}
           value={strokeObject.strokeWidth}
           min={STROKE_WIDTH_MIN}
@@ -217,7 +219,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       )}
       {textObject && textObject.type === 'text' && (
         <NumberField
-          label="Розмір шрифту"
+          label={t('ctx.fontSize')}
           icon={<TextIcon />}
           value={textObject.fontSize}
           min={FONT_SIZE_MIN}
@@ -232,8 +234,8 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           <button
             type="button"
             className={seatsOn ? 'ctx-toggle active' : 'ctx-toggle'}
-            title="Дозволити стільці"
-            aria-label="Дозволити стільці"
+            title={t('ctx.allowSeats')}
+            aria-label={t('ctx.allowSeats')}
             aria-pressed={seatsOn}
             onClick={() => setSeatsAllowed(!seatsOn)}
           >
@@ -248,8 +250,8 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       <button
         type="button"
         className={lockedOn ? 'ctx-toggle active' : 'ctx-toggle'}
-        title={lockedOn ? 'Відімкнути' : 'Замкнути від змін'}
-        aria-label={lockedOn ? 'Відімкнути' : 'Замкнути від змін'}
+        title={lockedOn ? t('ctx.unlock') : t('ctx.lock')}
+        aria-label={lockedOn ? t('ctx.unlock') : t('ctx.lock')}
         aria-pressed={lockedOn}
         onClick={() => setLocked(!lockedOn)}
       >
@@ -258,24 +260,24 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       {/* на телефоні це ЄДИНИЙ спосіб продублювати — ctrl+d там нема звідки взяти */}
       <button
         type="button"
-        title="Дублювати (Ctrl+D)"
-        aria-label="Дублювати"
+        title={`${t('ctx.duplicate')} (Ctrl+D)`}
+        aria-label={t('ctx.duplicate')}
         onClick={() => duplicateSelected(currentUserId)}
       >
         <DuplicateIcon />
       </button>
-      <button type="button" title="На задній план" aria-label="На задній план" onClick={sendToBack}>
+      <button type="button" title={t('ctx.toBack')} aria-label={t('ctx.toBack')} onClick={sendToBack}>
         <SendBackIcon />
       </button>
-      <button type="button" title="На передній план" aria-label="На передній план" onClick={bringToFront}>
+      <button type="button" title={t('ctx.toFront')} aria-label={t('ctx.toFront')} onClick={bringToFront}>
         <BringFrontIcon />
       </button>
       <span className="ctx-sep" />
       <button
         type="button"
         className="ctx-danger"
-        title="Видалити"
-        aria-label="Видалити"
+        title={t('common.delete')}
+        aria-label={t('common.delete')}
         onClick={deleteSelected}
       >
         <TrashIcon />

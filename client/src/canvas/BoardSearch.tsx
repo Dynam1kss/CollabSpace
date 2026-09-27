@@ -5,6 +5,7 @@ import { centerOnObject, searchObjects } from './board-search';
 import type { Viewport } from './coordinates';
 import { SearchIcon, StickyIcon, TextIcon } from './icons';
 import { useNarrow } from '../use-narrow';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   viewport: Viewport;
@@ -15,6 +16,7 @@ interface Props {
 // пошук тексту по дошці. Шукає в сторі, а не в Y.Doc: у сторі вже лежить те
 // саме, і ходити в документ заради підрядка нема сенсу
 export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const objects = useBoardStore((s) => s.objects);
@@ -67,8 +69,8 @@ export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
       <button
         type="button"
         className="icon-button"
-        title="Пошук на дошці"
-        aria-label="Пошук на дошці"
+        title={t('search.open')}
+        aria-label={t('search.open')}
         onClick={() => setOpen(true)}
       >
         <SearchIcon />
@@ -82,7 +84,7 @@ export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
         <li key={hit.id}>
           <button type="button" onClick={() => jumpTo(hit.id)}>
             <span className="search-hit-icon">{hit.type === 'sticky' ? <StickyIcon /> : <TextIcon />}</span>
-            <span className="search-hit-text">{hit.snippet || '(порожній)'}</span>
+            <span className="search-hit-text">{hit.snippet || t('search.emptyHit')}</span>
           </button>
         </li>
       ))}
@@ -95,12 +97,12 @@ export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
     return (
       <div className="board-island sheet-full board-search-sheet">
         <header className="sheet-head">
-          <span>Пошук</span>
+          <span>{t('search.title')}</span>
           <button
             type="button"
             className="icon-button"
-            title="Закрити"
-            aria-label="Закрити"
+            title={t('common.close')}
+            aria-label={t('common.close')}
             onClick={() => setOpen(false)}
           >
             ×
@@ -112,8 +114,8 @@ export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Текст на стікері чи в блоці"
-          aria-label="Що шукати"
+          placeholder={t('search.placeholder')}
+          aria-label={t('search.query')}
         />
         {list}
       </div>
@@ -125,8 +127,8 @@ export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
       <button
         type="button"
         className="icon-button active"
-        title="Пошук на дошці"
-        aria-label="Пошук на дошці"
+        title={t('search.open')}
+        aria-label={t('search.open')}
         onClick={() => setOpen(false)}
       >
         <SearchIcon />
@@ -138,8 +140,8 @@ export function BoardSearch({ viewport, canvasSize, onJump }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Текст на стікері чи в блоці"
-          aria-label="Що шукати"
+          placeholder={t('search.placeholder')}
+          aria-label={t('search.query')}
         />
         {list}
       </div>

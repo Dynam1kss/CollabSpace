@@ -27,6 +27,7 @@ import { useImageDrop } from './use-image-drop';
 import { BoardSeats } from '../voice/BoardSeats';
 import { useMySeat } from '../voice/use-my-seat';
 import { useCanvasColors } from '../theme';
+import { useTranslation } from 'react-i18next';
 
 interface StageHandlers {
   onWheel: (e: KonvaEventObject<WheelEvent>) => void;
@@ -92,6 +93,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
     return fn;
   }
 
+  const { t } = useTranslation();
   const colors = useCanvasColors();
   const activeTool = useEditorStore((s) => s.activeTool);
   const canEdit = useEditorStore((s) => s.canEdit);
@@ -327,7 +329,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
           )}
         </Stage>
       )}
-      {imageDrop.uploading && <div className="board-island tool-error">Завантажую зображення…</div>}
+      {imageDrop.uploading && <div className="board-island tool-error">{t('board.uploadingImage')}</div>}
       {imageDrop.error && <div className="board-island tool-error">{imageDrop.error}</div>}
       {editingObject && <TextEditOverlay object={editingObject} viewport={viewport} />}
     </div>
