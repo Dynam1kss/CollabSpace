@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectInstallPath, pickInstallBanner } from './install-rules';
+import { detectInstallPath, detectPlatform, installText, pickInstallBanner } from './install-rules';
 
 const IPHONE_SAFARI =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
@@ -17,6 +17,12 @@ const ANDROID_TELEGRAM =
   'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36 Telegram-Android/11.2.3';
 const DESKTOP_EDGE =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0';
+const WINDOWS_CHROME =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const MAC_CHROME =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const LINUX_CHROME =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 const DESKTOP_FIREFOX = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0';
 
 describe('detectInstallPath', () => {
@@ -66,5 +72,82 @@ describe('pickInstallBanner', () => {
   it('вже встановлено — нічого, навіть із подією', () => {
     expect(pickInstallBanner({ standalone: true, hasPromptEvent: true, path: 'chromium' })).toBeNull();
     expect(pickInstallBanner({ ...base, standalone: true, path: 'ios-safari' })).toBeNull();
+  });
+});
+
+// увесь шлях, як у плашці: рушій → вид плашки, ОС → текст
+function bannerText(ua: string, maxTouchPoints: number) {
+  const kind = pickInstallBanner({
+    standalone: false,
+    hasPromptEvent: false,
+    path: detectInstallPath(ua, maxTouchPoints),
+  });
+  if (kind === null || kind === 'prompt') return kind;
+  return installText(kind, detectPlatform(ua, maxTouchPoints));
+}
+
+describe('detectPlatform', () => {
+  it('розпізнає ос, айпад під маком — це ios', () => {
+    expect(detectPlatform(ANDROID_CHROME, 5)).toBe('android');
+    expect(detectPlatform(IPHONE_SAFARI, 5)).toBe('ios');
+    expect(detectPlatform(IPAD_AS_MAC, 5)).toBe('ios');
+    expect(detectPlatform(MAC_CHROME, 0)).toBe('mac');
+    expect(detectPlatform(WINDOWS_CHROME, 0)).toBe('windows');
+    expect(detectPlatform(LINUX_CHROME, 0)).toBe('other');
+  });
+});
+
+describe('текст плашки під ос', () => {
+  it('хроміум: андроїд — три крапки й головний екран', () => {
+    expect(bannerText(ANDROID_CHROME, 5)).toContain('три крапки у верхньому правому куті');
+    expect(bannerText(ANDROID_CHROME, 5)).toContain('«Додати на головний екран»');
+  });
+
+  it('хроміум: windows, edge і mac — іконка в адресному рядку, але по-різному', () => {
+    const windows = bannerText(WINDOWS_CHROME, 0);
+    expect(windows).toContain('зліва від зірочки закладок');
+    expect(bannerText(DESKTOP_EDGE, 0)).toBe(windows);
+    const mac = bannerText(MAC_CHROME, 0);
+    expect(mac).toContain('праворуч в адресному рядку');
+    expect(mac).not.toBe(windows);
+  });
+
+  it('хроміум на linux/chromeos — загальна підказка з меню', () => {
+    expect(bannerText(LINUX_CHROME, 0)).toBe(
+      'Відкрийте меню браузера і оберіть «Встановити застосунок» або «Додати на головний екран»',
+    );
+  });
+
+  it('safari на маку — «Додати в Dock»', () => {
+    expect(bannerText(IPAD_AS_MAC, 0)).toContain('«Додати в Dock»');
+  });
+
+  it('firefox на windows — обережно й з порадою chrome чи edge', () => {
+    const text = bannerText(DESKTOP_FIREFOX, 0);
+    expect(text).toContain('може не вміти');
+    expect(text).toContain('Chrome чи Edge');
+  });
+
+  it('айфон — та сама інструкція «Поділитися», що й була', () => {
+    expect(bannerText(IPHONE_SAFARI, 5)).toBe(
+      'Щоб встановити застосунок: натисніть «Поділитися», потім «На екран Домівки»',
+    );
+  });
+
+  it('усі шість — різні', () => {
+    const texts = [
+      bannerText(ANDROID_CHROME, 5),
+      bannerText(WINDOWS_CHROME, 0),
+      bannerText(MAC_CHROME, 0),
+      bannerText(IPAD_AS_MAC, 0),
+      bannerText(DESKTOP_FIREFOX, 0),
+      bannerText(IPHONE_SAFARI, 5),
+    ];
+    expect(new Set(texts).size).toBe(6);
+  });
+
+  it('встановити нема як — і далі нічого', () => {
+    expect(bannerText(IPHONE_CHROME, 5)).toBeNull();
+    expect(bannerText(ANDROID_TELEGRAM, 5)).toBeNull();
   });
 });

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { InstallBannerKind } from './install-rules';
-import { detectInstallPath, pickInstallBanner } from './install-rules';
+import { detectInstallPath, detectPlatform, installText, pickInstallBanner } from './install-rules';
 
 // у lib.dom цього типу нема — лише хроміум його шле
 interface BeforeInstallPromptEvent extends Event {
@@ -39,13 +38,6 @@ function isStandalone() {
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   );
 }
-
-const TEXT: Record<Exclude<InstallBannerKind, 'prompt'>, string> = {
-  'browser-menu': 'Відкрийте меню браузера і оберіть «Встановити застосунок» або «Додати на головний екран»',
-  ios: 'Щоб встановити застосунок: натисніть «Поділитися», потім «На екран Домівки»',
-  generic:
-    'CollabSpace можна встановити як застосунок — пошукайте в меню браузера «Встановити» чи «Додати на головний екран»',
-};
 
 // без «закрити» навмисно: це єдине місце, де людина дізнається, що застосунок
 // можна поставити. зникає лише тоді, коли вже встановлено
@@ -93,7 +85,9 @@ export function InstallBanner() {
           </button>
         </>
       ) : (
-        <span className="install-banner-text">{TEXT[kind]}</span>
+        <span className="install-banner-text">
+          {installText(kind, detectPlatform(navigator.userAgent, navigator.maxTouchPoints))}
+        </span>
       )}
     </aside>
   );

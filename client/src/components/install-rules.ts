@@ -40,3 +40,49 @@ export function pickInstallBanner(opts: {
   if (opts.path === 'ios-safari') return 'ios';
   return 'generic';
 }
+
+// ОС окремо від рушія: рушій вирішує, чи можна встановити, а ОС — куди саме
+// тиснути. ios перевіряємо раніше за мак — айпад прикидається маком
+export type InstallPlatform = 'android' | 'ios' | 'mac' | 'windows' | 'other';
+
+export function detectPlatform(ua: string, maxTouchPoints: number): InstallPlatform {
+  if (/Android/.test(ua)) return 'android';
+  if (isIos(ua, maxTouchPoints)) return 'ios';
+  if (/Mac/.test(ua)) return 'mac';
+  if (/Windows/.test(ua)) return 'windows';
+  return 'other';
+}
+
+const IOS_TEXT = 'Щоб встановити застосунок: натисніть «Поділитися», потім «На екран Домівки»';
+
+// хроміум, але beforeinstallprompt ще не прийшов — показуємо, де пункт у меню
+const BROWSER_MENU_TEXT: Record<InstallPlatform, string> = {
+  android:
+    'Відкрийте меню браузера (три крапки у верхньому правому куті) і оберіть «Додати на головний екран»',
+  windows:
+    'Натисніть іконку встановлення в адресному рядку (зліва від зірочки закладок) або відкрийте меню (три крапки) → «Встановити CollabSpace»',
+  mac: 'Натисніть іконку встановлення праворуч в адресному рядку або відкрийте меню браузера (три крапки) → «Встановити CollabSpace»',
+  ios: IOS_TEXT,
+  other: 'Відкрийте меню браузера і оберіть «Встановити застосунок» або «Додати на головний екран»',
+};
+
+// не хроміум і не сафарі на ios. фаєрфокс на десктопі стандартно сайтів не
+// встановлює — тому обережно і з порадою відкрити в іншому браузері
+const GENERIC_TEXT: Record<InstallPlatform, string> = {
+  // сюди ж падає й фаєрфокс на маку — тому хвіст про інший браузер
+  mac: 'У Safari: меню «Файл» → «Додати в Dock» або кнопка «Поділитися» → «Додати в Dock». В іншому браузері відкрийте CollabSpace у Safari чи Chrome',
+  windows:
+    'Цей браузер може не вміти встановлювати застосунки — пошукайте «Встановити» в його меню або відкрийте CollabSpace у Chrome чи Edge',
+  android:
+    'CollabSpace можна встановити як застосунок — пошукайте в меню браузера «Встановити» чи «Додати на головний екран»',
+  ios: IOS_TEXT,
+  other:
+    'CollabSpace можна встановити як застосунок — пошукайте в меню браузера «Встановити» чи «Додати на головний екран»',
+};
+
+// для prompt тексту тут нема — там кнопка, і підпис лежить у самій плашці
+export function installText(kind: Exclude<InstallBannerKind, 'prompt'>, platform: InstallPlatform) {
+  if (kind === 'ios') return IOS_TEXT;
+  if (kind === 'browser-menu') return BROWSER_MENU_TEXT[platform];
+  return GENERIC_TEXT[platform];
+}
