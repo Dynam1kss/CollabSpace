@@ -14,6 +14,13 @@ export const updateProfileSchema = z.object({
   displayName: displayNameSchema,
 });
 
+// поточний — будь-який непорожній: перевіряє його хеш, а не правило довжини,
+// інакше людина зі старим коротким паролем не змогла б його змінити
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+});
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),

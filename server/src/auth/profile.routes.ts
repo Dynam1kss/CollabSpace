@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import express, { Router } from 'express';
-import type { AuthResponse, UpdateProfileRequest } from 'shared';
+import type { AuthResponse, ChangePasswordRequest, UpdateProfileRequest } from 'shared';
 import { EXT_BY_MIME, UPLOADS_DIR } from '../boards/images.routes';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import { requireAuth } from './auth.middleware';
-import { updateProfileSchema } from './auth.schema';
-import { toAuthUser } from './auth.service';
+import { authRateLimiter } from './auth.rate-limit';
+import { changePasswordSchema, updateProfileSchema } from './auth.schema';
+import { hashPassword, toAuthUser, verifyPassword } from './auth.service';
 
 // власний профіль: кожна ручка міняє лише того, хто прийшов із кукою
 export const profileRouter = Router();
@@ -65,6 +66,35 @@ profileRouter.post('/avatar', express.raw({ type: 'image/*', limit: '5mb' }), as
 
     const body: AuthResponse = { user: toAuthUser(user) };
     res.json(body);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// інші сесії не розлогінюємо — кука живе своїм терміном, це поза цим кроком.
+// ліміт той самий, що на вході: інакше тут можна перебирати чужий пароль
+// з відкритої сесії
+profileRouter.post('/password', authRateLimiter(), async (req, res, next) => {
+  try {
+    const parsed = changePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Новий пароль має бути щонайменше 8 символів');
+    }
+    const { currentPassword, newPassword }: ChangePasswordRequest = parsed.data;
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Потрібна авторизація');
+    }
+    if (!(await verifyPassword(user.passwordHash, currentPassword))) {
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'Поточний пароль невірний');
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await hashPassword(newPassword) },
+    });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

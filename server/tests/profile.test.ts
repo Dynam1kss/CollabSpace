@@ -129,3 +129,57 @@ describe('профіль: аватар', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('профіль: пароль', () => {
+  const login = (email: string, password: string) =>
+    request(app).post('/api/auth/login').send({ email, password });
+
+  it('правильний поточний — 204, далі входить новий, старий уже ні', async () => {
+    const { agent, payload } = await registerUser({ password: 'старий-пароль' });
+
+    const res = await agent
+      .post('/api/me/password')
+      .send({ currentPassword: 'старий-пароль', newPassword: 'новий-пароль' });
+    expect(res.status).toBe(204);
+
+    expect((await login(payload.email, 'новий-пароль')).status).toBe(200);
+    expect((await login(payload.email, 'старий-пароль')).status).toBe(401);
+    // поточна сесія жива, на вихід не викидає
+    expect((await agent.get('/api/auth/me')).status).toBe(200);
+  });
+
+  it('невірний поточний — 401 INVALID_CREDENTIALS, пароль не змінився', async () => {
+    const { agent, payload } = await registerUser({ password: 'справжній-пароль' });
+
+    const res = await agent
+      .post('/api/me/password')
+      .send({ currentPassword: 'не-той-пароль', newPassword: 'новий-пароль' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
+
+    expect((await login(payload.email, 'справжній-пароль')).status).toBe(200);
+    expect((await login(payload.email, 'новий-пароль')).status).toBe(401);
+  });
+
+  it('новий коротший за 8 чи поля бракує — 400, пароль не змінився', async () => {
+    const { agent, payload } = await registerUser({ password: 'справжній-пароль' });
+
+    const short = await agent
+      .post('/api/me/password')
+      .send({ currentPassword: 'справжній-пароль', newPassword: '1234567' });
+    expect(short.status).toBe(400);
+    expect((await agent.post('/api/me/password').send({ newPassword: 'новий-пароль' })).status).toBe(400);
+    expect((await agent.post('/api/me/password').send({ currentPassword: 'справжній-пароль' })).status).toBe(
+      400,
+    );
+
+    expect((await login(payload.email, 'справжній-пароль')).status).toBe(200);
+  });
+
+  it('без куки — 401', async () => {
+    const res = await request(app)
+      .post('/api/me/password')
+      .send({ currentPassword: 'будь-що', newPassword: 'новий-пароль' });
+    expect(res.status).toBe(401);
+  });
+});
