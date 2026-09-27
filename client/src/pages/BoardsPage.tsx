@@ -7,15 +7,9 @@ import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/board
 import { useAuthStore } from '../store/auth-store';
 import { BoardMembers } from './BoardMembers';
 import { EmptyBoardsIcon, MoreIcon } from '../canvas/icons';
-import { colorForBoard, relativeTime } from './board-card';
+import { colorForBoard, relativeTime, ROLE_TEXT } from './board-card';
+import { PendingInvites } from './PendingInvites';
 import { useNarrow } from '../use-narrow';
-
-const ROLE_TEXT = {
-  OWNER: 'власник',
-  ADMIN: 'адміністратор',
-  EDITOR: 'редактор',
-  VIEWER: 'глядач',
-};
 
 export function BoardsPage() {
   const { user, setUser } = useAuthStore();
@@ -31,11 +25,14 @@ export function BoardsPage() {
   // на телефоні список учасників не влазить у картку — виносимо на весь екран
   const narrow = useNarrow();
 
-  useEffect(() => {
+  const loadBoards = () =>
     fetchBoards()
       .then((data) => setBoards(data.boards))
       .catch((err) => setError(err instanceof Error ? err.message : 'Помилка завантаження'))
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    void loadBoards();
   }, []);
 
   const handleLogout = async () => {
@@ -107,6 +104,8 @@ export function BoardsPage() {
           Створити
         </button>
       </form>
+
+      <PendingInvites onAccepted={() => void loadBoards()} />
 
       {error && <p className="form-error">{error}</p>}
       {loading && <p>Завантаження…</p>}

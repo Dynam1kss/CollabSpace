@@ -383,6 +383,70 @@ header {
 }
 
 /* роль — пігулка, а не просто сірий текст у рядку */
+/* запрошення — над списком дошок, поки на них не відповіли */
+.invites {
+  margin-bottom: 1.25rem;
+}
+
+.invites-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.invite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.invite-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+}
+
+.invite-info {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.invite-actions .button-primary {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.invite-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.member-pending {
+  margin-left: 0.4rem;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
 .role-chip {
   padding: 1px 8px;
   border-radius: 10px;
@@ -475,7 +539,8 @@ header {
 /* нейтральна кнопка — другорядні дії поруч із акцентною: перейменування,
 керування учасниками. Без неї тут лишались сірі кнопки браузера */
 .board-rename-actions button,
-.board-members button {
+.board-members button,
+.invite-actions button:not(.button-primary) {
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
@@ -497,6 +562,7 @@ header {
 
 @media (hover: hover) {
   .board-rename-actions button:hover,
+  .invite-actions button:not(.button-primary):not(:disabled):hover,
   .board-members button:not(:disabled):hover {
     background: var(--hover);
   }

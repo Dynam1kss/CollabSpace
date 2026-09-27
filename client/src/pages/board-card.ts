@@ -7,6 +7,13 @@ export function colorForBoard(boardId: string) {
   return colorForUser(boardId);
 }
 
+export const ROLE_TEXT = {
+  OWNER: 'власник',
+  ADMIN: 'адміністратор',
+  EDITOR: 'редактор',
+  VIEWER: 'глядач',
+};
+
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;

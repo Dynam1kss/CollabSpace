@@ -33,7 +33,7 @@ export class ApiError extends Error {
   }
 }
 
-async function parseResponse<T>(res: Response): Promise<T> {
+export async function parseResponse<T>(res: Response): Promise<T> {
   const data = await res.json();
   if (!res.ok) {
     throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');

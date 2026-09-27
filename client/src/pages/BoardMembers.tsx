@@ -59,7 +59,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
       setEmail('');
       setError(null);
     } catch (err) {
-      handleFailure(err, 'Не вдалося додати учасника');
+      handleFailure(err, 'Не вдалося запросити учасника');
     }
   };
 
@@ -106,6 +106,11 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
               <span className="member-who">
                 {m.displayName}
                 <span className="board-role"> {m.email}</span>
+                {m.status === 'PENDING' && (
+                  <span className="member-pending" title="Запрошення ще не прийняте">
+                    очікує
+                  </span>
+                )}
               </span>
               <select
                 value={m.role}
@@ -136,7 +141,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
           <option value="EDITOR">Редактор</option>
           <option value="VIEWER">Глядач</option>
         </select>
-        <button type="submit">Додати</button>
+        <button type="submit">Запросити</button>
       </form>
       {error && <p className="form-error">{error}</p>}
     </div>
