@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AUTH_CHANGED_KEY, fetchMe } from './api/auth';
+import { InstallBanner } from './components/InstallBanner';
 import { ServerStatus } from './components/ServerStatus';
 import { BoardPage } from './pages/BoardPage';
 import { BoardsPage } from './pages/BoardsPage';
@@ -63,6 +64,8 @@ export function App() {
           element={
             <main className={status === 'authenticated' && user ? 'app-shell boards-shell' : 'app-shell auth-shell'}>
               {status === 'authenticated' && user ? <BoardsPage /> : <AuthGate />}
+              {/* під формою, а не над нею — щоб ніколи не заступала вхід */}
+              <InstallBanner />
               <ServerStatus />
             </main>
           }
