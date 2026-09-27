@@ -4,12 +4,7 @@ import { fetchIceConfig } from '../api/boards';
 import { usePresenceStore } from '../canvas/presence-store';
 import { useSeatStore } from './seat-store';
 import { seatDistance, spatialGain } from './spatial-gain';
-import {
-  ANALYSER_FFT_SIZE,
-  IDLE_SPEAKING,
-  nextSpeakingState,
-  rmsLevel,
-} from './speaking-detector';
+import { ANALYSER_FFT_SIZE, IDLE_SPEAKING, nextSpeakingState, rmsLevel } from './speaking-detector';
 import type { SpeakingState } from './speaking-detector';
 import { publishVoiceState, sendVoiceIce, sendVoiceSdp } from './voice-channel';
 import { useVoiceStore } from './voice-store';
@@ -412,7 +407,7 @@ async function replaceLocalTrack() {
   try {
     fresh = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    useVoiceStore.getState().setError('Мікрофон не повернувся — перезайдіть у розмову');
+    useVoiceStore.getState().setError('voice.micLost');
     return;
   }
   const track = fresh.getAudioTracks()[0] ?? null;
@@ -454,7 +449,7 @@ export async function startVoice() {
     iceConfig = await fetchIceConfig();
   } catch {
     useVoiceStore.getState().setStarting(false);
-    useVoiceStore.getState().setError('Не вдалося увімкнути мікрофон');
+    useVoiceStore.getState().setError('voice.micFailed');
     return;
   }
   useVoiceStore.getState().setStarting(false);

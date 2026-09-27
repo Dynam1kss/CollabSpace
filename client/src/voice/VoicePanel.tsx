@@ -5,15 +5,12 @@ import { colorForUser, initialsOf } from '../canvas/presence-colors';
 import { forceVoice } from '../api/boards';
 import { canManageMember } from 'shared';
 import { setDeafened, setMicMuted, startVoice, stopVoice, voiceIsFull } from './voice-mesh';
-import {
-  HeadphonesIcon,
-  HeadphonesOffIcon,
-  MicIcon,
-  MicOffIcon,
-} from '../canvas/icons';
+import { HeadphonesIcon, HeadphonesOffIcon, MicIcon, MicOffIcon } from '../canvas/icons';
 import type { PeerInfo } from './voice-store';
 import { useVoiceStore } from './voice-store';
 import { useNarrow } from '../use-narrow';
+import { useTranslation } from 'react-i18next';
+import { i18n } from '../i18n';
 
 // вимкнув адміністратор — це НЕ те саме, що «я сам вимкнув і можу ввімкнути»:
 // окремий клас домальовує замок і червоний тон, інакше кнопка виглядає просто
@@ -26,17 +23,17 @@ function selfClass(off: boolean, forced: boolean) {
 // те саме, що в title замка, але текстом: на тачі наведення нема, і підказку
 // ніхто не побачить
 function describeForced(f: { mute: boolean; deafen: boolean }) {
-  if (f.mute && f.deafen) return 'адміністратор вимкнув мікрофон і звук';
-  if (f.mute) return 'адміністратор вимкнув мікрофон';
-  if (f.deafen) return 'адміністратор вимкнув звук';
+  if (f.mute && f.deafen) return i18n.t('voice.forcedBoth');
+  if (f.mute) return i18n.t('voice.forcedMic');
+  if (f.deafen) return i18n.t('voice.forcedSound');
   return null;
 }
 
 function describe(peer: PeerInfo) {
-  if (peer.phase === 'failed') return 'звʼязок не вдався';
-  if (peer.phase !== 'live') return 'підключається';
-  if (peer.volume === 0) return 'надто далеко, не чути';
-  return `чути на ${Math.round(peer.volume * 100)}%`;
+  if (peer.phase === 'failed') return i18n.t('voice.failed');
+  if (peer.phase !== 'live') return i18n.t('voice.connecting');
+  if (peer.volume === 0) return i18n.t('voice.tooFar');
+  return i18n.t('voice.volume', { percent: Math.round(peer.volume * 100) });
 }
 
 // вхід у розмову й хто в ній зараз. Кружечки ті самі, що в списку присутніх,
@@ -48,6 +45,7 @@ interface Props {
 }
 
 export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
+  const { t } = useTranslation();
   const inVoice = useVoiceStore((s) => s.inVoice);
   const starting = useVoiceStore((s) => s.starting);
   const peers = useVoiceStore((s) => s.peers);
@@ -80,7 +78,7 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
         disabled={starting || full}
         onClick={() => (inVoice ? stopVoice() : void startVoice())}
       >
-        {starting ? 'мікрофон…' : inVoice ? 'Вийти з розмови' : 'Приєднатись до розмови'}
+        {starting ? t('voice.starting') : inVoice ? t('voice.leave') : t('voice.join')}
       </button>
 
       {/* примусово вимкнені кнопки лишаються клікабельними: на disabled браузер
@@ -90,14 +88,10 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
           <button
             type="button"
             className={selfClass(micMuted, myForced.mute)}
-            title={
-              myForced.mute
-                ? 'Мікрофон вимкнено адміністратором'
-                : micMuted
-                  ? 'Увімкнути мікрофон'
-                  : 'Вимкнути мікрофон'
+            title={myForced.mute ? t('voice.micForced') : micMuted ? t('voice.micOn') : t('voice.micOff')}
+            aria-label={
+              myForced.mute ? t('voice.micForced') : micMuted ? t('voice.micOn') : t('voice.micOff')
             }
-            aria-label={myForced.mute ? 'Мікрофон вимкнено адміністратором' : micMuted ? 'Увімкнути мікрофон' : 'Вимкнути мікрофон'}
             aria-pressed={micMuted}
             aria-disabled={myForced.mute}
             onClick={() => !myForced.mute && setMicMuted(!micMuted)}
@@ -108,13 +102,11 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
             type="button"
             className={selfClass(deafened, myForced.deafen)}
             title={
-              myForced.deafen
-                ? 'Звук вимкнено адміністратором'
-                : deafened
-                  ? 'Знову чути всіх'
-                  : 'Не чути нікого'
+              myForced.deafen ? t('voice.deafForced') : deafened ? t('voice.undeafen') : t('voice.deafen')
             }
-            aria-label={myForced.deafen ? 'Звук вимкнено адміністратором' : deafened ? 'Знову чути всіх' : 'Не чути нікого'}
+            aria-label={
+              myForced.deafen ? t('voice.deafForced') : deafened ? t('voice.undeafen') : t('voice.deafen')
+            }
             aria-pressed={deafened}
             aria-disabled={myForced.deafen}
             onClick={() => !myForced.deafen && setDeafened(!deafened)}
@@ -128,7 +120,9 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
         <div className="voice-peers">
           <span
             className={selfSpeaking ? 'voice-chip self speaking' : 'voice-chip self'}
-            title={`${members[selfClientId].displayName} (я)${selfSpeaking ? ' — говорить' : ''}`}
+            title={t(selfSpeaking ? 'voice.meSpeaking' : 'voice.me', {
+              name: members[selfClientId].displayName,
+            })}
           >
             <span className="voice-peer" style={{ background: colorForUser(members[selfClientId].userId) }}>
               {initialsOf(members[selfClientId].displayName)}
@@ -149,7 +143,10 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
               <span key={clientId} className="voice-peer-row">
                 <span
                   className={speaking[clientId] ? 'voice-chip speaking' : 'voice-chip'}
-                  title={`${member.displayName} — ${describe(peers[clientId])}${speaking[clientId] ? ', говорить' : ''}`}
+                  title={t(speaking[clientId] ? 'voice.peerSpeaking' : 'voice.peer', {
+                    name: member.displayName,
+                    state: describe(peers[clientId]),
+                  })}
                 >
                   <span
                     className={`voice-peer ${peers[clientId].phase}`}
@@ -181,8 +178,8 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                     <button
                       type="button"
                       className={theirForced.mute ? 'voice-force on' : 'voice-force'}
-                      title={theirForced.mute ? 'Повернути мікрофон' : 'Вимкнути мікрофон учаснику'}
-                      aria-label={`Мікрофон: ${member.displayName}`}
+                      title={theirForced.mute ? t('voice.returnMic') : t('voice.muteMember')}
+                      aria-label={t('voice.micOf', { name: member.displayName })}
                       onClick={() =>
                         void forceVoice(boardId, { userId: member.userId, mute: !theirForced.mute }).catch(
                           () => {},
@@ -194,8 +191,8 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                     <button
                       type="button"
                       className={theirForced.deafen ? 'voice-force on' : 'voice-force'}
-                      title={theirForced.deafen ? 'Повернути звук' : 'Щоб учасник нікого не чув'}
-                      aria-label={`Звук: ${member.displayName}`}
+                      title={theirForced.deafen ? t('voice.returnSound') : t('voice.deafenMember')}
+                      aria-label={t('voice.soundOf', { name: member.displayName })}
                       onClick={() =>
                         void forceVoice(boardId, {
                           userId: member.userId,
@@ -215,15 +212,15 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
 
       {/* свій замок теж текстом: title на кнопці дістається лише миші */}
       {myLock && <span className="voice-note voice-error">{myLock}</span>}
-      {full && <span className="voice-note">розмова повна ({VOICE_MAX_PARTICIPANTS})</span>}
-      {error && <span className="voice-note voice-error">{error}</span>}
+      {full && <span className="voice-note">{t('voice.full', { max: VOICE_MAX_PARTICIPANTS })}</span>}
+      {error && <span className="voice-note voice-error">{t(error)}</span>}
 
       {mini && (
         <button
           type="button"
           className={error || myLock ? 'voice-expand alert' : 'voice-expand'}
-          title="Розмова"
-          aria-label="Розмова"
+          title={t('voice.title')}
+          aria-label={t('voice.title')}
           onClick={() => setExpanded(true)}
         >
           <HeadphonesIcon size={20} />
@@ -234,8 +231,8 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
         <button
           type="button"
           className="icon-button voice-collapse"
-          title="Згорнути"
-          aria-label="Згорнути"
+          title={t('voice.collapse')}
+          aria-label={t('voice.collapse')}
           onClick={() => setExpanded(false)}
         >
           ×

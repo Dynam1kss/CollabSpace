@@ -11,6 +11,7 @@ import { nearestFreeSeat } from './seat-position';
 import { useSeatStore } from './seat-store';
 import { useVoiceStore } from './voice-store';
 import { useCanvasColors } from '../theme';
+import { useTranslation } from 'react-i18next';
 
 // розмір в екранних пікселях: стілець не має розпухати разом із зумом —
 // він позначка людини, а не обʼєкт дошки
@@ -34,6 +35,7 @@ interface Props {
 // присутніх: місце в базі лежить і в того, кого зараз нема, але показувати
 // порожній стілець означало б удавати, що людина тут
 export function BoardSeats({ viewportScale, onDropMine }: Props) {
+  const { t } = useTranslation();
   const members = usePresenceStore((s) => s.members);
   const selfClientId = usePresenceStore((s) => s.selfClientId);
   const mine = useSeatStore((s) => s.mine);
@@ -117,7 +119,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
           <SeatBody
             color={colorForUser(members[selfClientId].userId)}
             initials={initialsOf(members[selfClientId].displayName)}
-            name={`${members[selfClientId].displayName} (я)`}
+            name={t('voice.me', { name: members[selfClientId].displayName })}
             inVoice={inVoice}
             speaking={selfSpeaking}
             k={k}
