@@ -48,6 +48,12 @@ const WHEEL_CLASSIFY_DELAY_MS = 60;
 
 const LINE_HEIGHT_PX = 16;
 
+// сенсор на телефоні шумить ~±0.7px на координату, відстань між пальцями —
+// до ±1.4px. поки пальці майже стоять, це давало розворот масштабу мало не
+// щокадру, і край екрана трусило на кілька пікселів. тому крок щипка у
+// протилежний бік менший за це просто ігноруємо; рух в один бік іде як є
+const PINCH_REVERSE_DEADZONE_PX = 3;
+
 function isTypingTarget(target: EventTarget | null) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
@@ -129,7 +135,9 @@ export function useCanvasViewport(initial: Viewport) {
   const touchInput = useEditorStore((s) => s.touchInput);
 
   const panRef = useRef<{ active: boolean; lastX: number; lastY: number } | null>(null);
-  const pinchRef = useRef<{ distance: number; midpoint: Point2 } | null>(null);
+  // distance — відстань, від якої востаннє реально міняли масштаб (не остання
+  // з подій), direction — куди тоді міняли: 1 розводимо, -1 зводимо, 0 ще ніяк
+  const pinchRef = useRef<{ distance: number; midpoint: Point2; direction: number } | null>(null);
   const wheelGestureRef = useRef<{ type: WheelGestureType; lastTime: number } | null>(null);
   // перша подія нового жесту, яка схожа на клац миші, але ще не підтверджена —
   // лежить тут до другої події або до таймера
@@ -347,6 +355,7 @@ export function useCanvasViewport(initial: Viewport) {
       pinchRef.current = {
         distance: distance(p1, p2),
         midpoint: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 },
+        direction: 0,
       };
     }
   }, []);
@@ -370,13 +379,18 @@ export function useCanvasViewport(initial: Viewport) {
         const newDistance = distance(p1, p2);
         const newMidpoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
         const prev = pinchRef.current;
-        pinchRef.current = { distance: newDistance, midpoint: newMidpoint };
+        const delta = newDistance - prev.distance;
+        const direction = Math.sign(delta);
+        const isNoise = direction !== prev.direction && Math.abs(delta) < PINCH_REVERSE_DEADZONE_PX;
+        pinchRef.current = isNoise
+          ? { ...prev, midpoint: newMidpoint }
+          : { distance: newDistance, midpoint: newMidpoint, direction };
         if (prev.distance > 0) {
           // масштаб і зсув однією зміною стану: відношення відстаней — множник
           // масштабу, зміщення середньої точки — панорамування; масштаб рахуємо
           // відносно ПОПЕРЕДНЬОЇ середньої точки (prev.midpoint), інакше зсув після
           // подвоюється і полотно "стрибає" замість того, щоб клеїтись до пальців
-          const factor = newDistance / prev.distance;
+          const factor = isNoise ? 1 : newDistance / prev.distance;
           queueViewport((v) => pinchViewport(v, v.scale * factor, prev.midpoint, newMidpoint));
         }
       }
