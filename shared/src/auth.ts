@@ -1,8 +1,12 @@
+export type Theme = 'light' | 'dark';
+export const THEMES: Theme[] = ['light', 'dark'];
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  theme: Theme;
   createdAt: string;
 }
 
@@ -17,8 +21,10 @@ export interface LoginRequest {
   password: string;
 }
 
+// будь-яке з полів — міняється лише те, що прийшло
 export interface UpdateProfileRequest {
-  displayName: string;
+  displayName?: string;
+  theme?: Theme;
 }
 
 export interface ChangePasswordRequest {

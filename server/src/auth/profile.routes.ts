@@ -20,11 +20,11 @@ profileRouter.patch('/', async (req, res, next) => {
   try {
     const parsed = updateProfileSchema.safeParse(req.body);
     if (!parsed.success) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Імʼя має бути від 1 до 100 символів');
+      throw new AppError(400, 'VALIDATION_ERROR', 'Некоректні дані профілю');
     }
-    const { displayName }: UpdateProfileRequest = parsed.data;
+    const { displayName, theme } = parsed.data as UpdateProfileRequest;
 
-    const user = await prisma.user.update({ where: { id: req.userId }, data: { displayName } });
+    const user = await prisma.user.update({ where: { id: req.userId }, data: { displayName, theme } });
     const body: AuthResponse = { user: toAuthUser(user) };
     res.json(body);
   } catch (err) {

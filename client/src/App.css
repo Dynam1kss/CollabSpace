@@ -13,6 +13,43 @@
   --page-bg: #f7f8fa;
   --danger: #d93025;
   --danger-soft: #fdecea;
+  --accent-hover: #3450e6;
+  --accent-active: #2c45cc;
+  --success: #1e8e3e;
+  --online: #16a34a;
+  /* тло під полотном — окремо від сторінки, щоб темну тему можна було
+  підкрутити саме для дошки */
+  --canvas-bg: #f7f8fa;
+  /* рожевий голосового каналу: вимкнений мікрофон, помилка, «вийти» */
+  --voice-alert: #c2255c;
+  --voice-alert-dark: #a51e48;
+  --voice-alert-soft: #fdeef3;
+  --voice-alert-border: #f3c0d2;
+}
+
+/* темна тема — не чисто чорна й не чисто біла: сіро-синя, щоб панелі
+відрізнялись від тла, а текст не різав очі */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --panel-bg: #242933;
+  --panel-border: #363d4a;
+  --text: #e4e7ec;
+  --text-muted: #9aa3b2;
+  --accent: #6f88ff;
+  --accent-soft: #2b3354;
+  --hover: #2e3440;
+  --page-bg: #1a1e25;
+  --danger: #ff7a6e;
+  --danger-soft: #3d2628;
+  --accent-hover: #8198ff;
+  --accent-active: #95a8ff;
+  --success: #4ade80;
+  --online: #22c55e;
+  --canvas-bg: #1a1e25;
+  --voice-alert: #ff6b9d;
+  --voice-alert-dark: #ff8fb3;
+  --voice-alert-soft: #3d2531;
+  --voice-alert-border: #6b3350;
 }
 
 body {
@@ -132,14 +169,14 @@ header {
 
 @media (hover: hover) {
   .button-primary:not(:disabled):hover {
-    background: #3450e6;
-    border-color: #3450e6;
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
   }
 }
 
 .button-primary:not(:disabled):active {
-  background: #2c45cc;
-  border-color: #2c45cc;
+  background: var(--accent-active);
+  border-color: var(--accent-active);
 }
 
 /* кнопка-текст: дія без рамки, як посилання */
@@ -366,9 +403,45 @@ header {
   cursor: pointer;
 }
 
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* два-три варіанти поруч, вибраний — акцентом */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--page-bg);
+}
+
+.segmented button {
+  padding: 0.4rem 0.9rem;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--panel-bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
 .form-ok {
   margin: 0;
-  color: #1e8e3e;
+  color: var(--success);
   font-size: 0.85rem;
 }
 
@@ -750,7 +823,7 @@ header {
 /* секція учасників — окремим рядком на всю ширину під дошкою */
 .board-members {
   flex-basis: 100%;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--panel-border);
   padding-top: 0.5rem;
 }
 
@@ -870,7 +943,7 @@ header {
   flex: 1 1 auto;
   min-height: 0;
   position: relative;
-  background: #f7f8fa;
+  background: var(--canvas-bg);
 }
 
 .board-canvas {
@@ -963,7 +1036,7 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   padding: 8px 12px;
   max-width: 260px;
   font-size: 0.85rem;
-  color: #d93025;
+  color: var(--danger);
 }
 
 /* контекстна панель — компактний рядок дій біля виділення; left/top
@@ -999,7 +1072,7 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
 
 @media (hover: hover) {
   .ctx-danger:hover {
-    color: #d93025;
+    color: var(--danger);
   }
 }
 
@@ -1139,18 +1212,18 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   height: 6px;
   margin-right: 5px;
   border-radius: 50%;
-  background: #16a34a;
+  background: var(--online);
 }
 
 .sync-status.offline::before {
-  background: #d93025;
+  background: var(--danger);
 }
 
 /* оверлей редагування тексту прямо на полотні (double-click по стікеру/тексту) */
 .board-text-editor {
   position: absolute;
   box-sizing: border-box;
-  border: 1px dashed #4262ff;
+  border: 1px dashed var(--accent);
   outline: none;
   resize: none;
   background: transparent;
@@ -1261,7 +1334,7 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
 
 .board-page .kanban-locate:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--hover);
 }
 
 .kanban-card.draggable {
@@ -1472,7 +1545,7 @@ elementFromPoint повертав би її саму замість колонк
 }
 
 .voice-leave {
-  color: #c2255c;
+  color: var(--voice-alert);
 }
 
 .voice-peers {
@@ -1505,7 +1578,7 @@ elementFromPoint повертав би її саму замість колонк
 
 .voice-chip.speaking {
   box-shadow:
-    0 0 0 2px #fff,
+    0 0 0 2px var(--panel-bg),
     0 0 0 4.5px #22c55e;
 }
 
@@ -1516,7 +1589,7 @@ elementFromPoint повертав би її саму замість колонк
 
 .voice-peer.failed {
   opacity: 0.5;
-  outline: 2px solid #c2255c;
+  outline: 2px solid var(--voice-alert);
 }
 
 .voice-note {
@@ -1525,7 +1598,7 @@ elementFromPoint повертав би її саму замість колонк
 }
 
 .voice-error {
-  color: #c2255c;
+  color: var(--voice-alert);
 }
 
 /* кнопка виходу з дошки: ліворуч від назви, щоб не треба було правити адресу */
@@ -1575,9 +1648,9 @@ elementFromPoint повертав би її саму замість колонк
 }
 
 .voice-toggle.off {
-  color: #c2255c;
-  border-color: #f3c0d2;
-  background: #fdeef3;
+  color: var(--voice-alert);
+  border-color: var(--voice-alert-border);
+  background: var(--voice-alert-soft);
 }
 
 /* вимкнув адміністратор: насичений тон і замок у кутку — щоб не плутати з
@@ -1585,8 +1658,8 @@ elementFromPoint повертав би її саму замість колонк
 .voice-toggle.locked {
   position: relative;
   color: #fff;
-  border-color: #a51e48;
-  background: #c2255c;
+  border-color: var(--voice-alert-dark);
+  background: var(--voice-alert);
   cursor: not-allowed;
 }
 
@@ -1627,9 +1700,9 @@ elementFromPoint повертав би її саму замість колонк
 }
 
 .voice-force.on {
-  color: #c2255c;
-  border-color: #f3c0d2;
-  background: #fdeef3;
+  color: var(--voice-alert);
+  border-color: var(--voice-alert-border);
+  background: var(--voice-alert-soft);
 }
 
 /* «сюди можна сідати» — такий самий перемикач, як активний інструмент
@@ -1875,8 +1948,8 @@ elementFromPoint повертав би її саму замість колонк
   }
 
   .voice-expand.alert {
-    color: #c2255c;
-    border-color: #f3c0d2;
+    color: var(--voice-alert);
+    border-color: var(--voice-alert-border);
   }
 
   .voice-count {
@@ -2130,14 +2203,14 @@ elementFromPoint повертав би її саму замість колонк
 /* загальні :hover/:active кнопок дошки перефарбували б її в сіре */
 @media (hover: hover) {
   .board-page .show-view-send:hover {
-    background: #3450e6;
-    border-color: #3450e6;
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
   }
 }
 
 .board-page .show-view-send:active {
-  background: #2c45cc;
-  border-color: #2c45cc;
+  background: var(--accent-active);
+  border-color: var(--accent-active);
 }
 
 .show-view-popover {

@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { changePassword, updateDisplayName, uploadAvatar } from '../api/profile';
+import type { Theme } from 'shared';
+import { changePassword, updateProfile, uploadAvatar } from '../api/profile';
+import { applyTheme } from '../prefs';
 import { Avatar } from '../components/Avatar';
 import { useAuthStore } from '../store/auth-store';
 
@@ -21,6 +23,8 @@ export function SettingsPage() {
   const [name, setName] = useState(user?.displayName ?? '');
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
+
+  const [prefsError, setPrefsError] = useState<string | null>(null);
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -64,12 +68,28 @@ export function SettingsPage() {
       return;
     }
     try {
-      setUser((await updateDisplayName(trimmed)).user);
+      setUser((await updateProfile({ displayName: trimmed })).user);
       setName(trimmed);
       setNameError(null);
       setNameSaved(true);
     } catch (err) {
       setNameError(err instanceof Error ? err.message : 'Не вдалося зберегти імʼя');
+    }
+  }
+
+  // застосовуємо одразу, до відповіді сервера; не зберіглось — вертаємо як було
+  async function handleTheme(theme: Theme) {
+    if (!user || theme === user.theme) return;
+    const previous = user.theme;
+    applyTheme(theme);
+    setUser({ ...user, theme });
+    try {
+      setUser((await updateProfile({ theme })).user);
+      setPrefsError(null);
+    } catch (err) {
+      applyTheme(previous);
+      setUser({ ...user, theme: previous });
+      setPrefsError(err instanceof Error ? err.message : 'Не вдалося зберегти тему');
     }
   }
 
@@ -149,6 +169,30 @@ export function SettingsPage() {
             Зберегти
           </button>
         </form>
+      </section>
+
+      <section className="settings-card">
+        <h2>Вигляд</h2>
+        <div className="settings-row">
+          <span>Тема</span>
+          <div className="segmented" role="group" aria-label="Тема">
+            <button
+              type="button"
+              aria-pressed={user.theme === 'light'}
+              onClick={() => void handleTheme('light')}
+            >
+              Світла
+            </button>
+            <button
+              type="button"
+              aria-pressed={user.theme === 'dark'}
+              onClick={() => void handleTheme('dark')}
+            >
+              Темна
+            </button>
+          </div>
+        </div>
+        {prefsError && <p className="form-error">{prefsError}</p>}
       </section>
 
       <section className="settings-card">

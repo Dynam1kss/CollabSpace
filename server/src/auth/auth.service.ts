@@ -38,6 +38,8 @@ export function toAuthUser(user: User): AuthUser {
     email: user.email,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+    // у базі рядок; щось стороннє туди потрапити не може, але тип треба звузити
+    theme: user.theme === 'dark' ? 'dark' : 'light',
     createdAt: user.createdAt.toISOString(),
   };
 }

@@ -1,8 +1,7 @@
 import type { ApiErrorBody, AuthResponse, ChangePasswordRequest, UpdateProfileRequest } from 'shared';
 import { ApiError, parseResponse } from './boards';
 
-export function updateDisplayName(displayName: string) {
-  const payload: UpdateProfileRequest = { displayName };
+export function updateProfile(payload: UpdateProfileRequest) {
   return fetch('/api/me', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

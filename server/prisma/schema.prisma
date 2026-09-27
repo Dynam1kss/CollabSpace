@@ -29,6 +29,8 @@ model User {
   displayName  String
   // відносний /uploads/avatars/... — як і картинки на дошках; null — буква замість фото
   avatarUrl    String?
+  // light | dark — рядком, як і роль у протоколі; перевіряє zod на вході
+  theme        String   @default("light")
   createdAt    DateTime @default(now())
 
   ownedBoards  Board[]       @relation("BoardOwner")

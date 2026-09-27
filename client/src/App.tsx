@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useAuthStore } from './store/auth-store';
+import { applyTheme, THEME_KEY } from './prefs';
 
 // картка й назва застосунку — спільні для входу й реєстрації, самі сторінки
 // всередині лишаються тільки формою
@@ -38,11 +39,24 @@ export function App() {
       .catch(() => setUser(null));
   }, [setUser]);
 
+  // тема з акаунта перекриває ту, що лишилась у браузері від попереднього входу
+  const accountTheme = user?.theme;
+  useEffect(() => {
+    if (accountTheme) applyTheme(accountTheme);
+  }, [accountTheme]);
+
   // storage приходить лише в ІНШІ вкладки. Перезавантаження — найпростіший
   // спосіб перепідключити сокети й скинути стори вже під новою людиною
   useEffect(() => {
     function handleStorage(e: StorageEvent) {
       if (e.key === AUTH_CHANGED_KEY) window.location.reload();
+      // тему перемкнули в іншій вкладці — підхоплюємо без перезавантаження
+      if (e.key === THEME_KEY && (e.newValue === 'light' || e.newValue === 'dark')) {
+        const theme = e.newValue;
+        applyTheme(theme);
+        const current = useAuthStore.getState().user;
+        if (current) useAuthStore.getState().setUser({ ...current, theme });
+      }
     }
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -63,7 +77,11 @@ export function App() {
         <Route
           path="/"
           element={
-            <main className={status === 'authenticated' && user ? 'app-shell boards-shell' : 'app-shell auth-shell'}>
+            <main
+              className={
+                status === 'authenticated' && user ? 'app-shell boards-shell' : 'app-shell auth-shell'
+              }
+            >
               {status === 'authenticated' && user ? <BoardsPage /> : <AuthGate />}
               {/* під формою, а не над нею — щоб ніколи не заступала вхід */}
               <InstallBanner />

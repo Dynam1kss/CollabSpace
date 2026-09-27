@@ -30,7 +30,12 @@ describe('профіль: імʼя', () => {
 
     const res = await agent.patch('/api/me').send({ displayName: 'Нове імʼя' });
     expect(res.status).toBe(200);
-    expect(res.body.user).toMatchObject({ id: user.id, displayName: 'Нове імʼя', avatarUrl: null });
+    expect(res.body.user).toMatchObject({
+      id: user.id,
+      displayName: 'Нове імʼя',
+      avatarUrl: null,
+      theme: 'light',
+    });
 
     const me = await agent.get('/api/auth/me');
     expect(me.body.user.displayName).toBe('Нове імʼя');
@@ -181,5 +186,25 @@ describe('профіль: пароль', () => {
       .post('/api/me/password')
       .send({ currentPassword: 'будь-що', newPassword: 'новий-пароль' });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('профіль: тема', () => {
+  it('за замовчуванням світла, dark зберігається і приходить із /auth/me', async () => {
+    const { agent, user } = await registerUser({ displayName: 'Тематичний' });
+    expect(user.theme).toBe('light');
+
+    const res = await agent.patch('/api/me').send({ theme: 'dark' });
+    expect(res.status).toBe(200);
+    // імʼя не чіпали — лишилось
+    expect(res.body.user).toMatchObject({ theme: 'dark', displayName: 'Тематичний' });
+    expect((await agent.get('/api/auth/me')).body.user.theme).toBe('dark');
+  });
+
+  it('невідома тема чи порожнє тіло — 400, нічого не змінено', async () => {
+    const { agent, user } = await registerUser();
+    expect((await agent.patch('/api/me').send({ theme: 'purple' })).status).toBe(400);
+    expect((await agent.patch('/api/me').send({})).status).toBe(400);
+    expect((await prisma.user.findUnique({ where: { id: user.id } }))!.theme).toBe('light');
   });
 });
