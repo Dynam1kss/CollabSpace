@@ -21,15 +21,17 @@ export function PinchDebug() {
         </button>
       </div>
       <pre>
-        {'   Δt    raw smooth flag scale\n'}
+        {'   Δt    raw smooth flag scale  lagX\n'}
         {last
           .map((s, i) => {
             const dt = i > 0 ? s.t - last[i - 1].t : 0;
-            // x — мертва зона зʼїла крок, s — кадр без події, фільтр доїжджає сам
-            const flag = s.skipped ? 'x' : s.kind === 'settle' ? 's' : ' ';
+            // x — мертва зона зʼїла крок, s — кадр без події, фільтр доїжджає сам, p — один палець
+            const flag = s.skipped ? 'x' : s.kind === 'settle' ? 's' : s.kind === 'pan' ? 'p' : ' ';
             const head =
               s.kind === 'start' || s.kind === 'end' ? s.kind.padStart(5) : dt.toFixed(0).padStart(5);
-            return `${head} ${s.raw.toFixed(1).padStart(6)} ${s.smooth.toFixed(1).padStart(6)}  ${flag}   ${s.scale.toFixed(4)}`;
+            // lagX — наскільки камера відстає від пальців по x (сира точка мінус використана)
+            const lag = (s.rawMidX - s.midX).toFixed(1).padStart(6);
+            return `${head} ${s.raw.toFixed(1).padStart(6)} ${s.smooth.toFixed(1).padStart(6)}  ${flag}   ${s.scale.toFixed(4)} ${lag}`;
           })
           .join('\n')}
       </pre>

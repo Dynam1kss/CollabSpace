@@ -56,9 +56,9 @@ const LINE_HEIGHT_PX = 16;
 const PINCH_REVERSE_DEADZONE_PX = 3;
 
 // на живому андроїді проскакують і поодинокі викиди в той самий бік, що й
-// жест, — розворот їх не ловить. тому відстань і середню точку ще й
-// згладжуємо: кожна подія тягне їх лише на цю частку шляху до сирого значення.
-// більше — шпильки пролазять, менше — полотно помітно відстає від пальців
+// жест, — розворот їх не ловить. тому відстань між пальцями ще й згладжуємо:
+// щокадру вона проходить лише цю частку шляху до сирої. більше — шпильки
+// пролазять, менше — масштаб помітно відстає від пальців
 const PINCH_SMOOTHING = 0.4;
 
 function isTypingTarget(target: EventTarget | null) {
@@ -397,6 +397,8 @@ export function useCanvasViewport(initial: Viewport) {
         skipped: false,
         midX: midpoint.x,
         midY: midpoint.y,
+        rawMidX: midpoint.x,
+        rawMidY: midpoint.y,
         ...v,
       });
     }
@@ -410,10 +412,12 @@ export function useCanvasViewport(initial: Viewport) {
       const kind = prev.fresh ? 'move' : 'settle';
       const { target } = prev;
       const newDistance = prev.smoothDistance + PINCH_SMOOTHING * (target.distance - prev.smoothDistance);
-      const newMidpoint = {
-        x: prev.midpoint.x + PINCH_SMOOTHING * (target.midpoint.x - prev.midpoint.x),
-        y: prev.midpoint.y + PINCH_SMOOTHING * (target.midpoint.y - prev.midpoint.y),
-      };
+      // середню точку не згладжуємо — зсув іде 1:1 за пальцями, як і пан одним.
+      // згладжена відставала на 1.5 кадру (75px на швидкому пані), а коли
+      // події приходять рідше за кадри (60 Гц дотиків на 90–120 Гц екрані,
+      // звично для андроїда), фільтр наздоганяв стрибки цілі нерівними кроками —
+      // ривки по 65px. шум координати проти швидкого пану мізерний
+      const newMidpoint = target.midpoint;
       const delta = newDistance - prev.distance;
       const direction = Math.sign(delta);
       // після відриву пальців шуму вже нема звідки взятись, а мертва зона
@@ -446,16 +450,14 @@ export function useCanvasViewport(initial: Viewport) {
             skipped: isNoise,
             midX: newMidpoint.x,
             midY: newMidpoint.y,
+            rawMidX: target.midpoint.x,
+            rawMidY: target.midpoint.y,
             ...next,
           });
           return next;
         });
       }
-      return (
-        Math.abs(target.distance - newDistance) < 0.05 &&
-        Math.abs(target.midpoint.x - newMidpoint.x) < 0.05 &&
-        Math.abs(target.midpoint.y - newMidpoint.y) < 0.05
-      );
+      return Math.abs(target.distance - newDistance) < 0.05;
     },
     [queueViewport],
   );
@@ -490,7 +492,23 @@ export function useCanvasViewport(initial: Viewport) {
         const dy = touches[0].clientY - panRef.current.lastY;
         panRef.current.lastX = touches[0].clientX;
         panRef.current.lastY = touches[0].clientY;
-        queueViewport((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+        queueViewport((v) => {
+          const next = { ...v, x: v.x + dx, y: v.y + dy };
+          const at = touchStagePoint(stage, touches[0]);
+          recordPinch({
+            t: e.evt.timeStamp,
+            kind: 'pan',
+            raw: 0,
+            smooth: 0,
+            skipped: false,
+            midX: at.x,
+            midY: at.y,
+            rawMidX: at.x,
+            rawMidY: at.y,
+            ...next,
+          });
+          return next;
+        });
       } else if (touches.length === 2 && pinchRef.current) {
         const p1 = touchStagePoint(stage, touches[0]);
         const p2 = touchStagePoint(stage, touches[1]);
@@ -519,6 +537,8 @@ export function useCanvasViewport(initial: Viewport) {
           skipped: false,
           midX: p.midpoint.x,
           midY: p.midpoint.y,
+          rawMidX: p.target.midpoint.x,
+          rawMidY: p.target.midpoint.y,
           ...v,
         });
         // не обнуляємо одразу — полотно ще доїде до того, де пальці відірвались

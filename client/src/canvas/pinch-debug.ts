@@ -5,12 +5,16 @@ export const PINCH_DEBUG = new URLSearchParams(window.location.search).has('pinc
 
 interface PinchSample {
   t: number;
-  kind: 'start' | 'move' | 'settle' | 'end';
+  // pan — рух одним пальцем (зокрема той, що лишився після щипка)
+  kind: 'start' | 'move' | 'settle' | 'end' | 'pan';
   raw: number;
   smooth: number;
   skipped: boolean;
+  // mid — середня точка, якою реально зсунули камеру; rawMid — де пальці насправді
   midX: number;
   midY: number;
+  rawMidX: number;
+  rawMidY: number;
   scale: number;
   x: number;
   y: number;
@@ -45,7 +49,7 @@ export function clearSamples() {
 
 // через файл, а не буфер обміну: clipboard на телефоні по http (lan-адреса) недоступний
 export function downloadCsv() {
-  const head = 't,kind,raw,smooth,skipped,midX,midY,scale,x,y';
+  const head = 't,kind,raw,smooth,skipped,midX,midY,rawMidX,rawMidY,scale,x,y';
   const rows = samples.map((s) =>
     [
       s.t.toFixed(1),
@@ -55,6 +59,8 @@ export function downloadCsv() {
       s.skipped ? 1 : 0,
       s.midX.toFixed(1),
       s.midY.toFixed(1),
+      s.rawMidX.toFixed(1),
+      s.rawMidY.toFixed(1),
       s.scale.toFixed(5),
       s.x.toFixed(1),
       s.y.toFixed(1),
