@@ -31,6 +31,8 @@ model User {
   avatarUrl    String?
   // light | dark — рядком, як і роль у протоколі; перевіряє zod на вході
   theme        String   @default("light")
+  // uk | en | de — мова інтерфейсу; серверні тексти помилок від неї не залежать
+  locale       String   @default("uk")
   createdAt    DateTime @default(now())
 
   ownedBoards  Board[]       @relation("BoardOwner")

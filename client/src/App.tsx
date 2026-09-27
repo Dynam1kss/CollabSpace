@@ -9,7 +9,10 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useAuthStore } from './store/auth-store';
-import { applyTheme, THEME_KEY } from './prefs';
+import { applyLocale, applyTheme, THEME_KEY } from './prefs';
+import { LOCALE_KEY } from './i18n';
+import { LOCALES } from 'shared';
+import type { Locale } from 'shared';
 
 // картка й назва застосунку — спільні для входу й реєстрації, самі сторінки
 // всередині лишаються тільки формою
@@ -45,6 +48,11 @@ export function App() {
     if (accountTheme) applyTheme(accountTheme);
   }, [accountTheme]);
 
+  const accountLocale = user?.locale;
+  useEffect(() => {
+    if (accountLocale) applyLocale(accountLocale);
+  }, [accountLocale]);
+
   // storage приходить лише в ІНШІ вкладки. Перезавантаження — найпростіший
   // спосіб перепідключити сокети й скинути стори вже під новою людиною
   useEffect(() => {
@@ -56,6 +64,12 @@ export function App() {
         applyTheme(theme);
         const current = useAuthStore.getState().user;
         if (current) useAuthStore.getState().setUser({ ...current, theme });
+      }
+      if (e.key === LOCALE_KEY && LOCALES.includes(e.newValue as Locale)) {
+        const locale = e.newValue as Locale;
+        applyLocale(locale);
+        const current = useAuthStore.getState().user;
+        if (current) useAuthStore.getState().setUser({ ...current, locale });
       }
     }
     window.addEventListener('storage', handleStorage);

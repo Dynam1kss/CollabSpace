@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import type { Theme } from 'shared';
+import type { Locale, Theme } from 'shared';
 import { changePassword, updateProfile, uploadAvatar } from '../api/profile';
-import { applyTheme } from '../prefs';
+import { errorText } from '../i18n/api-error';
+import { applyLocale, applyTheme } from '../prefs';
 import { Avatar } from '../components/Avatar';
 import { useAuthStore } from '../store/auth-store';
 
@@ -12,7 +14,12 @@ const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const MIN_PASSWORD = 8;
 
+// назва мови — її ж мовою, не перекладається: людина, що випадково
+// перемкнула на незнайому, має впізнати свою
+const LANGUAGE_NAMES: Record<Locale, string> = { uk: 'Українська', en: 'English', de: 'Deutsch' };
+
 export function SettingsPage() {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,11 +48,11 @@ export function SettingsPage() {
     e.target.value = '';
     if (!file) return;
     if (!AVATAR_TYPES.includes(file.type)) {
-      setAvatarError('Підтримуються лише PNG, JPEG, WebP і GIF');
+      setAvatarError(t('errors.UNSUPPORTED_MEDIA_TYPE'));
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      setAvatarError('Файл завеликий — до 5 МБ');
+      setAvatarError(t('settings.photoTooBig'));
       return;
     }
     setUploading(true);
@@ -53,7 +60,9 @@ export function SettingsPage() {
     try {
       setUser((await uploadAvatar(file)).user);
     } catch (err) {
-      setAvatarError(err instanceof Error ? err.message : 'Не вдалося завантажити фото');
+      setAvatarError(
+        errorText(err, t('settings.photoFailed'), { PAYLOAD_TOO_LARGE: t('settings.photoTooBig') }),
+      );
     } finally {
       setUploading(false);
     }
@@ -64,7 +73,7 @@ export function SettingsPage() {
     setNameSaved(false);
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > 100) {
-      setNameError('Імʼя має бути від 1 до 100 символів');
+      setNameError(t('settings.nameInvalid'));
       return;
     }
     try {
@@ -73,11 +82,12 @@ export function SettingsPage() {
       setNameError(null);
       setNameSaved(true);
     } catch (err) {
-      setNameError(err instanceof Error ? err.message : 'Не вдалося зберегти імʼя');
+      setNameError(errorText(err, t('settings.nameFailed'), { VALIDATION_ERROR: t('settings.nameInvalid') }));
     }
   }
 
-  // застосовуємо одразу, до відповіді сервера; не зберіглось — вертаємо як було
+  // тема й мова застосовуються одразу, до відповіді сервера; не зберіглось —
+  // вертаємо як було
   async function handleTheme(theme: Theme) {
     if (!user || theme === user.theme) return;
     const previous = user.theme;
@@ -89,7 +99,22 @@ export function SettingsPage() {
     } catch (err) {
       applyTheme(previous);
       setUser({ ...user, theme: previous });
-      setPrefsError(err instanceof Error ? err.message : 'Не вдалося зберегти тему');
+      setPrefsError(errorText(err, t('settings.themeFailed')));
+    }
+  }
+
+  async function handleLocale(locale: Locale) {
+    if (!user || locale === user.locale) return;
+    const previous = user.locale;
+    applyLocale(locale);
+    setUser({ ...user, locale });
+    try {
+      setUser((await updateProfile({ locale })).user);
+      setPrefsError(null);
+    } catch (err) {
+      applyLocale(previous);
+      setUser({ ...user, locale: previous });
+      setPrefsError(errorText(err, t('settings.languageFailed')));
     }
   }
 
@@ -98,11 +123,11 @@ export function SettingsPage() {
     setPasswordSaved(false);
     // довжину й збіг ловимо тут, до запиту
     if (next.length < MIN_PASSWORD) {
-      setPasswordError('Новий пароль має бути щонайменше 8 символів');
+      setPasswordError(t('settings.passwordTooShort'));
       return;
     }
     if (next !== confirm) {
-      setPasswordError('Нові паролі не збігаються');
+      setPasswordError(t('settings.passwordMismatch'));
       return;
     }
     setSavingPassword(true);
@@ -114,7 +139,12 @@ export function SettingsPage() {
       setPasswordError(null);
       setPasswordSaved(true);
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : 'Не вдалося змінити пароль');
+      setPasswordError(
+        errorText(err, t('settings.passwordFailed'), {
+          INVALID_CREDENTIALS: t('settings.wrongCurrentPassword'),
+          VALIDATION_ERROR: t('settings.passwordTooShort'),
+        }),
+      );
     } finally {
       setSavingPassword(false);
     }
@@ -123,26 +153,30 @@ export function SettingsPage() {
   return (
     <div className="settings">
       <Link to="/" className="settings-back">
-        ← До списку дошок
+        {t('common.backToBoards')}
       </Link>
-      <h1 className="boards-title">Налаштування</h1>
+      <h1 className="boards-title">{t('settings.title')}</h1>
 
       <section className="settings-card">
-        <h2>Фото</h2>
+        <h2>{t('settings.photo')}</h2>
         <div className="settings-avatar">
           <Avatar userId={user.id} name={user.displayName} url={user.avatarUrl} size={72} />
           <div className="settings-avatar-actions">
             <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>
-              {uploading ? 'Завантаження…' : user.avatarUrl ? 'Змінити фото' : 'Завантажити фото'}
+              {uploading
+                ? t('settings.uploading')
+                : user.avatarUrl
+                  ? t('settings.changePhoto')
+                  : t('settings.uploadPhoto')}
             </button>
-            <span className="board-role">PNG, JPEG, WebP або GIF, до 5 МБ</span>
+            <span className="board-role">{t('settings.photoHint')}</span>
           </div>
           <input
             ref={fileRef}
             type="file"
             accept={AVATAR_TYPES.join(',')}
             hidden
-            aria-label="Файл фото"
+            aria-label={t('settings.photoFile')}
             onChange={(e) => void handleAvatar(e)}
           />
         </div>
@@ -150,10 +184,10 @@ export function SettingsPage() {
       </section>
 
       <section className="settings-card">
-        <h2>Імʼя</h2>
+        <h2>{t('settings.name')}</h2>
         <form onSubmit={handleName}>
           <label>
-            Як вас бачать інші
+            {t('settings.nameLabel')}
             <input
               value={name}
               maxLength={100}
@@ -164,42 +198,60 @@ export function SettingsPage() {
             />
           </label>
           {nameError && <p className="form-error">{nameError}</p>}
-          {nameSaved && <p className="form-ok">Збережено</p>}
+          {nameSaved && <p className="form-ok">{t('common.saved')}</p>}
           <button type="submit" className="button-primary" disabled={name.trim() === user.displayName}>
-            Зберегти
+            {t('common.save')}
           </button>
         </form>
       </section>
 
       <section className="settings-card">
-        <h2>Вигляд</h2>
-        <div className="settings-row">
-          <span>Тема</span>
-          <div className="segmented" role="group" aria-label="Тема">
-            <button
-              type="button"
-              aria-pressed={user.theme === 'light'}
-              onClick={() => void handleTheme('light')}
-            >
-              Світла
-            </button>
-            <button
-              type="button"
-              aria-pressed={user.theme === 'dark'}
-              onClick={() => void handleTheme('dark')}
-            >
-              Темна
-            </button>
+        <h2>{t('settings.appearance')}</h2>
+        <div className="settings-rows">
+          <div className="settings-row">
+            <span>{t('settings.theme')}</span>
+            <div className="segmented" role="group" aria-label={t('settings.theme')}>
+              <button
+                type="button"
+                aria-pressed={user.theme === 'light'}
+                onClick={() => void handleTheme('light')}
+              >
+                {t('settings.themeLight')}
+              </button>
+              <button
+                type="button"
+                aria-pressed={user.theme === 'dark'}
+                onClick={() => void handleTheme('dark')}
+              >
+                {t('settings.themeDark')}
+              </button>
+            </div>
+          </div>
+          <div className="settings-row">
+            <span>{t('settings.language')}</span>
+            <div className="segmented" role="group" aria-label={t('settings.language')}>
+              {(Object.keys(LANGUAGE_NAMES) as Locale[]).map((locale) => (
+                <button
+                  key={locale}
+                  type="button"
+                  lang={locale}
+                  aria-pressed={user.locale === locale}
+                  onClick={() => void handleLocale(locale)}
+                >
+                  {LANGUAGE_NAMES[locale]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         {prefsError && <p className="form-error">{prefsError}</p>}
       </section>
 
       <section className="settings-card">
-        <h2>Пароль</h2>
+        <h2>{t('settings.password')}</h2>
         <form onSubmit={handlePassword}>
           <label>
-            Поточний пароль
+            {t('settings.currentPassword')}
             <input
               type="password"
               autoComplete="current-password"
@@ -209,7 +261,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Новий пароль
+            {t('settings.newPassword')}
             <input
               type="password"
               autoComplete="new-password"
@@ -219,7 +271,7 @@ export function SettingsPage() {
             />
           </label>
           <label>
-            Новий пароль ще раз
+            {t('settings.confirmPassword')}
             <input
               type="password"
               autoComplete="new-password"
@@ -229,9 +281,9 @@ export function SettingsPage() {
             />
           </label>
           {passwordError && <p className="form-error">{passwordError}</p>}
-          {passwordSaved && <p className="form-ok">Пароль змінено</p>}
+          {passwordSaved && <p className="form-ok">{t('settings.passwordChanged')}</p>}
           <button type="submit" className="button-primary" disabled={savingPassword}>
-            Змінити пароль
+            {t('settings.changePassword')}
           </button>
         </form>
       </section>

@@ -1,5 +1,5 @@
-import type { ApiErrorBody, AuthResponse, ChangePasswordRequest, UpdateProfileRequest } from 'shared';
-import { ApiError, parseResponse } from './boards';
+import type { AuthResponse, ChangePasswordRequest, UpdateProfileRequest } from 'shared';
+import { apiError, parseResponse } from './boards';
 
 export function updateProfile(payload: UpdateProfileRequest) {
   return fetch('/api/me', {
@@ -25,8 +25,5 @@ export async function changePassword(payload: ChangePasswordRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const data = await res.json();
-    throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
+  if (!res.ok) throw await apiError(res);
 }

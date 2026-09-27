@@ -162,6 +162,15 @@ describe('запрошення на дошку', () => {
     expect((await old.agent.get('/api/invites')).body.invites).toEqual([]);
   });
 
+  it('власника в учасники не кличуть — окремий код, щоб клієнт переклав саме це', async () => {
+    const { owner, boardId } = await invited();
+    const res = await owner.agent
+      .post(`/api/boards/${boardId}/members`)
+      .send({ email: owner.payload.email, role: 'EDITOR' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('ALREADY_OWNER');
+  });
+
   it('рядок без статусу за замовчуванням — запрошення, а не доступ', async () => {
     const owner = await registerUser();
     const guest = await registerUser();

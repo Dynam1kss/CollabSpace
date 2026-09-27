@@ -23,22 +23,27 @@ import type {
   VersionsResponse,
 } from 'shared';
 
-// несе статус відповіді — щоб відрізнити "не знайдено" (404) від решти помилок
+// несе статус відповіді — щоб відрізнити "не знайдено" (404) від решти
+// помилок — і код, за яким клієнт показує перекладений текст (i18n/api-error)
 export class ApiError extends Error {
   constructor(
     public status: number,
+    public code: string,
     message: string,
   ) {
     super(message);
   }
 }
 
+// тіло помилки може бути й не json (проксі впав, 502 від vite) — тоді код unknown
+export async function apiError(res: Response) {
+  const data = (await res.json().catch(() => null)) as ApiErrorBody | null;
+  return new ApiError(res.status, data?.error?.code ?? 'unknown', data?.error?.message ?? '');
+}
+
 export async function parseResponse<T>(res: Response): Promise<T> {
-  const data = await res.json();
-  if (!res.ok) {
-    throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
-  return data as T;
+  if (!res.ok) throw await apiError(res);
+  return (await res.json()) as T;
 }
 
 export function fetchBoards() {
@@ -67,10 +72,7 @@ export function renameBoard(id: string, payload: UpdateBoardRequest) {
 
 export async function deleteBoard(id: string) {
   const res = await fetch(`/api/boards/${id}`, { method: 'DELETE' });
-  if (!res.ok) {
-    const data = await res.json();
-    throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
+  if (!res.ok) throw await apiError(res);
 }
 
 // сервер повертає дошку з уже оновленим списком учасників
@@ -101,10 +103,7 @@ export async function removeBoardMember(boardId: string, userId: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const data = await res.json();
-    throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
+  if (!res.ok) throw await apiError(res);
 }
 
 // сирі байти файла в тілі, тип — з самого File; сервер відповідає відносним url
@@ -128,7 +127,7 @@ export async function saveMySeat(boardId: string, seat: SaveSeatRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(seat),
   });
-  if (!res.ok) throw new Error('Не вдалося зберегти місце');
+  if (!res.ok) throw await apiError(res);
 }
 
 // примусово вимкнути учаснику мікрофон чи звук — лише власнику й адміну
@@ -138,7 +137,7 @@ export async function forceVoice(boardId: string, patch: ForceVoiceRequest) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   });
-  if (!res.ok) throw new Error('Не вдалося змінити стан мікрофона учасника');
+  if (!res.ok) throw await apiError(res);
 }
 
 // куди стукати браузеру, щоб пробити NAT. Тягнемо на вхід у розмову, а не
@@ -167,10 +166,7 @@ export async function saveBoardSnapshot(id: string, objects: BoardObject[], keep
     body: JSON.stringify(payload),
     keepalive,
   });
-  if (!res.ok) {
-    const data = await res.json();
-    throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
+  if (!res.ok) throw await apiError(res);
 }
 
 export function fetchVersions(boardId: string) {
@@ -189,8 +185,5 @@ export function saveVersion(boardId: string, label: string) {
 // відповідь порожня: новий вміст приходить не звідси, а кадром RESTORED усій кімнаті
 export async function restoreVersion(boardId: string, versionId: string) {
   const res = await fetch(`/api/boards/${boardId}/versions/${versionId}/restore`, { method: 'POST' });
-  if (!res.ok) {
-    const data = await res.json();
-    throw new ApiError(res.status, (data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
+  if (!res.ok) throw await apiError(res);
 }

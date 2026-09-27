@@ -137,7 +137,7 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
       throw new AppError(404, 'USER_NOT_FOUND', 'Користувача з такою поштою не знайдено');
     }
     if (user.id === access.board.ownerId) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'Власник дошки й так має до неї повний доступ');
+      throw new AppError(400, 'ALREADY_OWNER', 'Власник дошки й так має до неї повний доступ');
     }
     // ця ручка — upsert, тож для того, хто вже на дошці, вона рівносильна
     // зміні ролі. Без цієї перевірки через неї можна було обійти всю

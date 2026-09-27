@@ -208,3 +208,23 @@ describe('профіль: тема', () => {
     expect((await prisma.user.findUnique({ where: { id: user.id } }))!.theme).toBe('light');
   });
 });
+
+describe('профіль: мова', () => {
+  it('за замовчуванням uk, en і de зберігаються, тема при цьому не чіпається', async () => {
+    const { agent, user } = await registerUser();
+    expect(user.locale).toBe('uk');
+
+    await agent.patch('/api/me').send({ theme: 'dark' });
+    const en = await agent.patch('/api/me').send({ locale: 'en' });
+    expect(en.body.user).toMatchObject({ locale: 'en', theme: 'dark' });
+    const de = await agent.patch('/api/me').send({ locale: 'de' });
+    expect(de.body.user.locale).toBe('de');
+    expect((await agent.get('/api/auth/me')).body.user.locale).toBe('de');
+  });
+
+  it('невідома мова — 400, лишається як була', async () => {
+    const { agent, user } = await registerUser();
+    expect((await agent.patch('/api/me').send({ locale: 'fr' })).status).toBe(400);
+    expect((await prisma.user.findUnique({ where: { id: user.id } }))!.locale).toBe('uk');
+  });
+});

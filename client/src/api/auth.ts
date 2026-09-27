@@ -1,12 +1,5 @@
-import type { ApiErrorBody, AuthResponse, LoginRequest, RegisterRequest } from 'shared';
-
-async function parseResponse<T>(res: Response): Promise<T> {
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error((data as ApiErrorBody).error?.message ?? 'Помилка запиту');
-  }
-  return data as T;
-}
+import type { AuthResponse, LoginRequest, RegisterRequest } from 'shared';
+import { parseResponse } from './boards';
 
 function postJson<T>(url: string, payload: unknown) {
   return fetch(url, {

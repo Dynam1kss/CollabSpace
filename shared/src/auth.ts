@@ -1,12 +1,16 @@
 export type Theme = 'light' | 'dark';
 export const THEMES: Theme[] = ['light', 'dark'];
 
+export type Locale = 'uk' | 'en' | 'de';
+export const LOCALES: Locale[] = ['uk', 'en', 'de'];
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
   avatarUrl: string | null;
   theme: Theme;
+  locale: Locale;
   createdAt: string;
 }
 
@@ -25,6 +29,7 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
   displayName?: string;
   theme?: Theme;
+  locale?: Locale;
 }
 
 export interface ChangePasswordRequest {
@@ -36,6 +41,8 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+// code — те, за чим клієнт вибирає перекладений текст; message — український
+// опис для логів і для того, хто читає api напряму
 export interface ApiErrorBody {
   error: {
     code: string;

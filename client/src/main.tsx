@@ -2,10 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './App.css';
 import { App } from './App';
-import { applyTheme, usePrefsStore } from './prefs';
+import { applyLocale, applyTheme, usePrefsStore } from './prefs';
 
-// до першого рендера — інакше темна тема блимала б світлою
+// до першого рендера — інакше темна тема блимала б світлою, а текст — українським
 applyTheme(usePrefsStore.getState().theme);
+applyLocale(usePrefsStore.getState().locale);
 
 // у dev воркер лише заважав би: vite віддає модулі окремими запитами й сам
 // стежить за їх свіжістю

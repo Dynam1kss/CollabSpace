@@ -1,7 +1,8 @@
 import { hash, verify } from 'argon2';
 import jwt from 'jsonwebtoken';
 import type { User } from '@prisma/client';
-import type { AuthUser } from 'shared';
+import type { AuthUser, Locale } from 'shared';
+import { LOCALES } from 'shared';
 import { env } from '../env';
 
 export function hashPassword(password: string) {
@@ -40,6 +41,7 @@ export function toAuthUser(user: User): AuthUser {
     avatarUrl: user.avatarUrl,
     // у базі рядок; щось стороннє туди потрапити не може, але тип треба звузити
     theme: user.theme === 'dark' ? 'dark' : 'light',
+    locale: LOCALES.includes(user.locale as Locale) ? (user.locale as Locale) : 'uk',
     createdAt: user.createdAt.toISOString(),
   };
 }
