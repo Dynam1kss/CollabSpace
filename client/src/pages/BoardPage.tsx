@@ -33,6 +33,8 @@ import { useShowView } from '../canvas/use-show-view';
 import { KanbanView } from '../kanban/KanbanView';
 import { usePreventBrowserZoom } from './usePreventBrowserZoom';
 import { useNarrow } from '../use-narrow';
+import { PinchDebug } from '../canvas/PinchDebug';
+import { PINCH_DEBUG } from '../canvas/pinch-debug';
 
 type LoadState = 'loading' | 'ready' | 'not-found' | 'error';
 // що зараз показано — стан сторінки, не редактора: не персиститься, канбан
@@ -311,6 +313,7 @@ export function BoardPage() {
               onSizeChange={setCanvasSize}
               currentUserId={currentUserId}
             />
+            {PINCH_DEBUG && <PinchDebug />}
             {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
             {editable && (
               <ContextPanel viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />

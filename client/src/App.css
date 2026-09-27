@@ -2223,3 +2223,31 @@ elementFromPoint повертав би її саму замість колонк
 .sheet-full .history-list {
   max-height: none;
 }
+
+/* тимчасовий трейс щипка (?pinchdebug) — поверх усього, щоб видно було під пальцями */
+.pinch-debug {
+  position: fixed;
+  top: 60px;
+  left: 8px;
+  z-index: 50;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #9f9;
+  font: 11px/1.3 ui-monospace, monospace;
+  border-radius: 6px;
+  pointer-events: auto;
+}
+
+.pinch-debug pre {
+  margin: 4px 0 0;
+  font: inherit;
+}
+
+.pinch-debug button {
+  padding: 2px 6px;
+  font: inherit;
+  color: #000;
+  background: #cfc;
+  border: none;
+  border-radius: 4px;
+}

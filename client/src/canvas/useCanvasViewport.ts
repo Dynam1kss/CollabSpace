@@ -4,6 +4,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { pinchViewport, zoomViewportAtPoint } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
+import { recordPinch } from './pinch-debug';
 
 const BUTTON_ZOOM_STEP = 1.2;
 
@@ -53,6 +54,12 @@ const LINE_HEIGHT_PX = 16;
 // щокадру, і край екрана трусило на кілька пікселів. тому крок щипка у
 // протилежний бік менший за це просто ігноруємо; рух в один бік іде як є
 const PINCH_REVERSE_DEADZONE_PX = 3;
+
+// на живому андроїді проскакують і поодинокі викиди в той самий бік, що й
+// жест, — розворот їх не ловить. тому відстань і середню точку ще й
+// згладжуємо: кожна подія тягне їх лише на цю частку шляху до сирого значення.
+// більше — шпильки пролазять, менше — полотно помітно відстає від пальців
+const PINCH_SMOOTHING = 0.4;
 
 function isTypingTarget(target: EventTarget | null) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
@@ -135,9 +142,21 @@ export function useCanvasViewport(initial: Viewport) {
   const touchInput = useEditorStore((s) => s.touchInput);
 
   const panRef = useRef<{ active: boolean; lastX: number; lastY: number } | null>(null);
+  // target — де пальці зараз (сирі); smoothDistance/midpoint — згладжені;
   // distance — відстань, від якої востаннє реально міняли масштаб (не остання
-  // з подій), direction — куди тоді міняли: 1 розводимо, -1 зводимо, 0 ще ніяк
-  const pinchRef = useRef<{ distance: number; midpoint: Point2; direction: number } | null>(null);
+  // з подій), direction — куди тоді міняли: 1 розводимо, -1 зводимо, 0 ще ніяк.
+  // lifted — пальці вже підняли, лишилось лише доїхати до target;
+  // fresh — target оновився після останнього кроку (лише для трейсу)
+  const pinchRef = useRef<{
+    target: { distance: number; midpoint: Point2 };
+    fresh: boolean;
+    distance: number;
+    smoothDistance: number;
+    midpoint: Point2;
+    direction: number;
+    lifted: boolean;
+  } | null>(null);
+  const pinchRafRef = useRef<number | null>(null);
   const wheelGestureRef = useRef<{ type: WheelGestureType; lastTime: number } | null>(null);
   // перша подія нового жесту, яка схожа на клац миші, але ще не підтверджена —
   // лежить тут до другої події або до таймера
@@ -162,24 +181,30 @@ export function useCanvasViewport(initial: Viewport) {
   useEffect(() => {
     return () => {
       if (flushRafIdRef.current !== null) cancelAnimationFrame(flushRafIdRef.current);
+      if (pinchRafRef.current !== null) cancelAnimationFrame(pinchRafRef.current);
       if (pendingWheelRef.current) clearTimeout(pendingWheelRef.current.timerId);
     };
   }, []);
 
+  const flushViewport = useCallback(() => {
+    if (flushRafIdRef.current !== null) {
+      cancelAnimationFrame(flushRafIdRef.current);
+      flushRafIdRef.current = null;
+    }
+    if (pendingViewportRef.current) {
+      // у ref пишемо одразу, не чекаючи ефекту після рендера — подія, що
+      // прилетить між цим кадром і комітом react, інакше стартувала б від
+      // застарілого viewport і зʼїла б уже накопичений зсув
+      viewportRef.current = pendingViewportRef.current;
+      setViewport(pendingViewportRef.current);
+      pendingViewportRef.current = null;
+    }
+  }, []);
+
   const scheduleViewportFlush = useCallback(() => {
     if (flushRafIdRef.current !== null) return;
-    flushRafIdRef.current = requestAnimationFrame(() => {
-      flushRafIdRef.current = null;
-      if (pendingViewportRef.current) {
-        // у ref пишемо одразу, не чекаючи ефекту після рендера — подія, що
-        // прилетить між цим кадром і комітом react, інакше стартувала б від
-        // застарілого viewport і зʼїла б уже накопичений зсув
-        viewportRef.current = pendingViewportRef.current;
-        setViewport(pendingViewportRef.current);
-        pendingViewportRef.current = null;
-      }
-    });
-  }, []);
+    flushRafIdRef.current = requestAnimationFrame(flushViewport);
+  }, [flushViewport]);
 
   // нове значення рахуємо від того, що вже накопичено в цьому кадрі (якщо
   // кілька подій прийшли до flush), інакше від свіжого committed стану
@@ -352,13 +377,106 @@ export function useCanvasViewport(initial: Viewport) {
       if (cancelObjectDrags()) useEditorStore.getState().clearSelection();
       const p1 = touchStagePoint(stage, touches[0]);
       const p2 = touchStagePoint(stage, touches[1]);
+      const d = distance(p1, p2);
+      const midpoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
       pinchRef.current = {
-        distance: distance(p1, p2),
-        midpoint: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 },
+        target: { distance: d, midpoint },
+        fresh: false,
+        distance: d,
+        smoothDistance: d,
+        midpoint,
         direction: 0,
+        lifted: false,
       };
+      const v = viewportRef.current;
+      recordPinch({
+        t: e.evt.timeStamp,
+        kind: 'start',
+        raw: d,
+        smooth: d,
+        skipped: false,
+        midX: midpoint.x,
+        midY: midpoint.y,
+        ...v,
+      });
     }
   }, []);
+
+  // один крок згладженого щипка до pinch.target. повертає true, коли вже доїхали
+  const stepPinch = useCallback(
+    (t: number) => {
+      const prev = pinchRef.current;
+      if (!prev) return true;
+      const kind = prev.fresh ? 'move' : 'settle';
+      const { target } = prev;
+      const newDistance = prev.smoothDistance + PINCH_SMOOTHING * (target.distance - prev.smoothDistance);
+      const newMidpoint = {
+        x: prev.midpoint.x + PINCH_SMOOTHING * (target.midpoint.x - prev.midpoint.x),
+        y: prev.midpoint.y + PINCH_SMOOTHING * (target.midpoint.y - prev.midpoint.y),
+      };
+      const delta = newDistance - prev.distance;
+      const direction = Math.sign(delta);
+      // після відриву пальців шуму вже нема звідки взятись, а мертва зона
+      // лишила б недоїзд до 3px назавжди
+      const isNoise =
+        !prev.lifted && direction !== prev.direction && Math.abs(delta) < PINCH_REVERSE_DEADZONE_PX;
+      pinchRef.current = isNoise
+        ? { ...prev, fresh: false, smoothDistance: newDistance, midpoint: newMidpoint }
+        : {
+            ...prev,
+            fresh: false,
+            distance: newDistance,
+            smoothDistance: newDistance,
+            midpoint: newMidpoint,
+            direction,
+          };
+      if (prev.distance > 0) {
+        // масштаб і зсув однією зміною стану: відношення відстаней — множник
+        // масштабу, зміщення середньої точки — панорамування; масштаб рахуємо
+        // відносно ПОПЕРЕДНЬОЇ середньої точки (prev.midpoint), інакше зсув після
+        // подвоюється і полотно "стрибає" замість того, щоб клеїтись до пальців
+        const factor = isNoise ? 1 : newDistance / prev.distance;
+        queueViewport((v) => {
+          const next = pinchViewport(v, v.scale * factor, prev.midpoint, newMidpoint);
+          recordPinch({
+            t,
+            kind,
+            raw: target.distance,
+            smooth: newDistance,
+            skipped: isNoise,
+            midX: newMidpoint.x,
+            midY: newMidpoint.y,
+            ...next,
+          });
+          return next;
+        });
+      }
+      return (
+        Math.abs(target.distance - newDistance) < 0.05 &&
+        Math.abs(target.midpoint.x - newMidpoint.x) < 0.05 &&
+        Math.abs(target.midpoint.y - newMidpoint.y) < 0.05
+      );
+    },
+    [queueViewport],
+  );
+
+  // фільтр крокує рівно раз на кадр, а не на подію: touchmove лише міняє
+  // target. інакше полотно застигало б, щойно події рідшають чи зупиняються
+  // (на швидкому щипку не доїжджало до пальців на 10%), а на телефонах, що
+  // шлють 120 подій на секунду, згладження було б іншим, ніж на 60.
+  // flush одразу, у цьому ж кадрі — через queueViewport був би ще кадр затримки
+  const runPinchLoop = useCallback(() => {
+    const frame = () => {
+      pinchRafRef.current = null;
+      const pinch = pinchRef.current;
+      if (!pinch) return;
+      const done = stepPinch(performance.now());
+      flushViewport();
+      if (done && pinch.lifted) pinchRef.current = null;
+      if (!done) pinchRafRef.current = requestAnimationFrame(frame);
+    };
+    if (pinchRafRef.current === null) pinchRafRef.current = requestAnimationFrame(frame);
+  }, [stepPinch, flushViewport]);
 
   const handleTouchMove = useCallback(
     (e: KonvaEventObject<TouchEvent>) => {
@@ -376,38 +494,46 @@ export function useCanvasViewport(initial: Viewport) {
       } else if (touches.length === 2 && pinchRef.current) {
         const p1 = touchStagePoint(stage, touches[0]);
         const p2 = touchStagePoint(stage, touches[1]);
-        const newDistance = distance(p1, p2);
-        const newMidpoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
-        const prev = pinchRef.current;
-        const delta = newDistance - prev.distance;
-        const direction = Math.sign(delta);
-        const isNoise = direction !== prev.direction && Math.abs(delta) < PINCH_REVERSE_DEADZONE_PX;
-        pinchRef.current = isNoise
-          ? { ...prev, midpoint: newMidpoint }
-          : { distance: newDistance, midpoint: newMidpoint, direction };
-        if (prev.distance > 0) {
-          // масштаб і зсув однією зміною стану: відношення відстаней — множник
-          // масштабу, зміщення середньої точки — панорамування; масштаб рахуємо
-          // відносно ПОПЕРЕДНЬОЇ середньої точки (prev.midpoint), інакше зсув після
-          // подвоюється і полотно "стрибає" замість того, щоб клеїтись до пальців
-          const factor = isNoise ? 1 : newDistance / prev.distance;
-          queueViewport((v) => pinchViewport(v, v.scale * factor, prev.midpoint, newMidpoint));
-        }
+        pinchRef.current.target = {
+          distance: distance(p1, p2),
+          midpoint: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 },
+        };
+        pinchRef.current.fresh = true;
+        runPinchLoop();
       }
     },
-    [queueViewport],
+    [queueViewport, runPinchLoop],
   );
 
-  const handleTouchEnd = useCallback((e: KonvaEventObject<TouchEvent>) => {
-    const touches = e.evt.touches;
-    if (touches.length < 2) pinchRef.current = null;
-    if (touches.length === 0) {
-      panRef.current = null;
-    } else if (touches.length === 1) {
-      // після щипка лишився один палець — продовжуємо панорамувати ним
-      panRef.current = { active: true, lastX: touches[0].clientX, lastY: touches[0].clientY };
-    }
-  }, []);
+  const handleTouchEnd = useCallback(
+    (e: KonvaEventObject<TouchEvent>) => {
+      const touches = e.evt.touches;
+      if (touches.length < 2 && pinchRef.current && !pinchRef.current.lifted) {
+        const p = pinchRef.current;
+        const v = viewportRef.current;
+        recordPinch({
+          t: e.evt.timeStamp,
+          kind: 'end',
+          raw: p.target.distance,
+          smooth: p.smoothDistance,
+          skipped: false,
+          midX: p.midpoint.x,
+          midY: p.midpoint.y,
+          ...v,
+        });
+        // не обнуляємо одразу — полотно ще доїде до того, де пальці відірвались
+        p.lifted = true;
+        runPinchLoop();
+      }
+      if (touches.length === 0) {
+        panRef.current = null;
+      } else if (touches.length === 1) {
+        // після щипка лишився один палець — продовжуємо панорамувати ним
+        panRef.current = { active: true, lastX: touches[0].clientX, lastY: touches[0].clientY };
+      }
+    },
+    [runPinchLoop],
+  );
 
   const handleMouseUp = useCallback(() => {
     if (panRef.current) panRef.current.active = false;
