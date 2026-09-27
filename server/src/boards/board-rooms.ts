@@ -6,7 +6,7 @@ import { CHAT_MAX_LENGTH, CURSOR_BYTES, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from
 import type { BoardRole, PresenceMember, RestoredMessage, RosterMessage } from 'shared';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
-import { getBoardAccess, getDisplayName } from './boards.service';
+import { getBoardAccess, getUserCard } from './boards.service';
 import { saveChatMessage } from './chat.service';
 import type { BoardAccess } from './boards.service';
 
@@ -20,6 +20,7 @@ interface Client {
   roleGrantedBy: string | null;
   userId: string;
   displayName: string;
+  avatarUrl: string | null;
   // чи людина зараз у голосовій розмові. Тримаємо тут, щоб новачок дізнався
   // склад розмови одразу на вході, а не питав окремим кадром
   inVoice: boolean;
@@ -129,7 +130,7 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
     reject(socket, '404 Not Found');
     return;
   }
-  const displayName = await getDisplayName(userId);
+  const { displayName, avatarUrl } = await getUserCard(userId);
   boardRoomWss.handleUpgrade(req, socket, head, (ws) => {
     clients.set(ws, {
       id: nextClientId++,
@@ -138,6 +139,7 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
       roleGrantedBy: access.roleGrantedBy,
       userId,
       displayName,
+      avatarUrl,
       inVoice: false,
     });
     boardRoomWss.emit('connection', ws, req);
@@ -168,6 +170,7 @@ function toMember(client: Client): PresenceMember {
     clientId: client.id,
     userId: client.userId,
     displayName: client.displayName,
+    avatarUrl: client.avatarUrl,
     role: client.role,
     roleGrantedBy: client.roleGrantedBy,
     inVoice: client.inVoice,

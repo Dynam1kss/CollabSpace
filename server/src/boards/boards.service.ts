@@ -27,6 +27,15 @@ export async function getBoardAccess(boardId: string, userId: string): Promise<B
 
 // імʼя для списку присутніх. Окремим запитом і раз на коннект: getBoardAccess
 // смикають усі rest-роути, там це імʼя не потрібне
+// імʼя й фото для кімнати дошки — одним запитом на коннект
+export async function getUserCard(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { displayName: true, avatarUrl: true },
+  });
+  return { displayName: user?.displayName ?? '', avatarUrl: user?.avatarUrl ?? null };
+}
+
 export async function getDisplayName(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } });
   return user?.displayName ?? '';

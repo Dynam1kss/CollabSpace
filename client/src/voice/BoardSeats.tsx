@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Circle, Group, Text } from 'react-konva';
+import { Circle, Group, Image as KonvaImage, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
 import { usePresenceStore } from '../canvas/presence-store';
@@ -92,6 +92,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
               color={colorForUser(member.userId)}
               initials={initialsOf(member.displayName)}
               name={member.displayName}
+              avatarUrl={member.avatarUrl}
               inVoice={!!voicePeers[clientId]}
               speaking={!!speaking[clientId]}
               k={k}
@@ -120,6 +121,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
             color={colorForUser(members[selfClientId].userId)}
             initials={initialsOf(members[selfClientId].displayName)}
             name={t('voice.me', { name: members[selfClientId].displayName })}
+            avatarUrl={members[selfClientId].avatarUrl}
             inVoice={inVoice}
             speaking={selfSpeaking}
             k={k}
@@ -131,10 +133,29 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
   );
 }
 
+// той самий прийом, що в ImageShape: звичайний Image, поки вантажиться — нічого.
+// gif малюється першим кадром: konva сама кадри не гортає, а після
+// кадрування (налаштування) нових gif-аватарів і не буває
+function useAvatarImage(url: string | null | undefined) {
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    const img = new window.Image();
+    img.onload = () => setImage(img);
+    img.src = url;
+    return () => {
+      img.onload = null;
+      setImage(null);
+    };
+  }, [url]);
+  return url ? image : null;
+}
+
 interface BodyProps {
   color: string;
   initials: string;
   name: string;
+  avatarUrl?: string | null;
   inVoice: boolean;
   speaking: boolean;
   k: number;
@@ -143,8 +164,9 @@ interface BodyProps {
 
 // поки людина не в розмові, стілець блідий: місце за нею лишається, але на
 // гучність воно ще ні на що не впливає (крок C)
-function SeatBody({ color, initials, name, inVoice, speaking, k, touch }: BodyProps) {
+function SeatBody({ color, initials, name, avatarUrl, inVoice, speaking, k, touch }: BodyProps) {
   const labelColor = useCanvasColors().label;
+  const photo = useAvatarImage(avatarUrl);
   const r = RADIUS * k;
   return (
     <>
@@ -160,7 +182,24 @@ function SeatBody({ color, initials, name, inVoice, speaking, k, touch }: BodyPr
         strokeWidth={RING * k}
         hitStrokeWidth={touch ? (TOUCH_TARGET - RADIUS * 2) * k : undefined}
       />
+      {/* фото — поверх кольорового кружечка, обрізане кругом; біле кільце
+      малюємо ще раз зверху, інакше його перекриває картинка */}
+      {photo && (
+        <>
+          <Group
+            listening={false}
+            opacity={inVoice ? 1 : 0.4}
+            clipFunc={(ctx) => {
+              ctx.arc(0, 0, r, 0, Math.PI * 2);
+            }}
+          >
+            <KonvaImage image={photo} x={-r} y={-r} width={r * 2} height={r * 2} />
+          </Group>
+          <Circle radius={r} stroke="#fff" strokeWidth={RING * k} listening={false} />
+        </>
+      )}
       <Text
+        visible={!photo}
         x={-r}
         y={-5 * k}
         width={r * 2}

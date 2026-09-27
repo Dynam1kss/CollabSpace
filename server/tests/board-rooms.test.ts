@@ -218,7 +218,8 @@ describe('кімнати дошок поверх ws', () => {
     // перший у кімнаті бачить лише себе, і знає свій clientId
     const first = JSON.parse((await rosterA)!.subarray(1).toString());
     expect(first.members).toHaveLength(1);
-    expect(first.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Тест' });
+    // фото ще нема — null, а не відсутнє поле: стілець малює букву
+    expect(first.members[0]).toMatchObject({ role: 'OWNER', displayName: 'Тест', avatarUrl: null });
     expect(first.members[0].clientId).toBe(first.you);
 
     // глядач заходить: йому — список із двох, власнику — подія join
@@ -459,6 +460,17 @@ describe('кімнати дошок поверх ws', () => {
 
     // назад той самий сокет уже не оживе, а новий не пустять
     expect(await rejected(connect(boardId, editor.cookie))).toBe(404);
+  });
+
+  it('фото людини доходить у список присутніх', async () => {
+    const { boardId, owner } = await boardWithMembers();
+    const ownerId = (await editorUserId(owner)).id;
+    await prisma.user.update({ where: { id: ownerId }, data: { avatarUrl: '/uploads/avatars/x/y.png' } });
+    const a = connect(boardId, owner.cookie);
+    const roster = nextMessage(a);
+    await opened(a);
+    const body = JSON.parse((await roster)!.subarray(1).toString());
+    expect(body.members[0].avatarUrl).toBe('/uploads/avatars/x/y.png');
   });
 
   it('вихід із дошки самому теж виводить з кімнати живцем', async () => {

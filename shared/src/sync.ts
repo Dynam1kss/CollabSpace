@@ -135,6 +135,8 @@ export interface PresenceMember {
   clientId: number;
   userId: string;
   displayName: string;
+  // знімок на момент входу в кімнату: змінене фото інші побачать із наступного коннекту
+  avatarUrl: string | null;
   role: 'OWNER' | BoardRole;
   // потрібне, щоб панель голосу застосовувала ту саму ієрархію, що й сервер
   roleGrantedBy: string | null;
