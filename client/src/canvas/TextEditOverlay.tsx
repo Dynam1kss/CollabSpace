@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { BoardObject } from 'shared';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { TextEditor } from './TextEditor';
 import { fitTextBox, TEXT_FONT_FAMILY, TEXT_LINE_HEIGHT } from './text-layout';
 import { inkFor, useTheme } from '../theme';
+import { useBoardStore } from './board-store';
+import { inkOverFill } from './ink-over-fill';
 
 interface Props {
   object: BoardObject;
@@ -22,6 +24,8 @@ const MIN_INPUT_FONT_PX = 16;
 // screen-координатами обʼєкта; сам textarea і коміт — у TextEditor
 export function TextEditOverlay({ object, viewport }: Props) {
   const theme = useTheme();
+  const objectsMap = useBoardStore((s) => s.objects);
+  const overFill = useMemo(() => inkOverFill(Object.values(objectsMap)).has(object.id), [objectsMap, object.id]);
   // текстовий блок росте під час набору так само, як виросте після коміту
   const [textSize, setTextSize] = useState(() =>
     object.type === 'text' ? { width: object.width, height: object.height } : null,
@@ -32,7 +36,7 @@ export function TextEditOverlay({ object, viewport }: Props) {
   const screen = boardToScreen({ x: object.x, y: object.y }, viewport);
   const padding = object.type === 'sticky' ? 10 : 0;
   // вільний текст лежить на полотні — те саме підмінене чорнило, що й у TextShape
-  const color = object.type === 'sticky' ? object.textColor : inkFor(object.color, theme);
+  const color = object.type === 'sticky' ? object.textColor : inkFor(object.color, theme, overFill);
   const size = textSize ?? { width: object.width, height: object.height };
 
   // потрібний розмір на екрані може бути скільки завгодно малим, а полю

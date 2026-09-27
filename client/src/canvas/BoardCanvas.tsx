@@ -27,6 +27,7 @@ import { useImageDrop } from './use-image-drop';
 import { BoardSeats } from '../voice/BoardSeats';
 import { useMySeat } from '../voice/use-my-seat';
 import { useCanvasColors } from '../theme';
+import { inkOverFill } from './ink-over-fill';
 import { useTranslation } from 'react-i18next';
 
 interface StageHandlers {
@@ -100,6 +101,8 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const editingTextId = useEditorStore((s) => s.editingTextId);
   const objectsMap = useBoardStore((s) => s.objects);
+  // перелічуємо лише коли змінились самі обʼєкти, не на кожен рендер (пан, зум)
+  const inkOverFillIds = useMemo(() => inkOverFill(Object.values(objectsMap)), [objectsMap]);
   const editingObject = editingTextId ? objectsMap[editingTextId] : undefined;
 
   const { rubberBand, draft, handleStageMouseDown, handleStageClick, handleStageTap } = useObjectInteractions(
@@ -284,6 +287,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
                 isEditing={!exporting && editingTextId === object.id}
                 draggable={draggableObjects && isMovable(object, lockedByOthers)}
                 viewportScale={viewport.scale}
+                inkOverFill={inkOverFillIds.has(object.id)}
                 registerRef={getRegisterRef(object.id)}
               />
             ))}

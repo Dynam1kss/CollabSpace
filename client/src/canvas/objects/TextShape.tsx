@@ -14,6 +14,7 @@ interface Props {
   isSelected: boolean;
   isEditing: boolean;
   draggable: boolean;
+  inkOverFill: boolean;
   registerRef: (node: Konva.Node | null) => void;
 }
 
@@ -21,7 +22,7 @@ interface Props {
 // розміром з увесь блок (сам Text без width/height міряється лише по гліфах),
 // а Text малюється з авто-висотою — konva з фіксованою height обрізає рядки,
 // що не влізли, а нам текст не можна обрізати ніколи
-export function TextShape({ object, isSelected, isEditing, draggable, registerRef }: Props) {
+export function TextShape({ object, isSelected, isEditing, draggable, inkOverFill, registerRef }: Props) {
   const theme = useTheme();
   const updateSoon = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
@@ -77,7 +78,7 @@ export function TextShape({ object, isSelected, isEditing, draggable, registerRe
         fontSize={object.fontSize}
         fontFamily={TEXT_FONT_FAMILY}
         lineHeight={TEXT_LINE_HEIGHT}
-        fill={inkFor(object.color, theme)}
+        fill={inkFor(object.color, theme, inkOverFill)}
         listening={false}
       />
     </Group>

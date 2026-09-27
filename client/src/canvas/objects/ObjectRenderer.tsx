@@ -14,6 +14,8 @@ interface Props {
   draggable: boolean;
   // потрібен лише конектору — щоб кружечки кінців були сталого розміру на екрані
   viewportScale: number;
+  // дефолтне чорнило лежить поверх непрозорого — не підмінювати на світле
+  inkOverFill: boolean;
   registerRef: (node: Konva.Node | null) => void;
 }
 
@@ -23,6 +25,7 @@ export function ObjectRenderer({
   isEditing,
   draggable,
   viewportScale,
+  inkOverFill,
   registerRef,
 }: Props) {
   switch (object.type) {
@@ -43,12 +46,19 @@ export function ObjectRenderer({
           isSelected={isSelected}
           isEditing={isEditing}
           draggable={draggable}
+          inkOverFill={inkOverFill}
           registerRef={registerRef}
         />
       );
     case 'shape':
       return (
-        <ShapeNode object={object} isSelected={isSelected} draggable={draggable} registerRef={registerRef} />
+        <ShapeNode
+          object={object}
+          isSelected={isSelected}
+          draggable={draggable}
+          inkOverFill={inkOverFill}
+          registerRef={registerRef}
+        />
       );
     case 'connector':
       return (
@@ -57,6 +67,7 @@ export function ObjectRenderer({
           isSelected={isSelected}
           draggable={draggable}
           viewportScale={viewportScale}
+          inkOverFill={inkOverFill}
           registerRef={registerRef}
         />
       );

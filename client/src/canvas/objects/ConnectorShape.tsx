@@ -22,6 +22,7 @@ interface Props {
   isSelected: boolean;
   draggable: boolean;
   viewportScale: number;
+  inkOverFill: boolean;
   registerRef: (node: Konva.Node | null) => void;
 }
 
@@ -31,7 +32,7 @@ interface Props {
 // у 0 — інакше наступне тягання здвоїть зсув (і в points, і в group.x/y одразу).
 // Групову трансформацію (кілька виділених) так само запікає в points
 // SelectionOverlay — тому лінія має name, щоб він її знайшов
-export function ConnectorShape({ object, isSelected, draggable, viewportScale, registerRef }: Props) {
+export function ConnectorShape({ object, isSelected, draggable, viewportScale, inkOverFill, registerRef }: Props) {
   const theme = useTheme();
   const accent = CANVAS_COLORS[theme].accent;
   const updateObject = useBoardStore((s) => s.update);
@@ -141,7 +142,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, r
     e.cancelBubble = true;
   };
 
-  const strokeColor = isSelected ? accent : inkFor(object.strokeColor, theme);
+  const strokeColor = isSelected ? accent : inkFor(object.strokeColor, theme, inkOverFill);
   const points = dragBase ?? object.points;
 
   const lineProps = {

@@ -11,6 +11,10 @@ describe('inkFor', () => {
     expect(inkFor(DEFAULT_INK.toUpperCase(), 'dark')).toBe(inkFor(DEFAULT_INK, 'dark'));
   });
 
+  it('поверх стікера чи фігури — лишається темним і в темній темі', () => {
+    expect(inkFor(DEFAULT_INK, 'dark', true)).toBe(DEFAULT_INK);
+  });
+
   it('свідомо вибрані кольори не чіпаємо', () => {
     expect(inkFor('#fca5a5', 'dark')).toBe('#fca5a5');
     expect(inkFor('#000000', 'dark')).toBe('#000000');

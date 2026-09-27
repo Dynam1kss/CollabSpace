@@ -11,10 +11,11 @@ interface Props {
   object: ShapeObject;
   isSelected: boolean;
   draggable: boolean;
+  inkOverFill: boolean;
   registerRef: (node: Konva.Node | null) => void;
 }
 
-export function ShapeNode({ object, isSelected, draggable, registerRef }: Props) {
+export function ShapeNode({ object, isSelected, draggable, inkOverFill, registerRef }: Props) {
   const theme = useTheme();
   const accent = CANVAS_COLORS[theme].accent;
   const updateSoon = useBoardStore((s) => s.updateSoon);
@@ -44,7 +45,7 @@ export function ShapeNode({ object, isSelected, draggable, registerRef }: Props)
     y: object.y,
     rotation: object.rotation,
     fill: object.fillColor,
-    stroke: isSelected ? accent : inkFor(object.strokeColor, theme),
+    stroke: isSelected ? accent : inkFor(object.strokeColor, theme, inkOverFill),
     strokeWidth: object.strokeWidth,
     draggable,
     onMouseDown: handlePointerDown,

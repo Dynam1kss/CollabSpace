@@ -43,9 +43,10 @@ const LIGHT_INK = '#e4e7ec';
 
 // вміст дошки спільний, у базі колір не міняємо. але дефолтне темне чорнило
 // прямо на темному полотні не видно — тож лише при малюванні підміняємо його
-// світлим. лише там, де воно лежить на полотні: текст стікера на жовтому лишаємо
-export function inkFor(color: string, theme: Theme) {
-  return theme === 'dark' && color.toLowerCase() === DEFAULT_INK ? LIGHT_INK : color;
+// світлим. лише там, де воно лежить на полотні: overFill — обʼєкт поверх
+// стікера, фігури чи картинки (див. canvas/ink-over-fill), там темне читається
+export function inkFor(color: string, theme: Theme, overFill = false) {
+  return theme === 'dark' && !overFill && color.toLowerCase() === DEFAULT_INK ? LIGHT_INK : color;
 }
 
 export function useTheme() {
