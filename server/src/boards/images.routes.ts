@@ -13,7 +13,7 @@ import { getBoardAccess, requireBoardEditor } from './boards.service';
 export const UPLOADS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../uploads');
 
 // розширення беремо звідси, а не з імені файла на клієнті
-const EXT_BY_MIME: Record<string, string> = {
+export const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',

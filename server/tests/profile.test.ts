@@ -1,12 +1,28 @@
+import { existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app';
+import { UPLOADS_DIR } from '../src/boards/images.routes';
 import { prisma } from '../src/prisma';
 import { registerUser } from './helpers';
 
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+const avatarDirs: string[] = [];
+
 afterEach(async () => {
   await prisma.user.deleteMany();
+  for (const id of avatarDirs.splice(0)) {
+    await rm(resolve(UPLOADS_DIR, 'avatars', id), { recursive: true, force: true });
+  }
 });
+
+const fileOf = (url: string) => resolve(UPLOADS_DIR, url.replace(/^\/uploads\//, ''));
 
 describe('профіль: імʼя', () => {
   it('міняє своє імʼя, і /auth/me уже віддає нове', async () => {
@@ -42,5 +58,74 @@ describe('профіль: імʼя', () => {
     await a.agent.patch('/api/me').send({ displayName: 'Перший новий' });
     const other = await prisma.user.findUnique({ where: { id: b.user.id } });
     expect(other!.displayName).toBe('Другий');
+  });
+});
+
+describe('профіль: аватар', () => {
+  it('png — 200, url у профілі, файл лежить і віддається статикою', async () => {
+    const { agent, user } = await registerUser();
+    avatarDirs.push(user.id);
+
+    const res = await agent.post('/api/me/avatar').set('Content-Type', 'image/png').send(PNG);
+    expect(res.status).toBe(200);
+    expect(res.body.user.avatarUrl).toMatch(new RegExp(`^/uploads/avatars/${user.id}/[0-9a-f-]{36}\\.png$`));
+    expect(existsSync(fileOf(res.body.user.avatarUrl))).toBe(true);
+
+    const file = await request(app).get(res.body.user.avatarUrl).buffer();
+    expect(file.status).toBe(200);
+    expect((await agent.get('/api/auth/me')).body.user.avatarUrl).toBe(res.body.user.avatarUrl);
+  });
+
+  it('новий аватар замінює старий — і старий файл справді зникає з диска', async () => {
+    const { agent, user } = await registerUser();
+    avatarDirs.push(user.id);
+
+    const first = await agent.post('/api/me/avatar').set('Content-Type', 'image/png').send(PNG);
+    const second = await agent.post('/api/me/avatar').set('Content-Type', 'image/jpeg').send(PNG);
+    expect(second.status).toBe(200);
+    expect(second.body.user.avatarUrl).not.toBe(first.body.user.avatarUrl);
+    expect(second.body.user.avatarUrl).toMatch(/\.jpg$/);
+
+    expect(existsSync(fileOf(first.body.user.avatarUrl))).toBe(false);
+    expect(existsSync(fileOf(second.body.user.avatarUrl))).toBe(true);
+  });
+
+  it('не картинка — 415, порожнє — 400, і аватар не змінився', async () => {
+    const { agent, user } = await registerUser();
+    avatarDirs.push(user.id);
+    const ok = await agent.post('/api/me/avatar').set('Content-Type', 'image/png').send(PNG);
+
+    const pdf = await agent
+      .post('/api/me/avatar')
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.from('%PDF-1.4'));
+    expect(pdf.status).toBe(415);
+    const svg = await agent
+      .post('/api/me/avatar')
+      .set('Content-Type', 'image/svg+xml')
+      .send(Buffer.from('<svg/>'));
+    expect(svg.status).toBe(415);
+    const empty = await agent.post('/api/me/avatar').set('Content-Type', 'image/png').send(Buffer.alloc(0));
+    expect(empty.status).toBe(400);
+
+    const row = await prisma.user.findUnique({ where: { id: user.id } });
+    expect(row!.avatarUrl).toBe(ok.body.user.avatarUrl);
+    expect(existsSync(fileOf(ok.body.user.avatarUrl))).toBe(true);
+  });
+
+  it('понад 5 МБ — 413, аватара як не було, так і нема', async () => {
+    const { agent, user } = await registerUser();
+    avatarDirs.push(user.id);
+    const big = await agent
+      .post('/api/me/avatar')
+      .set('Content-Type', 'image/png')
+      .send(Buffer.alloc(5 * 1024 * 1024 + 1));
+    expect(big.status).toBe(413);
+    expect((await prisma.user.findUnique({ where: { id: user.id } }))!.avatarUrl).toBeNull();
+  });
+
+  it('без куки — 401', async () => {
+    const res = await request(app).post('/api/me/avatar').set('Content-Type', 'image/png').send(PNG);
+    expect(res.status).toBe(401);
   });
 });
