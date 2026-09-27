@@ -4,14 +4,17 @@
 //  batched   — правки жесту складаються й ідуть однією транзакцією раз на кадр
 //             («стратегія 2»). за замовчуванням — вона: per-event на груповому
 //             тяганні заливав сокет, і сервер рвав звʼязок сусідові (20.09).
+//  aoi       — як batched, але вміст розбитий на клітинки з власними історіями,
+//             і клієнт синхронізує лише ті, що біля його вікна («стратегія 3»,
+//             cell-docs + aoi-sync)
 // одна кодова база, перемикач лише тут — стенд вибирає, що міряти
-export type SyncStrategy = 'per-event' | 'batched';
+export type SyncStrategy = 'per-event' | 'batched' | 'aoi';
 
 export const SYNC_STRATEGY_KEY = 'collabspace:sync-strategy';
 const DEFAULT: SyncStrategy = 'batched';
 
 function parse(value: string | null | undefined): SyncStrategy | null {
-  return value === 'per-event' || value === 'batched' ? value : null;
+  return value === 'per-event' || value === 'batched' || value === 'aoi' ? value : null;
 }
 
 // ?sync=... — найвищий пріоритет і запамʼятовується в localStorage, щоб стенд

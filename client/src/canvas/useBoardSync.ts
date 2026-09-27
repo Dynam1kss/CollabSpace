@@ -37,7 +37,7 @@ import {
   handleVoiceState,
   resetVoice,
 } from '../voice/voice-mesh';
-import { fetchBoardSnapshot } from '../api/boards';
+import { fetchBoardSnapshot, saveBoardSnapshot } from '../api/boards';
 import {
   clearUndoHistory,
   docHasHistory,
@@ -46,8 +46,12 @@ import {
   replaceBoardContent,
   resetBoardDoc,
   seedMirror,
+  cellDocs,
+  setCellSyncHooks,
   useBoardStore,
 } from './board-store';
+import { AoiSync, attachAoi } from './aoi-sync';
+import { syncStrategy } from './sync-strategy';
 import { diag } from './diag';
 import { usePresenceStore } from './presence-store';
 
@@ -102,7 +106,10 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     const was = canWriteRef.current;
     // спершу право, потім запис: інакше handleLocalUpdate ще вважав би нас глядачем
     canWriteRef.current = canWrite;
-    if (canWrite && !was) materializeMirror();
+    if (canWrite && !was) {
+      if (syncStrategy() === 'aoi') cellDocs.materializeSeeds();
+      else materializeMirror();
+    }
   }, [canWrite]);
 
   useEffect(() => {
@@ -136,6 +143,37 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // сокет закриє сам сервер одразу по кадру — щоб onclose не перебив
     // причину звичайним «офлайн»
     let kicked = false;
+
+    // стратегія 3: вміст іде кімнатами клітинок, а не цілою дошкою. Решта
+    // сокета (присутність, чат, голос, ролі) — та сама. «наживо» — усі
+    // передплачені клітинки вже мають історію (той самий зміст, що й для дошки)
+    const aoi =
+      syncStrategy() === 'aoi'
+        ? new AoiSync(cellDocs, {
+            send: (frame) => send(frame),
+            canWrite: () => canWriteRef.current,
+            fetchSnapshot: () => fetchBoardSnapshot(boardId).then((r) => r.objects),
+            interacting: () => useEditorStore.getState().interacting,
+            saveCells: (cells, objects) =>
+              saveBoardSnapshot(boardId, objects, false, cells).then(() => cellDocs.clearDirty(cells)),
+            onStatus: (ready) => {
+              if (ready) setStatus('live');
+            },
+          })
+        : null;
+    if (aoi) {
+      setCellSyncHooks({
+        localUpdate: (cell, update) => aoi.localUpdate(cell, update),
+        needCell: (cell) => aoi.needCell(cell),
+      });
+      attachAoi(aoi);
+    }
+    // відкладене зняття передплати чекає кінця жесту
+    const unsubGesture = aoi
+      ? useEditorStore.subscribe((state, prev) => {
+          if (prev.interacting && !state.interacting) aoi.gestureEnded();
+        })
+      : () => {};
 
     // снепшот з rest вантажиться паралельно з рукостисканням сокета і часто
     // встигає лягти в документ раніше — такі оновлення send() просто викидав,
@@ -172,6 +210,10 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
 
     ws.onopen = () => {
       diag('ws відкрито', { boardId, обʼєктів: useBoardStore.getState().getAll().length });
+      if (aoi) {
+        aoi.start();
+        return;
+      }
       // віддаємо свій стан цілком — інакше сусід не зможе прийняти жодної
       // нашої наступної дельти: yjs вимагає клоки без пропусків
       if (missedWhileConnecting && canWriteRef.current) {
@@ -188,6 +230,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       if (data.length === 0) return;
       const payload = data.subarray(1);
       switch (data[0]) {
+        case SYNC_MSG.CELL_UPDATE:
+        case SYNC_MSG.CELL_SYNC_REQUEST:
+        case SYNC_MSG.CELL_SYNC_REPLY:
+        case SYNC_MSG.CELL_RESET:
+          aoi?.handle(data);
+          return;
         case SYNC_MSG.UPDATE:
           Y.applyUpdate(doc, payload, REMOTE_ORIGIN);
           return;
@@ -243,7 +291,8 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           const editorsHere = Object.values(presence.members).some(
             (m) => m.clientId !== presence.selfClientId && m.role !== 'VIEWER',
           );
-          if (!canWriteRef.current && member.role !== 'VIEWER' && !editorsHere) adoptFreshEditor();
+          // у стратегії 3 те саме робить CELL_RESET — окремо для кожної клітинки
+          if (!aoi && !canWriteRef.current && member.role !== 'VIEWER' && !editorsHere) adoptFreshEditor();
           usePresenceStore.getState().addMember(member);
           // новачок про чуже виділення, замок і вікно нізвідки не дізнається —
           // вони могли не мінятись годину. Тому на кожен вхід переспівуємо своє
@@ -315,6 +364,15 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
           const { writer } = JSON.parse(text(payload)) as RestoredMessage;
           const self = usePresenceStore.getState().selfClientId;
           diag('RESTORED', { boardId, writer, self });
+          // стратегія 3: історії клітинок живуть у всіх, хто їх тримає, і
+          // перезаписати їх одним writer-ом не вийде — стара історія сусіда
+          // повернулась би з першою ж відповіддю на sync. Тому всі кидають свої
+          // документи разом (кадр іде всій кімнаті) і беруть клітинки наново з
+          // уже відкоченого снепшоту
+          if (aoi) {
+            window.location.reload();
+            return;
+          }
           clearUndoHistory();
           // null — редакторів у кімнаті нема: мої записи нікуди не підуть,
           // тож перечитую сам, як на відкритті дошки
@@ -352,9 +410,7 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
 
         case SYNC_MSG.VOICE_STATE: {
           const view = new DataView(data.buffer, data.byteOffset + 1);
-          const body = JSON.parse(
-            text(payload.subarray(SYNC_REQUESTER_ID_BYTES)),
-          ) as VoiceStateMessage;
+          const body = JSON.parse(text(payload.subarray(SYNC_REQUESTER_ID_BYTES))) as VoiceStateMessage;
           handleVoiceState(view.getUint32(0), body.inVoice);
           return;
         }
@@ -428,6 +484,12 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     return () => {
       window.clearInterval(syncRetry);
       unsubSelection();
+      unsubGesture();
+      if (aoi) {
+        aoi.stop();
+        attachAoi(null);
+        setCellSyncHooks(null);
+      }
       setPresenceSender(null);
       usePresenceStore.getState().reset();
       resetVoice();

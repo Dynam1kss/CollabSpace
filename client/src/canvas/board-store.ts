@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import { create } from 'zustand';
 import { diag } from './diag';
 import { syncStrategy } from './sync-strategy';
+import { CellDocs } from './cell-docs';
 import type {
   BoardObject,
   ConnectorObject,
@@ -41,6 +42,36 @@ interface BoardObjectsState {
 // на кожного клієнта, чужа історія ламала б це)
 export let boardDoc = new Y.Doc();
 let yObjects = boardDoc.getMap<BoardObject>('objects');
+
+// стратегія 3: документи клітинок. стор про клітинки знає лише одне — куди
+// писати; що передплачено й коли, вирішує синхронізація (aoi-sync), яка сюди
+// чіпляється через setCellSyncHooks. цілий boardDoc у цьому режимі порожній,
+// тож і undo по ньому нічого не бачить (журнал 27.09)
+interface CellSyncHooks {
+  localUpdate: (cell: string, update: Uint8Array) => void;
+  needCell: (cell: string) => void;
+}
+let cellSyncHooks: CellSyncHooks | null = null;
+
+export function setCellSyncHooks(hooks: CellSyncHooks | null) {
+  cellSyncHooks = hooks;
+}
+
+export const cellDocs = new CellDocs({
+  onMirror: (changes) =>
+    useBoardStore.setState((state) => {
+      const objects = { ...state.objects };
+      for (const [id, value] of changes) {
+        if (value) objects[id] = value;
+        else delete objects[id];
+      }
+      return { objects };
+    }),
+  onLocalUpdate: (cell, update) => cellSyncHooks?.localUpdate(cell, update),
+  onNeedCell: (cell) => cellSyncHooks?.needCell(cell),
+});
+
+const aoi = () => syncStrategy() === 'aoi';
 
 // посеред жесту стор пишеться щокадру, і для групи це виходить N² записів:
 // konva прокидає drag трансформера на всі виділені вузли, а обробник кожного
@@ -130,11 +161,15 @@ export function endUndoGesture() {
 export const useBoardStore = create<BoardObjectsState>((set, get) => ({
   objects: {},
 
-  add: (object) => yObjects.set(object.id, object),
+  add: (object) => (aoi() ? cellDocs.add(object) : yObjects.set(object.id, object)),
 
   // злиття цілого обʼєкта: у Y.Map лягає новий обʼєкт, а не окремі поля —
   // одночасна правка одного обʼєкта двома людьми зведеться до «останній виграв»
   update: (id, patch) => {
+    if (aoi()) {
+      cellDocs.applyPatches(new Map([[id, patch as Partial<BoardObject>]]));
+      return;
+    }
     const existing = yObjects.get(id);
     if (!existing) return;
     yObjects.set(id, { ...existing, ...patch } as BoardObject);
@@ -163,18 +198,25 @@ export const useBoardStore = create<BoardObjectsState>((set, get) => ({
     const batch = queued;
     queued = null;
     if (!batch) return;
+    // клітинки: по транзакції на кожну зачеплену — і так по пакету на клітинку за кадр
+    if (aoi()) {
+      cellDocs.applyPatches(batch as Map<string, Partial<BoardObject>>);
+      return;
+    }
     boardDoc.transact(() => {
       for (const [id, patch] of batch) get().update(id, patch);
     });
   },
 
-  remove: (id) => yObjects.delete(id),
+  remove: (id) => (aoi() ? cellDocs.remove([id]) : yObjects.delete(id)),
 
   // одна транзакція — один observe і одне оновлення для мережі, а не N
   removeMany: (ids) =>
-    boardDoc.transact(() => {
-      for (const id of ids) yObjects.delete(id);
-    }),
+    aoi()
+      ? cellDocs.remove(ids)
+      : boardDoc.transact(() => {
+          for (const id of ids) yObjects.delete(id);
+        }),
 
   getAll: () => Object.values(get().objects),
   getById: (id) => get().objects[id],
@@ -262,6 +304,7 @@ export function resetBoardDoc(keepMirror = false) {
   diag('resetBoardDoc: новий порожній документ', { було: yObjects.size, keepMirror });
   // недописаний жест зі старої дошки в нову не переносимо
   queued = null;
+  if (!keepMirror) cellDocs.closeAll();
   // історія правок теж прив'язана до документа: на новій дошці ctrl+z не має
   // діставати кроки з попередньої
   boardUndo.destroy();

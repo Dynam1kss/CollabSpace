@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchBoardSnapshot, saveBoardSnapshot } from '../api/boards';
-import { asAppEdit, docHasHistory, lastEmptiedBy, seedMirror, useBoardStore } from './board-store';
+import { asAppEdit, cellDocs, docHasHistory, lastEmptiedBy, seedMirror, useBoardStore } from './board-store';
+import { syncStrategy } from './sync-strategy';
 import { diag, diagAlarm } from './diag';
 import { useEditorStore } from './editor-store';
 
@@ -83,6 +84,26 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
         return;
       }
 
+      // стратегія 3: у мене лише частина дошки. пишу рівно ті клітинки, чия
+      // історія вже в мене, — сервер замінить у базі тільки їх. запобіжник від
+      // порожнечі тут не потрібен: порожня готова клітинка — справжня правда
+      if (syncStrategy() === 'aoi') {
+        const cells = cellDocs.readyCells();
+        if (cells.length === 0) return;
+        pending = false;
+        setStatus('saving');
+        try {
+          await saveBoardSnapshot(boardId, cellDocs.objectsOf(cells), keepalive, cells);
+          cellDocs.clearDirty(cells);
+          if (cancelled) return;
+          if (pending) schedule();
+          else setStatus('saved');
+        } catch {
+          if (!cancelled) setStatus('error');
+        }
+        return;
+      }
+
       const objects = useBoardStore.getState().getAll();
       // запобіжник: порожній документ поверх непорожньої дошки — це майже
       // завжди наслідок чиєїсь помилки, а не намір. Пропускаємо саме такий
@@ -152,13 +173,16 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
       .then(({ objects }) => {
         diag('снепшот: відповідь', { boardId, обʼєктів: objects.length, скасовано: cancelled });
         if (cancelled) return;
-        if (canWriteRef.current) {
+        // стратегія 3 знімок у стор не кладе: клітинки беруть свій вміст самі,
+        // на передплаті (aoi-sync) — і лише ті, біля яких вікно
+        const aoiMode = syncStrategy() === 'aoi';
+        if (!aoiMode && canWriteRef.current) {
           // під позначкою застосунку: завантаження дошки — не правка людини,
           // і ctrl+z не має зносити щойно прочитаний знімок (журнал 20.09)
           asAppEdit(() => {
             for (const object of objects) useBoardStore.getState().add(object);
           });
-        } else if (!docHasHistory()) {
+        } else if (!aoiMode && !docHasHistory()) {
           // глядач — лише в дзеркало, у документ ні (див. seedMirror). Якщо
           // історія редактора вже прийшла, rest запізнився і правда вже є
           seedMirror(objects);

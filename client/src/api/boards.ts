@@ -164,8 +164,14 @@ export function fetchBoardSnapshot(id: string) {
 
 // keepalive — щоб запит дожив до кінця, коли вкладку закривають (beforeunload);
 // браузер тоді обмежує тіло ~64кб, для звичайного збереження прапорець не потрібен
-export async function saveBoardSnapshot(id: string, objects: BoardObject[], keepalive = false) {
-  const payload: SaveSnapshotRequest = { objects };
+// cells — стратегія 3: переписати в базі лише ці клітинки (див. SaveSnapshotRequest)
+export async function saveBoardSnapshot(
+  id: string,
+  objects: BoardObject[],
+  keepalive = false,
+  cells?: string[],
+) {
+  const payload: SaveSnapshotRequest = cells ? { objects, cells } : { objects };
   const res = await fetch(`/api/boards/${id}/snapshot`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

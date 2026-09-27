@@ -10,7 +10,8 @@ import { useEditorStore } from '../canvas/editor-store';
 import { useBoardPersistence } from '../canvas/useBoardPersistence';
 import { useBoardSync } from '../canvas/useBoardSync';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
-import { screenToBoard } from '../canvas/coordinates';
+import { getVisibleBoardRect, screenToBoard } from '../canvas/coordinates';
+import { setAoiView } from '../canvas/aoi-sync';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { ChatPanel } from '../canvas/ChatPanel';
@@ -110,6 +111,14 @@ export function BoardPage() {
     });
 
   useShowView(viewport, canvasSize, setViewport);
+
+  // стратегія 3 передплачується на клітинки біля видимого; для інших стратегій
+  // виклик нічого не робить. дебаунс — усередині синхронізації
+  useEffect(() => {
+    if (canvasSize.width > 0 && canvasSize.height > 0) {
+      setAoiView(getVisibleBoardRect(viewport, canvasSize.width, canvasSize.height));
+    }
+  }, [viewport, canvasSize.width, canvasSize.height]);
 
   useEffect(() => {
     if (!id) return;
