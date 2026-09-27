@@ -7,6 +7,9 @@ export function colorForBoard(boardId: string) {
   return colorForUser(boardId);
 }
 
+// запрошення й нові дошки підтягуються самі — без ws, раз на півхвилини досить
+export const LISTS_POLL_MS = 25_000;
+
 export const ROLE_TEXT = {
   OWNER: 'власник',
   ADMIN: 'адміністратор',

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { BoardInvite } from 'shared';
 import { acceptInvite, declineInvite, fetchInvites } from '../api/invites';
-import { ROLE_TEXT } from './board-card';
+import { usePoll } from '../use-poll';
+import { LISTS_POLL_MS, ROLE_TEXT } from './board-card';
 
 interface Props {
   // після «прийняти» дошка має зʼявитись у списку — його тягне сторінка
@@ -16,11 +17,14 @@ export function PendingInvites({ onAccepted }: Props) {
   const load = () =>
     fetchInvites()
       .then((data) => setInvites(data.invites))
-      .catch(() => setInvites([]));
+      // мережа блимнула — лишаємо те, що вже показано
+      .catch(() => {});
 
   useEffect(() => {
     void load();
   }, []);
+
+  usePoll(() => void load(), LISTS_POLL_MS);
 
   async function answer(boardId: string, accept: boolean) {
     setBusyId(boardId);

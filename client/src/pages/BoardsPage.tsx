@@ -7,9 +7,10 @@ import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/board
 import { useAuthStore } from '../store/auth-store';
 import { BoardMembers } from './BoardMembers';
 import { EmptyBoardsIcon, MoreIcon } from '../canvas/icons';
-import { colorForBoard, relativeTime, ROLE_TEXT } from './board-card';
+import { colorForBoard, LISTS_POLL_MS, relativeTime, ROLE_TEXT } from './board-card';
 import { PendingInvites } from './PendingInvites';
 import { useNarrow } from '../use-narrow';
+import { usePoll } from '../use-poll';
 
 export function BoardsPage() {
   const { user, setUser } = useAuthStore();
@@ -34,6 +35,14 @@ export function BoardsPage() {
   useEffect(() => {
     void loadBoards();
   }, []);
+
+  // фоновий запит мовчить про помилки: мережа на телефоні блимає, а червона
+  // плашка від опитування, якого людина не просила, лише лякає
+  usePoll(() => {
+    fetchBoards()
+      .then((data) => setBoards(data.boards))
+      .catch(() => {});
+  }, LISTS_POLL_MS);
 
   const handleLogout = async () => {
     await logout();
