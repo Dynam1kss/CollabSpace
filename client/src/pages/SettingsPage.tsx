@@ -7,6 +7,7 @@ import { changePassword, updateProfile, uploadAvatar } from '../api/profile';
 import { errorText } from '../i18n/api-error';
 import { applyLocale, applyTheme } from '../prefs';
 import { Avatar } from '../components/Avatar';
+import { AvatarCropper } from '../components/AvatarCropper';
 import { useAuthStore } from '../store/auth-store';
 
 // ті самі межі, що й на сервері: тут — щоб не ганяти 5 МБ заради відмови
@@ -26,6 +27,8 @@ export function SettingsPage() {
 
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  // вибраний файл чекає в кадруванні; на сервер іде лише підтверджений кадр
+  const [cropping, setCropping] = useState<File | null>(null);
 
   const [name, setName] = useState(user?.displayName ?? '');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -55,10 +58,15 @@ export function SettingsPage() {
       setAvatarError(t('settings.photoTooBig'));
       return;
     }
-    setUploading(true);
     setAvatarError(null);
+    setCropping(file);
+  }
+
+  async function handleCropped(blob: Blob) {
+    setCropping(null);
+    setUploading(true);
     try {
-      setUser((await uploadAvatar(file)).user);
+      setUser((await uploadAvatar(blob)).user);
     } catch (err) {
       setAvatarError(
         errorText(err, t('settings.photoFailed'), { PAYLOAD_TOO_LARGE: t('settings.photoTooBig') }),
@@ -181,6 +189,13 @@ export function SettingsPage() {
           />
         </div>
         {avatarError && <p className="form-error">{avatarError}</p>}
+        {cropping && (
+          <AvatarCropper
+            file={cropping}
+            onCancel={() => setCropping(null)}
+            onConfirm={(blob) => void handleCropped(blob)}
+          />
+        )}
       </section>
 
       <section className="settings-card">

@@ -9,8 +9,8 @@ export function updateProfile(payload: UpdateProfileRequest) {
   }).then((res) => parseResponse<AuthResponse>(res));
 }
 
-// як і картинка на дошку: сирі байти, тип — із самого File
-export function uploadAvatar(file: File) {
+// як і картинка на дошку: сирі байти, тип — із самого файла (після кадрування — Blob)
+export function uploadAvatar(file: Blob) {
   return fetch('/api/me/avatar', {
     method: 'POST',
     headers: { 'Content-Type': file.type },

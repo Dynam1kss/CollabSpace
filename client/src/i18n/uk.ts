@@ -41,6 +41,8 @@ export const uk = {
     photoHint: 'PNG, JPEG, WebP або GIF, до 5 МБ',
     photoFile: 'Файл фото',
     photoTooBig: 'Файл завеликий — до 5 МБ',
+    cropTitle: 'Кадрування фото',
+    cropZoom: 'Масштаб',
     photoFailed: 'Не вдалося завантажити фото',
     name: 'Імʼя',
     nameLabel: 'Як вас бачать інші',

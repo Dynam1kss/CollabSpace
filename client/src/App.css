@@ -446,6 +446,73 @@ header {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+/* кадрування аватара — поверх усього, на телефоні на весь екран */
+.crop-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.crop-dialog {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.25rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+}
+
+.crop-dialog h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* cropper абсолютний усередині — висоту задаємо тут */
+.crop-area {
+  position: relative;
+  height: 320px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #111;
+}
+
+.crop-zoom {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.crop-zoom input {
+  flex: 1 1 auto;
+}
+
+.crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.crop-actions button:not(.button-primary) {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
 .form-ok {
   margin: 0;
   color: var(--success);

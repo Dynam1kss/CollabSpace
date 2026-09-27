@@ -41,6 +41,8 @@ export const en: Translation = {
     photoHint: 'PNG, JPEG, WebP or GIF, up to 5 MB',
     photoFile: 'Photo file',
     photoTooBig: 'The file is too large — 5 MB max',
+    cropTitle: 'Crop photo',
+    cropZoom: 'Zoom',
     photoFailed: "Couldn't upload the photo",
     name: 'Name',
     nameLabel: 'How others see you',
