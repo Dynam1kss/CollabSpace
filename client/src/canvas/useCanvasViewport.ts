@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SetStateAction } from 'react';
 import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { pinchViewport, zoomViewportAtPoint } from './coordinates';
@@ -134,7 +135,7 @@ function cancelObjectDrags() {
 // палець тягне, два масштабують) і кнопками панелі. Стан і обробники в
 // одному хуку, щоб BoardCanvas лишався суто розміткою
 export function useCanvasViewport(initial: Viewport) {
-  const [viewport, setViewport] = useState<Viewport>(initial);
+  const [viewport, setViewportState] = useState<Viewport>(initial);
   const [spaceHeld, setSpaceHeld] = useState(false);
   // з чого працюють — з тача чи з миші. Окремого детектора не заводимо: тач
   // видає себе тим самим touchstart, з якого вже живуть пан і щипок. Лежить
@@ -166,10 +167,12 @@ export function useCanvasViewport(initial: Viewport) {
 
   // дзеркало стану у ref — щоб пакетна обробка wheel нижче завжди бачила
   // свіже значення, а не застигле в замиканні useCallback з порожнім deps
+  // ref — джерело правди для обчислень, стан — лише для рендера. Раніше ref ще
+  // й наздоганявся ефектом від стану; на важкій дошці ефект запізнювався на
+  // кадр і перезаписував новіший ref старшим знімком, тож кожен крок щипка
+  // рахувався від стану двокадрової давності: два ланцюжки по черзі, масштаб
+  // стрибав туди-сюди на крок (трейс з андроїда, відтворено на стенді)
   const viewportRef = useRef(viewport);
-  useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
 
   // кілька подій за один кадр (wheel трекпада, mousemove, touchmove) складаються
   // в одну pending-версію viewport і йдуть у setViewport одним викликом через rAF —
@@ -186,20 +189,22 @@ export function useCanvasViewport(initial: Viewport) {
     };
   }, []);
 
+  // єдиний шлях змінити viewport: ref одразу, стан — слідом. явна зміна
+  // (кнопки, «показати все», перехід до знайденого) перемагає накопичене в кадрі
+  const setViewport = useCallback((next: SetStateAction<Viewport>) => {
+    const value = typeof next === 'function' ? next(viewportRef.current) : next;
+    viewportRef.current = value;
+    pendingViewportRef.current = null;
+    setViewportState(value);
+  }, []);
+
   const flushViewport = useCallback(() => {
     if (flushRafIdRef.current !== null) {
       cancelAnimationFrame(flushRafIdRef.current);
       flushRafIdRef.current = null;
     }
-    if (pendingViewportRef.current) {
-      // у ref пишемо одразу, не чекаючи ефекту після рендера — подія, що
-      // прилетить між цим кадром і комітом react, інакше стартувала б від
-      // застарілого viewport і зʼїла б уже накопичений зсув
-      viewportRef.current = pendingViewportRef.current;
-      setViewport(pendingViewportRef.current);
-      pendingViewportRef.current = null;
-    }
-  }, []);
+    if (pendingViewportRef.current) setViewport(pendingViewportRef.current);
+  }, [setViewport]);
 
   const scheduleViewportFlush = useCallback(() => {
     if (flushRafIdRef.current !== null) return;
@@ -242,7 +247,24 @@ export function useCanvasViewport(initial: Viewport) {
       const dy = e.clientY - pan.lastY;
       pan.lastX = e.clientX;
       pan.lastY = e.clientY;
-      queueViewport((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      queueViewport((v) => {
+        const next = { ...v, x: v.x + dx, y: v.y + dy };
+        recordPinch({
+          t: e.timeStamp,
+          src: 'mouse-pan',
+          kind: 'pan',
+          base: v.scale,
+          raw: 0,
+          smooth: 0,
+          skipped: false,
+          midX: e.clientX,
+          midY: e.clientY,
+          rawMidX: e.clientX,
+          rawMidY: e.clientY,
+          ...next,
+        });
+        return next;
+      });
     }
     function handleWindowMouseUp() {
       if (panRef.current) panRef.current.active = false;
@@ -277,7 +299,24 @@ export function useCanvasViewport(initial: Viewport) {
   const applyWheel = useCallback(
     (type: WheelGestureType, deltaX: number, deltaY: number, pointer: Point2) => {
       if (type === 'pan') {
-        queueViewport((base) => ({ ...base, x: base.x - deltaX, y: base.y - deltaY }));
+        queueViewport((base) => {
+          const next = { ...base, x: base.x - deltaX, y: base.y - deltaY };
+          recordPinch({
+            t: performance.now(),
+            src: 'wheel',
+            kind: 'pan',
+            base: base.scale,
+            raw: deltaY,
+            smooth: 0,
+            skipped: false,
+            midX: pointer.x,
+            midY: pointer.y,
+            rawMidX: pointer.x,
+            rawMidY: pointer.y,
+            ...next,
+          });
+          return next;
+        });
         return;
       }
 
@@ -293,7 +332,24 @@ export function useCanvasViewport(initial: Viewport) {
       const maxFactor = isPinch ? WHEEL_PINCH_MAX_FACTOR : WHEEL_EVENT_MAX_FACTOR;
       const rawFactor = Math.exp(-deltaY * k);
       const factor = Math.min(maxFactor, Math.max(minFactor, rawFactor));
-      queueViewport((base) => zoomViewportAtPoint(base, base.scale * factor, pointer));
+      queueViewport((base) => {
+        const next = zoomViewportAtPoint(base, base.scale * factor, pointer);
+        recordPinch({
+          t: performance.now(),
+          src: 'wheel',
+          kind: 'move',
+          base: base.scale,
+          raw: deltaY,
+          smooth: factor,
+          skipped: false,
+          midX: pointer.x,
+          midY: pointer.y,
+          rawMidX: pointer.x,
+          rawMidY: pointer.y,
+          ...next,
+        });
+        return next;
+      });
     },
     [queueViewport],
   );
@@ -391,6 +447,8 @@ export function useCanvasViewport(initial: Viewport) {
       const v = viewportRef.current;
       recordPinch({
         t: e.evt.timeStamp,
+        src: 'touch-pinch',
+        base: v.scale,
         kind: 'start',
         raw: d,
         smooth: d,
@@ -444,6 +502,8 @@ export function useCanvasViewport(initial: Viewport) {
           const next = pinchViewport(v, v.scale * factor, prev.midpoint, newMidpoint);
           recordPinch({
             t,
+            src: kind === 'move' ? 'touch-pinch' : 'pinch-settle',
+            base: v.scale,
             kind,
             raw: target.distance,
             smooth: newDistance,
@@ -497,6 +557,8 @@ export function useCanvasViewport(initial: Viewport) {
           const at = touchStagePoint(stage, touches[0]);
           recordPinch({
             t: e.evt.timeStamp,
+            src: 'touch-pan',
+            base: v.scale,
             kind: 'pan',
             raw: 0,
             smooth: 0,
@@ -531,6 +593,8 @@ export function useCanvasViewport(initial: Viewport) {
         const v = viewportRef.current;
         recordPinch({
           t: e.evt.timeStamp,
+          src: 'touch-pinch',
+          base: v.scale,
           kind: 'end',
           raw: p.target.distance,
           smooth: p.smoothDistance,
@@ -561,16 +625,22 @@ export function useCanvasViewport(initial: Viewport) {
 
   // кнопки панелі зумять відносно центру видимої області, не курсора —
   // курсора для кліку по кнопці просто немає
-  const zoomByFactor = useCallback((factor: number, center: Point2) => {
-    setViewport((v) => zoomViewportAtPoint(v, v.scale * factor, center));
-  }, []);
+  const zoomByFactor = useCallback(
+    (factor: number, center: Point2) => {
+      setViewport((v) => zoomViewportAtPoint(v, v.scale * factor, center));
+    },
+    [setViewport],
+  );
 
   const zoomIn = useCallback((center: Point2) => zoomByFactor(BUTTON_ZOOM_STEP, center), [zoomByFactor]);
   const zoomOut = useCallback((center: Point2) => zoomByFactor(1 / BUTTON_ZOOM_STEP, center), [zoomByFactor]);
 
-  const resetView = useCallback((center: Point2) => {
-    setViewport({ x: center.x, y: center.y, scale: 1 });
-  }, []);
+  const resetView = useCallback(
+    (center: Point2) => {
+      setViewport({ x: center.x, y: center.y, scale: 1 });
+    },
+    [setViewport],
+  );
 
   return {
     viewport,

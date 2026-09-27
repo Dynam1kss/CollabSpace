@@ -7,6 +7,11 @@ interface PinchSample {
   t: number;
   // pan — рух одним пальцем (зокрема той, що лишився після щипка)
   kind: 'start' | 'move' | 'settle' | 'end' | 'pan';
+  // хто саме пише у viewport: щоб у трейсі було видно, чи два обробники
+  // не смикають камеру по черзі
+  src: 'touch-pinch' | 'pinch-settle' | 'touch-pan' | 'wheel' | 'mouse-pan';
+  // масштаб, від якого крок рахувався — має дорівнювати scale попереднього рядка
+  base: number;
   raw: number;
   smooth: number;
   skipped: boolean;
@@ -49,11 +54,13 @@ export function clearSamples() {
 
 // через файл, а не буфер обміну: clipboard на телефоні по http (lan-адреса) недоступний
 export function downloadCsv() {
-  const head = 't,kind,raw,smooth,skipped,midX,midY,rawMidX,rawMidY,scale,x,y';
+  const head = 't,src,kind,base,raw,smooth,skipped,midX,midY,rawMidX,rawMidY,scale,x,y';
   const rows = samples.map((s) =>
     [
       s.t.toFixed(1),
+      s.src,
       s.kind,
+      s.base.toFixed(5),
       s.raw.toFixed(2),
       s.smooth.toFixed(2),
       s.skipped ? 1 : 0,
