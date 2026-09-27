@@ -6,3 +6,4 @@ export * from './sync';
 export * from './chat';
 export * from './voice';
 export * from './seats';
+export * from './cells';
