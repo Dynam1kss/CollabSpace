@@ -2,6 +2,7 @@ export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
+  avatarUrl: string | null;
   createdAt: string;
 }
 
@@ -14,6 +15,15 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface UpdateProfileRequest {
+  displayName: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export interface AuthResponse {

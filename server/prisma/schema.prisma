@@ -27,6 +27,8 @@ model User {
   email        String   @unique
   passwordHash String
   displayName  String
+  // відносний /uploads/avatars/... — як і картинки на дошках; null — буква замість фото
+  avatarUrl    String?
   createdAt    DateTime @default(now())
 
   ownedBoards  Board[]       @relation("BoardOwner")

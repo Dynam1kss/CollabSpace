@@ -37,6 +37,7 @@ export function toAuthUser(user: User): AuthUser {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
     createdAt: user.createdAt.toISOString(),
   };
 }

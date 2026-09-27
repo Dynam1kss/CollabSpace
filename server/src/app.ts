@@ -5,6 +5,7 @@ import express from 'express';
 import type { HealthResponse, IceConfigResponse, IceServerConfig } from 'shared';
 import { requireAuth } from './auth/auth.middleware';
 import { authRouter } from './auth/auth.routes';
+import { profileRouter } from './auth/profile.routes';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
 import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
@@ -53,6 +54,7 @@ app.get('/api/ice-config', requireAuth, (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/me', profileRouter);
 app.use('/api/boards', boardsRouter);
 app.use('/api/invites', invitesRouter);
 app.use('/api/boards/:id/snapshot', snapshotsRouter);
