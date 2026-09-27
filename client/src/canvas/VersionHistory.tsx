@@ -26,14 +26,16 @@ export function VersionHistory({ boardId }: Props) {
   const [versions, setVersions] = useState<BoardVersionInfo[] | null>(null);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
-  const [note, setNote] = useState<{ text: string; error: boolean } | null>(null);
+  // ключ, а не готовий текст: примітка висить, поки панель відкрита, і має
+  // перекластись, якщо мову змінять просто зараз
+  const [note, setNote] = useState<{ key: string; error: boolean } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   async function reload() {
     try {
       setVersions((await fetchVersions(boardId)).versions);
     } catch {
-      setNote({ text: t('history.loadFailed'), error: true });
+      setNote({ key: 'history.loadFailed', error: true });
     }
   }
 
@@ -60,10 +62,10 @@ export function VersionHistory({ boardId }: Props) {
     try {
       await saveVersion(boardId, label.trim());
       setLabel('');
-      setNote({ text: t('history.saved'), error: false });
+      setNote({ key: 'history.saved', error: false });
       await reload();
     } catch {
-      setNote({ text: t('history.saveFailed'), error: true });
+      setNote({ key: 'history.saveFailed', error: true });
     } finally {
       setBusy(null);
     }
@@ -82,10 +84,10 @@ export function VersionHistory({ boardId }: Props) {
     setNote(null);
     try {
       await restoreVersion(boardId, v.id);
-      setNote({ text: t('history.restored'), error: false });
+      setNote({ key: 'history.restored', error: false });
       await reload();
     } catch {
-      setNote({ text: t('history.restoreFailed'), error: true });
+      setNote({ key: 'history.restoreFailed', error: true });
     } finally {
       setBusy(null);
     }
@@ -116,7 +118,7 @@ export function VersionHistory({ boardId }: Props) {
           {busy === 'save' ? t('history.saving') : t('history.save')}
         </button>
       </div>
-      {note && <p className={`export-note${note.error ? ' export-error' : ''}`}>{note.text}</p>}
+      {note && <p className={`export-note${note.error ? ' export-error' : ''}`}>{t(note.key)}</p>}
       {versions === null ? (
         <p className="export-note">{t('common.loading')}</p>
       ) : versions.length === 0 ? (
