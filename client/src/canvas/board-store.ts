@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { create } from 'zustand';
 import { diag } from './diag';
+import { syncStrategy } from './sync-strategy';
 import type {
   BoardObject,
   ConnectorObject,
@@ -140,6 +141,12 @@ export const useBoardStore = create<BoardObjectsState>((set, get) => ({
   },
 
   updateSoon: (id, patch) => {
+    // стратегія 1 для експерименту: без накопичення, кожна правка — своя
+    // транзакція й свій пакет. локально вузол konva і так рухається щоподії
+    if (syncStrategy() === 'per-event') {
+      boardDoc.transact(() => get().update(id, patch));
+      return;
+    }
     queued ??= new Map();
     queued.set(id, { ...queued.get(id), ...patch } as BoardObjectPatch);
     if (frameQueued) return;

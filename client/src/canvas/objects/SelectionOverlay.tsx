@@ -7,6 +7,7 @@ import type { BoardObject, BoardPoint, ImageObject, ShapeObject, StickyObject, T
 import type { Box } from 'konva/lib/shapes/Transformer';
 import type { Point } from '../coordinates';
 import { useBoardStore } from '../board-store';
+import { frameCoalescer } from '../frame-coalescer';
 import { useEditorStore } from '../editor-store';
 import { isMovable } from '../object-lock';
 import { pivotOffset } from '../object-pivot';
@@ -211,6 +212,10 @@ export function SelectionOverlay({
   }
   const updateObject = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
+  // окремо для ресайзу й для коміту трансформації: в одному кадрі можуть
+  // прийти обидва, і спільна черга лишила б лише останнє
+  const [resizeFrame] = useState(frameCoalescer);
+  const [commitFrame] = useState(frameCoalescer);
   const setInteracting = useEditorStore((s) => s.setInteracting);
   // посеред жесту стор тепер оновлюється щокадру — а цей компонент від того
   // перемальовується і перечіпляє nodes() трансформера. Konva на setNodes
@@ -292,7 +297,9 @@ export function SelectionOverlay({
   function handlePointerMove(e: PointerEvent) {
     // konva тримає позицію вказівника у себе — оновлюємо її перед читанням
     transformerRef.current?.getStage()?.setPointersPositions(e);
-    resizeToPointer();
+    // розмір рахується з курсора з нуля, тож проміжні події кадру нічого не
+    // додають — лише зайві пакети. вузол і стор оновлюються разом, раз на кадр
+    resizeFrame.schedule(resizeToPointer);
   }
 
   // все, що потрібно на весь жест, знімаємо тут і більше не перераховуємо
@@ -544,13 +551,18 @@ export function SelectionOverlay({
     // піксель, і «нерухомий» кут смикається. Пакет той самий один на кадр,
     // просто закривається тут, а не в rAF
     if (e.target === tr.nodes()[0]) {
-      commitNodes();
-      flushUpdates();
+      // у стратегії batched — раз на кадр, останнім станом вузлів
+      commitFrame.schedule(() => {
+        commitNodes();
+        flushUpdates();
+      });
     }
   }
 
   function handleTransformEnd() {
     window.removeEventListener('pointermove', handlePointerMove);
+    resizeFrame.flush();
+    commitFrame.flush();
     if (gestureRef.current) resizeToPointer();
     commitNodes();
     flushUpdates();

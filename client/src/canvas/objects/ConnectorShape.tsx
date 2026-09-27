@@ -32,7 +32,14 @@ interface Props {
 // у 0 — інакше наступне тягання здвоїть зсув (і в points, і в group.x/y одразу).
 // Групову трансформацію (кілька виділених) так само запікає в points
 // SelectionOverlay — тому лінія має name, щоб він її знайшов
-export function ConnectorShape({ object, isSelected, draggable, viewportScale, inkOverFill, registerRef }: Props) {
+export function ConnectorShape({
+  object,
+  isSelected,
+  draggable,
+  viewportScale,
+  inkOverFill,
+  registerRef,
+}: Props) {
   const theme = useTheme();
   const accent = CANVAS_COLORS[theme].accent;
   const updateObject = useBoardStore((s) => s.update);
@@ -87,8 +94,10 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, i
     return fresh?.type === 'connector' ? fresh.points : [];
   }
 
+  // посеред жесту — через чергу кадру, як і решта жестів; стор до flush
+  // відстає на кадр, але рухається одна точка, решта з нього й беруться
   function movePoint(index: number, point: BoardPoint) {
-    updateObject(object.id, withPoints(freshPoints().map((p, i) => (i === index ? point : p))));
+    updateSoon(object.id, withPoints(freshPoints().map((p, i) => (i === index ? point : p))));
   }
 
   function dragMainPoint(index: number) {
@@ -97,6 +106,8 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, i
       // x/y кружечка як власний зсув
       e.cancelBubble = true;
       movePoint(index, { x: e.target.x(), y: e.target.y() });
+      // кінець жесту — хвіст одразу, не чекаючи кадру
+      if (e.type === 'dragend') useBoardStore.getState().flushUpdates();
     };
   }
 
@@ -129,6 +140,7 @@ export function ConnectorShape({ object, isSelected, draggable, viewportScale, i
         stopInsertDragRef.current = null;
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        useBoardStore.getState().flushUpdates();
       };
       stopInsertDragRef.current = onUp;
       window.addEventListener('pointermove', onMove);
