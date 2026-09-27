@@ -35,6 +35,13 @@ export default tseslint.config(
     },
   },
   {
+    // стенд — скрипти node, але тіла page.evaluate виконуються в браузері
+    files: ['bench/**/*.mjs'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
     files: ['server/**/*.ts', 'shared/**/*.ts', '*.js'],
     languageOptions: {
       globals: globals.node,

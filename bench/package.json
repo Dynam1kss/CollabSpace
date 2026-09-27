@@ -1,0 +1,13 @@
+{
+  "name": "collabspace-bench",
+  "private": true,
+  "type": "module",
+  "description": "Вимірювання трафіку стратегій синхронізації (розділ 4 записки)",
+  "scripts": {
+    "strategies": "node strategies.mjs",
+    "aoi": "node aoi.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

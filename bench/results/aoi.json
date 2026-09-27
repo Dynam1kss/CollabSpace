@@ -1,0 +1,169 @@
+{
+  "at": "2026-09-27T21:24:32.454Z",
+  "base": "http://localhost:5173",
+  "cellSize": 2000,
+  "regions": {
+    "A": [
+      300,
+      300
+    ],
+    "B": [
+      10300,
+      10300
+    ],
+    "C": [
+      10300,
+      300
+    ],
+    "D": [
+      300,
+      10300
+    ]
+  },
+  "results": [
+    {
+      "strategy": "per-event",
+      "loaded": {
+        "A": 8,
+        "A2": 8,
+        "B": 8,
+        "C": 8
+      },
+      "receivedWhileOthersEdit": {
+        "A": {
+          "n": 62,
+          "bytes": 13144
+        },
+        "A2": {
+          "n": 93,
+          "bytes": 19685
+        },
+        "B": {
+          "n": 62,
+          "bytes": 13113
+        },
+        "C": {
+          "n": 62,
+          "bytes": 13113
+        }
+      },
+      "editInA": {
+        "A2": {
+          "n": 31,
+          "bytes": 6541
+        },
+        "B": {
+          "n": 31,
+          "bytes": 6541
+        },
+        "C": {
+          "n": 31,
+          "bytes": 6541
+        }
+      },
+      "a2SeesLive": true,
+      "bCaughtUp": true,
+      "bAfterLeavingA": {
+        "n": 31,
+        "bytes": 6541
+      },
+      "snapshotObjects": 8
+    },
+    {
+      "strategy": "batched",
+      "loaded": {
+        "A": 8,
+        "A2": 8,
+        "B": 8,
+        "C": 8
+      },
+      "receivedWhileOthersEdit": {
+        "A": {
+          "n": 62,
+          "bytes": 13144
+        },
+        "A2": {
+          "n": 93,
+          "bytes": 19685
+        },
+        "B": {
+          "n": 62,
+          "bytes": 13113
+        },
+        "C": {
+          "n": 62,
+          "bytes": 13113
+        }
+      },
+      "editInA": {
+        "A2": {
+          "n": 31,
+          "bytes": 6541
+        },
+        "B": {
+          "n": 31,
+          "bytes": 6541
+        },
+        "C": {
+          "n": 31,
+          "bytes": 6541
+        }
+      },
+      "a2SeesLive": true,
+      "bCaughtUp": true,
+      "bAfterLeavingA": {
+        "n": 31,
+        "bytes": 6541
+      },
+      "snapshotObjects": 8
+    },
+    {
+      "strategy": "aoi",
+      "loaded": {
+        "A": 2,
+        "A2": 2,
+        "B": 2,
+        "C": 2
+      },
+      "receivedWhileOthersEdit": {
+        "A": {
+          "n": 0,
+          "bytes": 0
+        },
+        "A2": {
+          "n": 31,
+          "bytes": 6574
+        },
+        "B": {
+          "n": 0,
+          "bytes": 0
+        },
+        "C": {
+          "n": 0,
+          "bytes": 0
+        }
+      },
+      "editInA": {
+        "A2": {
+          "n": 31,
+          "bytes": 6572
+        },
+        "B": {
+          "n": 0,
+          "bytes": 0
+        },
+        "C": {
+          "n": 0,
+          "bytes": 0
+        }
+      },
+      "a2SeesLive": true,
+      "bCaughtUp": true,
+      "bAfterLeavingA": {
+        "n": 0,
+        "bytes": 0
+      },
+      "snapshotObjects": 8
+    }
+  ]
+}

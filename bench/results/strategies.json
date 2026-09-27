@@ -1,0 +1,258 @@
+{
+  "at": "2026-09-27T21:25:45.864Z",
+  "base": "http://localhost:5173",
+  "rows": [
+    {
+      "scenario": "стікер, 1 подія/кадр",
+      "strategy": "per-event",
+      "frames": 30,
+      "out": {
+        "n": 31,
+        "bytes": 6539
+      },
+      "in": {
+        "n": 31,
+        "bytes": 6539
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "стікер, 1 подія/кадр",
+      "strategy": "batched",
+      "frames": 30,
+      "out": {
+        "n": 31,
+        "bytes": 6539
+      },
+      "in": {
+        "n": 31,
+        "bytes": 6539
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "стікер, 1 подія/кадр",
+      "strategy": "aoi",
+      "frames": 30,
+      "out": {
+        "n": 33,
+        "bytes": 6685
+      },
+      "in": {
+        "n": 33,
+        "bytes": 6685
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "стікер, 3 події/кадр",
+      "strategy": "per-event",
+      "frames": 10,
+      "out": {
+        "n": 31,
+        "bytes": 6539
+      },
+      "in": {
+        "n": 31,
+        "bytes": 6539
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "стікер, 3 події/кадр",
+      "strategy": "batched",
+      "frames": 10,
+      "out": {
+        "n": 11,
+        "bytes": 2319
+      },
+      "in": {
+        "n": 11,
+        "bytes": 2319
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "стікер, 3 події/кадр",
+      "strategy": "aoi",
+      "frames": 10,
+      "out": {
+        "n": 13,
+        "bytes": 2405
+      },
+      "in": {
+        "n": 13,
+        "bytes": 2405
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "група з 3, 1 подія/кадр",
+      "strategy": "per-event",
+      "frames": 30,
+      "out": {
+        "n": 91,
+        "bytes": 19171
+      },
+      "in": {
+        "n": 91,
+        "bytes": 19171
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "група з 3, 1 подія/кадр",
+      "strategy": "batched",
+      "frames": 30,
+      "out": {
+        "n": 33,
+        "bytes": 18143
+      },
+      "in": {
+        "n": 33,
+        "bytes": 18143
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "група з 3, 1 подія/кадр",
+      "strategy": "aoi",
+      "frames": 30,
+      "out": {
+        "n": 65,
+        "bytes": 19019
+      },
+      "in": {
+        "n": 65,
+        "bytes": 19019
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "група з 3, 3 події/кадр",
+      "strategy": "per-event",
+      "frames": 10,
+      "out": {
+        "n": 91,
+        "bytes": 19177
+      },
+      "in": {
+        "n": 91,
+        "bytes": 19177
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "група з 3, 3 події/кадр",
+      "strategy": "batched",
+      "frames": 10,
+      "out": {
+        "n": 13,
+        "bytes": 6594
+      },
+      "in": {
+        "n": 13,
+        "bytes": 6594
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "група з 3, 3 події/кадр",
+      "strategy": "aoi",
+      "frames": 10,
+      "out": {
+        "n": 26,
+        "bytes": 6943
+      },
+      "in": {
+        "n": 26,
+        "bytes": 6943
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "точка конектора, 3 події/кадр",
+      "strategy": "per-event",
+      "frames": 10,
+      "out": {
+        "n": 31,
+        "bytes": 7524
+      },
+      "in": {
+        "n": 31,
+        "bytes": 7524
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "точка конектора, 3 події/кадр",
+      "strategy": "batched",
+      "frames": 10,
+      "out": {
+        "n": 11,
+        "bytes": 2670
+      },
+      "in": {
+        "n": 11,
+        "bytes": 2670
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "точка конектора, 3 події/кадр",
+      "strategy": "aoi",
+      "frames": 10,
+      "out": {
+        "n": 12,
+        "bytes": 2737
+      },
+      "in": {
+        "n": 12,
+        "bytes": 2737
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "ресайз трансформером, 3 події/кадр",
+      "strategy": "per-event",
+      "frames": 10,
+      "out": {
+        "n": 31,
+        "bytes": 6541
+      },
+      "in": {
+        "n": 31,
+        "bytes": 6541
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "ресайз трансформером, 3 події/кадр",
+      "strategy": "batched",
+      "frames": 10,
+      "out": {
+        "n": 11,
+        "bytes": 2321
+      },
+      "in": {
+        "n": 11,
+        "bytes": 2321
+      },
+      "sameAsPeer": true
+    },
+    {
+      "scenario": "ресайз трансформером, 3 події/кадр",
+      "strategy": "aoi",
+      "frames": 10,
+      "out": {
+        "n": 11,
+        "bytes": 2376
+      },
+      "in": {
+        "n": 11,
+        "bytes": 2376
+      },
+      "sameAsPeer": true
+    }
+  ]
+}
