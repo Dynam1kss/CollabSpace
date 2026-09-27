@@ -464,3 +464,52 @@ describe('дошки — CRUD і права доступу', () => {
     expect(afterRemove.status).toBe(404);
   });
 });
+
+describe('вихід із дошки', () => {
+  it('учасник іде сам — 204, дошки нема ні в списку, ні за адресою, у власника зник зі списку', async () => {
+    const owner = await registerUser();
+    const member = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Звідки йдуть' });
+    const boardId = board.body.id as string;
+    await addMember(owner, boardId, member, 'VIEWER');
+
+    const res = await member.agent.post(`/api/boards/${boardId}/leave`);
+    expect(res.status).toBe(204);
+    expect((await member.agent.get('/api/boards')).body.boards).toHaveLength(0);
+    expect((await member.agent.get(`/api/boards/${boardId}`)).status).toBe(404);
+    expect((await owner.agent.get(`/api/boards/${boardId}`)).body.members).toHaveLength(0);
+  });
+
+  it('адміністратор теж може піти сам', async () => {
+    const owner = await registerUser();
+    const admin = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    await addMember(owner, board.body.id, admin, 'ADMIN');
+    expect((await admin.agent.post(`/api/boards/${board.body.id}/leave`)).status).toBe(204);
+  });
+
+  it('власник — 409 OWNER_CANNOT_LEAVE, дошка лишається', async () => {
+    const owner = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Моя' });
+
+    const res = await owner.agent.post(`/api/boards/${board.body.id}/leave`);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('OWNER_CANNOT_LEAVE');
+    expect((await owner.agent.get(`/api/boards/${board.body.id}`)).status).toBe(200);
+  });
+
+  it('чужий і ще не прийнятий — 404, запрошення не зникає', async () => {
+    const owner = await registerUser();
+    const stranger = await registerUser();
+    const invited = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent
+      .post(`/api/boards/${boardId}/members`)
+      .send({ email: invited.payload.email, role: 'EDITOR' });
+
+    expect((await stranger.agent.post(`/api/boards/${boardId}/leave`)).status).toBe(404);
+    expect((await invited.agent.post(`/api/boards/${boardId}/leave`)).status).toBe(404);
+    expect((await invited.agent.get('/api/invites')).body.invites).toHaveLength(1);
+  });
+});

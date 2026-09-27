@@ -461,6 +461,19 @@ describe('кімнати дошок поверх ws', () => {
     expect(await rejected(connect(boardId, editor.cookie))).toBe(404);
   });
 
+  it('вихід із дошки самому теж виводить з кімнати живцем', async () => {
+    const { boardId, editor } = await boardWithMembers();
+    const tab = connect(boardId, editor.cookie);
+    await opened(tab);
+    const kicked = nextOfType(tab, SYNC_MSG.KICKED);
+    const closed = new Promise<number>((r) => tab.once('close', r));
+
+    expect((await editor.agent.post(`/api/boards/${boardId}/leave`)).status).toBe(204);
+    expect((await kicked)![0]).toBe(SYNC_MSG.KICKED);
+    await closed;
+    expect(await rejected(connect(boardId, editor.cookie))).toBe(404);
+  });
+
   it('стілець розсилається решті з дописаним clientId, глядачу теж можна', async () => {
     const { boardId, owner, viewer } = await boardWithMembers();
     const a = connect(boardId, owner.cookie);

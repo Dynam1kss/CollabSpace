@@ -28,6 +28,7 @@ export const en: Translation = {
     INTERNAL_ERROR: 'Something went wrong on the server',
     IMAGE_TOO_LARGE: 'The file is too large — 5 MB max',
     IMAGE_UNREADABLE: "Couldn't read the image",
+    OWNER_CANNOT_LEAVE: "The owner can't leave their own board",
     network: "Can't reach the server",
     unknown: 'Request failed',
   },
@@ -135,6 +136,9 @@ export const en: Translation = {
     renameFailed: "Couldn't rename the board",
     deleteConfirm: 'Delete the board? This cannot be undone.',
     deleteFailed: "Couldn't delete the board",
+    leave: 'Leave board',
+    leaveConfirm: 'Leave “{{title}}”? You can only come back with a new invitation.',
+    leaveFailed: "Couldn't leave the board",
   },
   members: {
     none: 'No members yet.',

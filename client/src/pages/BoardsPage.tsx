@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Avatar } from '../components/Avatar';
 import type { BoardSummary } from 'shared';
 import { logout } from '../api/auth';
-import { createBoard, deleteBoard, fetchBoards, renameBoard } from '../api/boards';
+import { createBoard, deleteBoard, fetchBoards, leaveBoard, renameBoard } from '../api/boards';
 import { useAuthStore } from '../store/auth-store';
 import { BoardMembers } from './BoardMembers';
 import { EmptyBoardsIcon, MoreIcon } from '../canvas/icons';
@@ -94,6 +94,17 @@ export function BoardsPage() {
     }
   };
 
+  const handleLeave = async (board: BoardSummary) => {
+    setMenuOpenId(null);
+    if (!window.confirm(t('boards.leaveConfirm', { title: board.title }))) return;
+    try {
+      await leaveBoard(board.id);
+      setBoards((prev) => prev.filter((b) => b.id !== board.id));
+    } catch (err) {
+      setError(errorText(err, t('boards.leaveFailed')));
+    }
+  };
+
   return (
     <div>
       <header className="boards-header">
@@ -178,17 +189,18 @@ export function BoardsPage() {
                   <span>{t('boards.updated', { when: relativeTime(board.updatedAt) })}</span>
                   {!board.isOwner && <span className="role-chip">{t(`roles.${board.myRole}`)}</span>}
                 </span>
-                {(board.isOwner || board.myRole === 'ADMIN') && (
-                  <BoardCardMenu
-                    open={menuOpenId === board.id}
-                    onToggle={() => setMenuOpenId(menuOpenId === board.id ? null : board.id)}
-                    onClose={() => setMenuOpenId(null)}
-                  >
-                    {board.isOwner && (
-                      <button type="button" onClick={() => startRename(board)}>
-                        {t('boards.rename')}
-                      </button>
-                    )}
+                {/* меню тепер у кожної дошки: не власнику лишається хоча б «покинути» */}
+                <BoardCardMenu
+                  open={menuOpenId === board.id}
+                  onToggle={() => setMenuOpenId(menuOpenId === board.id ? null : board.id)}
+                  onClose={() => setMenuOpenId(null)}
+                >
+                  {board.isOwner && (
+                    <button type="button" onClick={() => startRename(board)}>
+                      {t('boards.rename')}
+                    </button>
+                  )}
+                  {(board.isOwner || board.myRole === 'ADMIN') && (
                     <button
                       type="button"
                       onClick={() => {
@@ -198,13 +210,17 @@ export function BoardsPage() {
                     >
                       {t('boards.members')}
                     </button>
-                    {board.isOwner && (
-                      <button type="button" className="danger" onClick={() => handleDelete(board.id)}>
-                        {t('common.delete')}
-                      </button>
-                    )}
-                  </BoardCardMenu>
-                )}
+                  )}
+                  {board.isOwner ? (
+                    <button type="button" className="danger" onClick={() => handleDelete(board.id)}>
+                      {t('common.delete')}
+                    </button>
+                  ) : (
+                    <button type="button" className="danger" onClick={() => void handleLeave(board)}>
+                      {t('boards.leave')}
+                    </button>
+                  )}
+                </BoardCardMenu>
               </>
             )}
             {membersOpenId === board.id &&

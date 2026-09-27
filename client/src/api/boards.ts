@@ -106,6 +106,12 @@ export async function removeBoardMember(boardId: string, userId: string) {
   if (!res.ok) throw await apiError(res);
 }
 
+// піти з дошки самому; власнику сервер відмовить кодом OWNER_CANNOT_LEAVE
+export async function leaveBoard(boardId: string) {
+  const res = await fetch(`/api/boards/${boardId}/leave`, { method: 'POST' });
+  if (!res.ok) throw await apiError(res);
+}
+
 // сирі байти файла в тілі, тип — з самого File; сервер відповідає відносним url
 export function uploadBoardImage(boardId: string, file: File) {
   return fetch(`/api/boards/${boardId}/images`, {

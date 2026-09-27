@@ -28,6 +28,7 @@ export const de: Translation = {
     INTERNAL_ERROR: 'Auf dem Server ist etwas schiefgelaufen',
     IMAGE_TOO_LARGE: 'Die Datei ist zu groß — höchstens 5 MB',
     IMAGE_UNREADABLE: 'Das Bild konnte nicht gelesen werden',
+    OWNER_CANNOT_LEAVE: 'Der Eigentümer kann sein eigenes Board nicht verlassen',
     network: 'Keine Verbindung zum Server',
     unknown: 'Anfrage fehlgeschlagen',
   },
@@ -135,6 +136,9 @@ export const de: Translation = {
     renameFailed: 'Board konnte nicht umbenannt werden',
     deleteConfirm: 'Board löschen? Das lässt sich nicht rückgängig machen.',
     deleteFailed: 'Board konnte nicht gelöscht werden',
+    leave: 'Board verlassen',
+    leaveConfirm: '„{{title}}“ verlassen? Zurück kommst du nur mit einer neuen Einladung.',
+    leaveFailed: 'Board konnte nicht verlassen werden',
   },
   members: {
     none: 'Noch keine Mitglieder.',

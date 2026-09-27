@@ -271,3 +271,22 @@ boardsRouter.delete('/:id/members', async (req, res, next) => {
     next(err);
   }
 });
+
+// піти з дошки самому. на відміну від delete /members — не потрібні права
+// адміна: людина чіпає лише власний рядок. власник так не йде — дошка
+// лишилась би без нього, а передачі власності поки нема
+boardsRouter.post('/:id/leave', async (req, res, next) => {
+  try {
+    const access = requireBoardAccess(await getBoardAccess(req.params.id, req.userId as string));
+    if (access.role === 'OWNER') {
+      throw new AppError(409, 'OWNER_CANNOT_LEAVE', 'Власник не може покинути власну дошку');
+    }
+
+    await prisma.boardMember.deleteMany({ where: { boardId: access.board.id, userId: req.userId } });
+    // інші вкладки цієї ж людини на дошці виводимо так само, як при видаленні адміном
+    kickMember(access.board.id, req.userId as string);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
