@@ -242,7 +242,7 @@ header {
   width: 100%;
   max-width: 380px;
   margin-top: 1rem;
-  padding: 0.6rem 0.5rem 0.6rem 0.9rem;
+  padding: 0.6rem 0.9rem;
   background: var(--accent-soft);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
@@ -260,20 +260,6 @@ header {
 .install-banner .button-primary {
   flex: 0 0 auto;
   padding: 0.4rem 0.8rem;
-}
-
-.install-banner-close {
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: none;
-  color: var(--text-muted);
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
 }
 
 .boards-header {
