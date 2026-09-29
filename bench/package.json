@@ -5,7 +5,10 @@
   "description": "Вимірювання трафіку стратегій синхронізації (розділ 4 записки)",
   "scripts": {
     "strategies": "node strategies.mjs",
-    "aoi": "node aoi.mjs"
+    "aoi": "node aoi.mjs",
+    "load": "node load.mjs",
+    "charts": "node charts.mjs",
+    "clock-skew": "node clock-skew.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
