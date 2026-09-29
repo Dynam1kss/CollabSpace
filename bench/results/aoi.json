@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-27T21:24:32.454Z",
+  "at": "2026-09-29T12:20:43.254Z",
   "base": "http://localhost:5173",
   "cellSize": 2000,
   "regions": {
@@ -64,8 +64,8 @@
       "a2SeesLive": true,
       "bCaughtUp": true,
       "bAfterLeavingA": {
-        "n": 31,
-        "bytes": 6541
+        "n": 0,
+        "bytes": 0
       },
       "snapshotObjects": 8
     },
@@ -132,7 +132,7 @@
         },
         "A2": {
           "n": 31,
-          "bytes": 6574
+          "bytes": 6665
         },
         "B": {
           "n": 0,
@@ -146,7 +146,7 @@
       "editInA": {
         "A2": {
           "n": 31,
-          "bytes": 6572
+          "bytes": 6665
         },
         "B": {
           "n": 0,

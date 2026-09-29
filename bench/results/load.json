@@ -1,0 +1,1088 @@
+{
+  "at": "2026-09-29T12:06:22.228Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "per-event",
+      "n": 5,
+      "regions": 1,
+      "objects": 100,
+      "activityMs": 13039,
+      "gestures": 55,
+      "gestureFrames": 550,
+      "traffic": {
+        "out": {
+          "n": 1705,
+          "bytes": 370827
+        },
+        "in": {
+          "n": 6820,
+          "bytes": 1483308
+        },
+        "outPerClient": {
+          "n": 341,
+          "bytes": 74165
+        },
+        "inPerClient": {
+          "n": 1364,
+          "bytes": 296662
+        },
+        "inPerClientPerGesture": {
+          "n": 124,
+          "bytes": 26969.2
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6742.3
+        }
+      },
+      "perClientGestures": 11,
+      "ownChanges": {
+        "min": 301,
+        "median": 331,
+        "max": 360,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 508,
+        "min": 0.6,
+        "p50": 58.4,
+        "p95": 123.5,
+        "p99": 148.4,
+        "max": 165.5
+      },
+      "latencyFullMs": {
+        "count": 508,
+        "min": 1,
+        "p50": 58.5,
+        "p95": 123.7,
+        "p99": 148.6,
+        "max": 165.6
+      },
+      "unmatchedProbes": 1,
+      "pairOffsetMs": {
+        "count": 300,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.2,
+        "max": 0.5
+      },
+      "convergenceMs": 93,
+      "converged": true,
+      "drainMs": 4,
+      "agreement": {
+        "objects": 5,
+        "holders": 25,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 100
+      },
+      "server": {
+        "wallSeconds": 13,
+        "cpuMs": 484,
+        "cpuPercentOfCore": 3.7,
+        "rssPeakMb": 152,
+        "heapPeakMb": 21,
+        "rooms": {
+          "sockets": 5,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "batched",
+      "n": 5,
+      "regions": 1,
+      "objects": 100,
+      "activityMs": 12812,
+      "gestures": 75,
+      "gestureFrames": 750,
+      "traffic": {
+        "out": {
+          "n": 825,
+          "bytes": 179045
+        },
+        "in": {
+          "n": 3300,
+          "bytes": 716180
+        },
+        "outPerClient": {
+          "n": 165,
+          "bytes": 35809
+        },
+        "inPerClient": {
+          "n": 660,
+          "bytes": 143236
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9549.1
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2387.3
+        }
+      },
+      "perClientGestures": 15,
+      "ownChanges": {
+        "min": 140,
+        "median": 150,
+        "max": 160,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 384,
+        "min": 0.5,
+        "p50": 8.3,
+        "p95": 51.6,
+        "p99": 63.7,
+        "max": 67.7
+      },
+      "latencyFullMs": {
+        "count": 384,
+        "min": 14.8,
+        "p50": 37,
+        "p95": 89.6,
+        "p99": 112.6,
+        "max": 115.7
+      },
+      "unmatchedProbes": 0,
+      "pairOffsetMs": {
+        "count": 140,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.3,
+        "max": 0.6
+      },
+      "convergenceMs": 3,
+      "converged": true,
+      "drainMs": 4,
+      "agreement": {
+        "objects": 5,
+        "holders": 25,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 100
+      },
+      "server": {
+        "wallSeconds": 12.8,
+        "cpuMs": 562,
+        "cpuPercentOfCore": 4.4,
+        "rssPeakMb": 154,
+        "heapPeakMb": 22,
+        "rooms": {
+          "sockets": 5,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "aoi",
+      "n": 5,
+      "regions": 1,
+      "objects": 100,
+      "activityMs": 12565,
+      "gestures": 74,
+      "gestureFrames": 740,
+      "traffic": {
+        "out": {
+          "n": 814,
+          "bytes": 181027
+        },
+        "in": {
+          "n": 3256,
+          "bytes": 724108
+        },
+        "outPerClient": {
+          "n": 162.8,
+          "bytes": 36205
+        },
+        "inPerClient": {
+          "n": 651.2,
+          "bytes": 144822
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9785.2
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2446.3
+        }
+      },
+      "perClientGestures": 14.8,
+      "ownChanges": {
+        "min": 140,
+        "median": 150,
+        "max": 150,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 384,
+        "min": 0.4,
+        "p50": 5.4,
+        "p95": 42.1,
+        "p99": 53.4,
+        "max": 68.7
+      },
+      "latencyFullMs": {
+        "count": 384,
+        "min": 10,
+        "p50": 30.9,
+        "p95": 82.6,
+        "p99": 99.3,
+        "max": 107.2
+      },
+      "unmatchedProbes": 0,
+      "pairOffsetMs": {
+        "count": 140,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.3,
+        "max": 0.3
+      },
+      "convergenceMs": 1,
+      "converged": true,
+      "drainMs": 4,
+      "agreement": {
+        "objects": 5,
+        "holders": 25,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 100
+      },
+      "server": {
+        "wallSeconds": 12.6,
+        "cpuMs": 516,
+        "cpuPercentOfCore": 4.1,
+        "rssPeakMb": 156,
+        "heapPeakMb": 23,
+        "rooms": {
+          "sockets": 5,
+          "boardRooms": 1,
+          "cellRooms": 6,
+          "cellSubscriptions": 13
+        }
+      }
+    },
+    {
+      "strategy": "per-event",
+      "n": 10,
+      "regions": 2,
+      "objects": 200,
+      "activityMs": 15427,
+      "gestures": 38,
+      "gestureFrames": 380,
+      "traffic": {
+        "out": {
+          "n": 1178,
+          "bytes": 254464
+        },
+        "in": {
+          "n": 10602,
+          "bytes": 2290176
+        },
+        "outPerClient": {
+          "n": 117.8,
+          "bytes": 25446
+        },
+        "inPerClient": {
+          "n": 1060.2,
+          "bytes": 229018
+        },
+        "inPerClientPerGesture": {
+          "n": 279,
+          "bytes": 60267.8
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6696.4
+        }
+      },
+      "perClientGestures": 3.8,
+      "ownChanges": {
+        "min": 90,
+        "median": 121,
+        "max": 121,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 596,
+        "min": -24.6,
+        "p50": 781.6,
+        "p95": 1675.8,
+        "p99": 2030.3,
+        "max": 2120.3
+      },
+      "latencyFullMs": {
+        "count": 592,
+        "min": 1.3,
+        "p50": 785.7,
+        "p95": 1676.5,
+        "p99": 2030.5,
+        "max": 2120.5
+      },
+      "unmatchedProbes": 0,
+      "pairOffsetMs": {
+        "count": 181,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 1.8,
+        "max": 24.5
+      },
+      "convergenceMs": 24,
+      "converged": true,
+      "drainMs": 8,
+      "agreement": {
+        "objects": 10,
+        "holders": 100,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 200
+      },
+      "server": {
+        "wallSeconds": 15.4,
+        "cpuMs": 453,
+        "cpuPercentOfCore": 2.9,
+        "rssPeakMb": 156,
+        "heapPeakMb": 24,
+        "rooms": {
+          "sockets": 10,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "batched",
+      "n": 10,
+      "regions": 2,
+      "objects": 200,
+      "activityMs": 13837,
+      "gestures": 76,
+      "gestureFrames": 760,
+      "traffic": {
+        "out": {
+          "n": 836,
+          "bytes": 180637
+        },
+        "in": {
+          "n": 7524,
+          "bytes": 1625733
+        },
+        "outPerClient": {
+          "n": 83.6,
+          "bytes": 18064
+        },
+        "inPerClient": {
+          "n": 752.4,
+          "bytes": 162573
+        },
+        "inPerClientPerGesture": {
+          "n": 99,
+          "bytes": 21391.2
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2376.8
+        }
+      },
+      "perClientGestures": 7.6,
+      "ownChanges": {
+        "min": 61,
+        "median": 81,
+        "max": 81,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 392,
+        "min": 0.6,
+        "p50": 113,
+        "p95": 192.9,
+        "p99": 234.9,
+        "max": 276
+      },
+      "latencyFullMs": {
+        "count": 392,
+        "min": 26.8,
+        "p50": 211.8,
+        "p95": 304.7,
+        "p99": 358.4,
+        "max": 388.7
+      },
+      "unmatchedProbes": 2,
+      "pairOffsetMs": {
+        "count": 140,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.3,
+        "p99": 0.4,
+        "max": 0.4
+      },
+      "convergenceMs": 4,
+      "converged": true,
+      "drainMs": 8,
+      "agreement": {
+        "objects": 10,
+        "holders": 100,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 200
+      },
+      "server": {
+        "wallSeconds": 13.8,
+        "cpuMs": 796,
+        "cpuPercentOfCore": 5.8,
+        "rssPeakMb": 172,
+        "heapPeakMb": 20,
+        "rooms": {
+          "sockets": 10,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "aoi",
+      "n": 10,
+      "regions": 2,
+      "objects": 200,
+      "activityMs": 13047,
+      "gestures": 101,
+      "gestureFrames": 1010,
+      "traffic": {
+        "out": {
+          "n": 1111,
+          "bytes": 246146
+        },
+        "in": {
+          "n": 4444,
+          "bytes": 984584
+        },
+        "outPerClient": {
+          "n": 111.1,
+          "bytes": 24615
+        },
+        "inPerClient": {
+          "n": 444.4,
+          "bytes": 98458
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9748.4
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2437.1
+        }
+      },
+      "perClientGestures": 10.1,
+      "ownChanges": {
+        "min": 100,
+        "median": 101,
+        "max": 110,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 564,
+        "min": -17.9,
+        "p50": 6.2,
+        "p95": 41.5,
+        "p99": 59.1,
+        "max": 72.9
+      },
+      "latencyFullMs": {
+        "count": 564,
+        "min": 32.4,
+        "p50": 67.2,
+        "p95": 116,
+        "p99": 136.5,
+        "max": 177.3
+      },
+      "unmatchedProbes": 1,
+      "pairOffsetMs": {
+        "count": 201,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.3,
+        "max": 12.8
+      },
+      "convergenceMs": 1,
+      "converged": true,
+      "drainMs": 8,
+      "agreement": {
+        "objects": 10,
+        "holders": 50,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 200
+      },
+      "server": {
+        "wallSeconds": 13.1,
+        "cpuMs": 1125,
+        "cpuPercentOfCore": 8.6,
+        "rssPeakMb": 173,
+        "heapPeakMb": 25,
+        "rooms": {
+          "sockets": 10,
+          "boardRooms": 1,
+          "cellRooms": 10,
+          "cellSubscriptions": 26
+        }
+      }
+    },
+    {
+      "strategy": "per-event",
+      "n": 25,
+      "regions": 5,
+      "objects": 500,
+      "activityMs": 115825,
+      "gestures": 49,
+      "gestureFrames": 490,
+      "traffic": {
+        "out": {
+          "n": 1519,
+          "bytes": 328327
+        },
+        "in": {
+          "n": 35712,
+          "bytes": 7718865
+        },
+        "outPerClient": {
+          "n": 60.76,
+          "bytes": 13133
+        },
+        "inPerClient": {
+          "n": 1428.48,
+          "bytes": 308755
+        },
+        "inPerClientPerGesture": {
+          "n": 728.8,
+          "bytes": 157527.9
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6700.6
+        }
+      },
+      "perClientGestures": 2,
+      "ownChanges": {
+        "min": 31,
+        "median": 61,
+        "max": 61,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 920,
+        "min": 424.9,
+        "p50": 19312.3,
+        "p95": 51060,
+        "p99": 51265.1,
+        "max": 51496.4
+      },
+      "latencyFullMs": {
+        "count": 920,
+        "min": 425.9,
+        "p50": 19312.9,
+        "p95": 51061,
+        "p99": 51270.6,
+        "max": 51497.3
+      },
+      "unmatchedProbes": 5,
+      "pairOffsetMs": {
+        "count": 270,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.4,
+        "p99": 0.8,
+        "max": 4
+      },
+      "convergenceMs": 1181,
+      "converged": false,
+      "drainMs": 302811,
+      "agreement": {
+        "objects": 25,
+        "holders": 625,
+        "disagree": 24,
+        "dbMismatch": 0,
+        "inDb": 500
+      },
+      "server": {
+        "wallSeconds": 115.8,
+        "cpuMs": 1203,
+        "cpuPercentOfCore": 1,
+        "rssPeakMb": 175,
+        "heapPeakMb": 26,
+        "rooms": {
+          "sockets": 24,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "batched",
+      "n": 25,
+      "regions": 5,
+      "objects": 500,
+      "activityMs": 49844,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 550,
+          "bytes": 118662
+        },
+        "in": {
+          "n": 13200,
+          "bytes": 2847888
+        },
+        "outPerClient": {
+          "n": 22,
+          "bytes": 4746
+        },
+        "inPerClient": {
+          "n": 528,
+          "bytes": 113916
+        },
+        "inPerClientPerGesture": {
+          "n": 264,
+          "bytes": 56957.8
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2373.2
+        }
+      },
+      "perClientGestures": 2,
+      "ownChanges": {
+        "min": 20,
+        "median": 21,
+        "max": 21,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 280,
+        "min": 12.3,
+        "p50": 3720.2,
+        "p95": 16654.2,
+        "p99": 25267.7,
+        "max": 30208.4
+      },
+      "latencyFullMs": {
+        "count": 280,
+        "min": 99.8,
+        "p50": 3899,
+        "p95": 17057.4,
+        "p99": 25407.3,
+        "max": 30395.3
+      },
+      "unmatchedProbes": 3,
+      "pairOffsetMs": {
+        "count": 100,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 0.6,
+        "p99": 0.8,
+        "max": 1.3
+      },
+      "convergenceMs": 59,
+      "converged": true,
+      "drainMs": 43,
+      "agreement": {
+        "objects": 25,
+        "holders": 625,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 500
+      },
+      "server": {
+        "wallSeconds": 49.8,
+        "cpuMs": 907,
+        "cpuPercentOfCore": 1.8,
+        "rssPeakMb": 96,
+        "heapPeakMb": 24,
+        "rooms": {
+          "sockets": 25,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "aoi",
+      "n": 25,
+      "regions": 5,
+      "objects": 500,
+      "activityMs": 14557,
+      "gestures": 105,
+      "gestureFrames": 1050,
+      "traffic": {
+        "out": {
+          "n": 1155,
+          "bytes": 255665
+        },
+        "in": {
+          "n": 4620,
+          "bytes": 1022660
+        },
+        "outPerClient": {
+          "n": 46.2,
+          "bytes": 10227
+        },
+        "inPerClient": {
+          "n": 184.8,
+          "bytes": 40906
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9739.6
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2434.9
+        }
+      },
+      "perClientGestures": 4.2,
+      "ownChanges": {
+        "min": 31,
+        "median": 41,
+        "max": 51,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 560,
+        "min": 1,
+        "p50": 214.5,
+        "p95": 617.4,
+        "p99": 855.9,
+        "max": 1059.1
+      },
+      "latencyFullMs": {
+        "count": 560,
+        "min": 97.9,
+        "p50": 387.3,
+        "p95": 781.2,
+        "p99": 1020.5,
+        "max": 1225.3
+      },
+      "unmatchedProbes": 3,
+      "pairOffsetMs": {
+        "count": 200,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.3,
+        "p99": 0.5,
+        "max": 0.7
+      },
+      "convergenceMs": 5,
+      "converged": true,
+      "drainMs": 18,
+      "agreement": {
+        "objects": 25,
+        "holders": 125,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 500
+      },
+      "server": {
+        "wallSeconds": 14.6,
+        "cpuMs": 1766,
+        "cpuPercentOfCore": 12.1,
+        "rssPeakMb": 130,
+        "heapPeakMb": 29,
+        "rooms": {
+          "sockets": 25,
+          "boardRooms": 1,
+          "cellRooms": 24,
+          "cellSubscriptions": 65
+        }
+      }
+    },
+    {
+      "strategy": "per-event",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 168649,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 1550,
+          "bytes": 334405
+        },
+        "in": {
+          "n": 48797,
+          "bytes": 10520797
+        },
+        "outPerClient": {
+          "n": 31,
+          "bytes": 6688
+        },
+        "inPerClient": {
+          "n": 975.94,
+          "bytes": 210416
+        },
+        "inPerClientPerGesture": {
+          "n": 975.9,
+          "bytes": 210415.9
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6688.1
+        }
+      },
+      "perClientGestures": 1,
+      "ownChanges": {
+        "min": 30,
+        "median": 31,
+        "max": 31,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 698,
+        "min": 859.7,
+        "p50": 94054.7,
+        "p95": 255354.9,
+        "p99": 286849.2,
+        "max": 291602.4
+      },
+      "latencyFullMs": {
+        "count": 694,
+        "min": 861.7,
+        "p50": 94084.2,
+        "p95": 255356.8,
+        "p99": 286850.5,
+        "max": 291605.2
+      },
+      "unmatchedProbes": 9,
+      "pairOffsetMs": {
+        "count": 299,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 0.7,
+        "p99": 2.2,
+        "max": 2.3
+      },
+      "convergenceMs": 202802,
+      "converged": false,
+      "drainMs": 302527,
+      "agreement": {
+        "objects": 50,
+        "holders": 2500,
+        "disagree": 459,
+        "dbMismatch": 12,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 179.8,
+        "cpuMs": 2984,
+        "cpuPercentOfCore": 1.7,
+        "rssPeakMb": 165,
+        "heapPeakMb": 60,
+        "rooms": {
+          "sockets": 16,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "batched",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 101755,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 550,
+          "bytes": 118769
+        },
+        "in": {
+          "n": 12899,
+          "bytes": 2784665
+        },
+        "outPerClient": {
+          "n": 11,
+          "bytes": 2375
+        },
+        "inPerClient": {
+          "n": 257.98,
+          "bytes": 55693
+        },
+        "inPerClientPerGesture": {
+          "n": 258,
+          "bytes": 55693.3
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2375.4
+        }
+      },
+      "perClientGestures": 1,
+      "ownChanges": {
+        "min": 10,
+        "median": 11,
+        "max": 11,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 90,
+        "min": 3181.1,
+        "p50": 21903.6,
+        "p95": 61759.2,
+        "p99": 63392,
+        "max": 63392
+      },
+      "latencyFullMs": {
+        "count": 90,
+        "min": 3375.1,
+        "p50": 22038.7,
+        "p95": 61790.4,
+        "p99": 63434.5,
+        "max": 63434.5
+      },
+      "unmatchedProbes": 10,
+      "pairOffsetMs": {
+        "count": 100,
+        "min": 0.1,
+        "p50": 0.2,
+        "p95": 0.8,
+        "p99": 4.1,
+        "max": 17.3
+      },
+      "convergenceMs": 7033,
+      "converged": false,
+      "drainMs": 302920,
+      "agreement": {
+        "objects": 50,
+        "holders": 2500,
+        "disagree": 185,
+        "dbMismatch": 6,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 101.8,
+        "cpuMs": 1641,
+        "cpuPercentOfCore": 1.6,
+        "rssPeakMb": 278,
+        "heapPeakMb": 85,
+        "rooms": {
+          "sockets": 6,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    },
+    {
+      "strategy": "aoi",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 15554,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 550,
+          "bytes": 121457
+        },
+        "in": {
+          "n": 2200,
+          "bytes": 485828
+        },
+        "outPerClient": {
+          "n": 11,
+          "bytes": 2429
+        },
+        "inPerClient": {
+          "n": 44,
+          "bytes": 9717
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9716.6
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2429.1
+        }
+      },
+      "perClientGestures": 1,
+      "ownChanges": {
+        "min": 10,
+        "median": 11,
+        "max": 11,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 400,
+        "min": 0.6,
+        "p50": 2397.9,
+        "p95": 5175.2,
+        "p99": 5694.5,
+        "max": 6023.9
+      },
+      "latencyFullMs": {
+        "count": 400,
+        "min": 212.9,
+        "p50": 2740.4,
+        "p95": 5665.1,
+        "p99": 6137.8,
+        "max": 7655.6
+      },
+      "unmatchedProbes": 6,
+      "pairOffsetMs": {
+        "count": 100,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.4,
+        "p99": 0.5,
+        "max": 0.6
+      },
+      "convergenceMs": 10,
+      "converged": true,
+      "drainMs": 32,
+      "agreement": {
+        "objects": 50,
+        "holders": 250,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 15.6,
+        "cpuMs": 2484,
+        "cpuPercentOfCore": 16,
+        "rssPeakMb": 211,
+        "heapPeakMb": 100,
+        "rooms": {
+          "sockets": 50,
+          "boardRooms": 1,
+          "cellRooms": 45,
+          "cellSubscriptions": 128
+        }
+      }
+    }
+  ]
+}

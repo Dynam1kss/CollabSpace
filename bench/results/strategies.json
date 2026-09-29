@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-27T21:25:45.864Z",
+  "at": "2026-09-29T12:18:02.714Z",
   "base": "http://localhost:5173",
   "rows": [
     {
@@ -8,11 +8,11 @@
       "frames": 30,
       "out": {
         "n": 31,
-        "bytes": 6539
+        "bytes": 6357
       },
       "in": {
         "n": 31,
-        "bytes": 6539
+        "bytes": 6357
       },
       "sameAsPeer": true
     },
@@ -36,11 +36,11 @@
       "frames": 30,
       "out": {
         "n": 33,
-        "bytes": 6685
+        "bytes": 6690
       },
       "in": {
         "n": 33,
-        "bytes": 6685
+        "bytes": 6690
       },
       "sameAsPeer": true
     },
@@ -92,11 +92,11 @@
       "frames": 30,
       "out": {
         "n": 91,
-        "bytes": 19171
+        "bytes": 19177
       },
       "in": {
         "n": 91,
-        "bytes": 19171
+        "bytes": 19177
       },
       "sameAsPeer": true
     },
