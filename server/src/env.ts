@@ -37,8 +37,14 @@ const iceTransportPolicy: 'all' | 'relay' =
 // обходився б підробленим заголовком. зʼявиться nginx — виставити TRUST_PROXY=1
 const trustProxy = Number(process.env.TRUST_PROXY ?? (isProduction ? 0 : 1)) || 0;
 
+// стенд навантаження (bench/load.mjs) читає з сервера його ж cpu, памʼять і
+// склад кімнат. окремим прапорцем, а не за !isProduction: віддавати це наживо
+// має лише прогін вимірювань, у решти випадків воно нікому не треба
+const benchMetrics = process.env.BENCH_METRICS === '1';
+
 export const env = {
   port: Number(process.env.PORT) || 3000,
+  benchMetrics,
   trustProxy,
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-not-for-production',
   isProduction,

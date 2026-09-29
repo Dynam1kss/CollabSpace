@@ -6,6 +6,7 @@ import type { HealthResponse, IceConfigResponse, IceServerConfig } from 'shared'
 import { requireAuth } from './auth/auth.middleware';
 import { authRouter } from './auth/auth.routes';
 import { profileRouter } from './auth/profile.routes';
+import { roomStats } from './boards/board-rooms';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
 import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
@@ -52,6 +53,21 @@ app.get('/api/ice-config', requireAuth, (_req, res) => {
   const body: IceConfigResponse = { iceServers, iceTransportPolicy: env.iceTransportPolicy };
   res.json(body);
 });
+
+// лічильники самого процесу для стенду. cpuUsage — наростаюча сума з моменту
+// старту, тому стенд бере різницю між початком і кінцем прогону; памʼять
+// опитує періодично й бере пік
+if (env.benchMetrics) {
+  app.get('/api/metrics', (_req, res) => {
+    res.json({
+      at: Date.now(),
+      uptimeSeconds: process.uptime(),
+      cpu: process.cpuUsage(),
+      memory: process.memoryUsage(),
+      rooms: roomStats(),
+    });
+  });
+}
 
 app.use('/api/auth', authRouter);
 app.use('/api/me', profileRouter);

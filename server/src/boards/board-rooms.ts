@@ -216,6 +216,20 @@ export function roomSize(boardId: string) {
   return rooms.get(boardId)?.size ?? 0;
 }
 
+// для /api/metrics: скільки зараз сокетів і кімнат тримає сервер. дошки й
+// клітинки окремо — у стратегії 3 кімнат клітинок набагато більше, ніж дошок
+export function roomStats() {
+  let sockets = 0;
+  for (const room of rooms.values()) sockets += room.size;
+  let cells = 0;
+  let cellSubs = 0;
+  for (const board of cellRooms.values()) {
+    cells += board.size;
+    for (const room of board.values()) cellSubs += room.size;
+  }
+  return { sockets, boardRooms: rooms.size, cellRooms: cells, cellSubscriptions: cellSubs };
+}
+
 // усі сокети однієї людини в кімнаті. Вкладок може бути кілька, і присутність
 // давно рахує їх окремими записами — тому й тут чіпаємо всі, а не перший
 // -ліпший: інакше в одній вкладці права поїхали б, а в сусідній ні
