@@ -67,13 +67,21 @@ export async function createVersion(
 // викликається з кожного збереження снепшота: версія лише тоді, коли з
 // останньої автоматичної минуло досить часу. Ручні на відлік не впливають —
 // «зберіг вручну» не означає, що наступна автоматична вже не потрібна
-export async function maybeCreateAutoVersion(boardId: string, state: Buffer, createdBy: string, now: Date) {
+// стан беремо функцією, а не готовим буфером: зшити всю дошку з клітинок
+// коштує, а версія виходить далеко не з кожного збереження
+export async function maybeCreateAutoVersion(
+  boardId: string,
+  getState: () => Promise<Buffer | null>,
+  createdBy: string,
+  now: Date,
+) {
   const last = await prisma.boardVersion.findFirst({
     where: { boardId, isManual: false },
     orderBy: { createdAt: 'desc' },
     select: { createdAt: true },
   });
   if (!shouldCreateAutoVersion(last?.createdAt ?? null, now)) return;
+  const state = (await getState()) ?? Buffer.from('[]', 'utf8');
   await createVersion(boardId, state, createdBy, null);
 }
 

@@ -51,6 +51,7 @@ model Board {
 
   members   BoardMember[]
   snapshot  BoardSnapshot?
+  cells     BoardSnapshotCell[]
   chat      ChatMessage[]
   seats     BoardSeat[]
   versions  BoardVersion[]
@@ -106,12 +107,31 @@ model BoardSeat {
   @@unique([boardId, userId])
 }
 
+// старий цілий знімок дошки. Лишився тільки для дошок, які ще жодного разу не
+// зберігали після переходу на клітинки: перший же запис розкладає його по
+// BoardSnapshotCell і прибирає цей рядок
 model BoardSnapshot {
   id        String   @id @default(cuid())
   boardId   String   @unique
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   state     Bytes
   updatedAt DateTime @updatedAt
+}
+
+// вміст дошки по клітинках сітки — окремий рядок на клітинку, а не один json
+// на дошку. Двоє, що зберігають різні ділянки (звичайна річ у стратегії 3),
+// пишуть тоді в РІЗНІ рядки, і зливати нічого не треба. Доти збереження читало
+// весь знімок, підмішувало свої клітинки й писало назад — і той, хто прочитав
+// раніше, а записав пізніше, стирав чуже щойно збережене
+model BoardSnapshotCell {
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  // ключ клітинки «ix:iy», той самий, що в shared/cells
+  cell      String
+  state     Bytes
+  updatedAt DateTime @updatedAt
+
+  @@id([boardId, cell])
 }
 
 // історія вмісту дошки — копії BoardSnapshot.state на певну мить. Автоматичні

@@ -70,7 +70,8 @@ describe('снепшот дошки', () => {
     expect(put2.status).toBe(204);
     const res2 = await agent.get(`/api/boards/${board.body.id}/snapshot`);
     expect(res2.body.objects).toEqual([{ ...sticky, column: null }]);
-    expect(await prisma.boardSnapshot.count({ where: { boardId: board.body.id } })).toBe(1);
+    // повторне збереження оновлює рядок клітинки, а не додає ще один
+    expect(await prisma.boardSnapshotCell.count({ where: { boardId: board.body.id } })).toBe(1);
   });
 
   it('locked доїжджає до бази й вертається назад', async () => {
@@ -171,6 +172,7 @@ describe('снепшот дошки', () => {
     await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [sticky] });
     await agent.delete(`/api/boards/${board.body.id}`);
     expect(await prisma.boardSnapshot.count()).toBe(0);
+    expect(await prisma.boardSnapshotCell.count()).toBe(0);
   });
 });
 
@@ -217,6 +219,81 @@ describe('снепшот частинами (стратегія 3)', () => {
     const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as { id: string; x: number }[];
     expect(got).toHaveLength(1);
     expect(got[0].x).toBe(10000);
+  });
+
+  // саме та гонитва, через яку в базі лишалась одна ділянка замість усіх
+  // (журнал 29.09): доти збереження читало весь знімок, підмішувало свої
+  // клітинки й писало назад. Коли кілька людей із різних ділянок автозберігають
+  // разом, усі читають той самий старий стан, і останній запис лишає в базі
+  // лише свою клітинку. Беремо саме кілька клієнтів, а не двох: із двома
+  // потрібне влучання в вузьке вікно, а з пʼятьма старий код губить чуже майже
+  // завжди
+  it('кілька клієнтів одночасно зберігають різні клітинки — жоден не стирає чужого', async () => {
+    const owner = await registerUser();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Багато ділянок' });
+    const id = board.body.id as string;
+
+    // пʼять далеких ділянок, у кожної свій господар
+    const spots = [
+      { id: 'a', cell: '0:0', x: 10 },
+      { id: 'b', cell: '5:0', x: 10000 },
+      { id: 'c', cell: '10:0', x: 20000 },
+      { id: 'd', cell: '15:0', x: 30000 },
+      { id: 'e', cell: '20:0', x: 40000 },
+    ];
+    const editors: Awaited<ReturnType<typeof registerUser>>[] = [];
+    for (const _ of spots) {
+      const editor = await registerUser();
+      await addMember(owner, id, editor, 'EDITOR');
+      editors.push(editor);
+    }
+    await owner.agent
+      .put(`/api/boards/${id}/snapshot`)
+      .send({ objects: spots.map((s) => at(s.id, s.x, 10)) });
+
+    // усі пʼять запитів ідуть у роботу разом: обробники встигають прочитати
+    // стан до того, як хоч один запише
+    const results = await Promise.all(
+      spots.map((s, i) =>
+        editors[i].agent
+          .put(`/api/boards/${id}/snapshot`)
+          .send({ objects: [at(s.id, s.x + 500, 10)], cells: [s.cell] }),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual([204, 204, 204, 204, 204]);
+
+    const got = (await owner.agent.get(`/api/boards/${id}/snapshot`)).body.objects as {
+      id: string;
+      x: number;
+    }[];
+    expect(got.map((o) => o.id).sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
+    // у кожного своя правка дожила, а не лише в того, хто записав останнім
+    for (const s of spots) expect(got.find((o) => o.id === s.id)!.x).toBe(s.x + 500);
+  });
+
+  it('стару дошку одним знімком розкладає по клітинках перший же запис', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Стара' });
+    const id = board.body.id as string;
+    // як воно лежало до переходу на клітинки — цілим json на дошку
+    await prisma.boardSnapshotCell.deleteMany({ where: { boardId: id } });
+    await prisma.boardSnapshot.create({
+      data: {
+        boardId: id,
+        state: Buffer.from(JSON.stringify([at('a', 10, 10), at('b', 10000, 10)]), 'utf8'),
+      },
+    });
+
+    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [at('a', 700, 700)], cells: ['0:0'] });
+
+    const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as {
+      id: string;
+      x: number;
+    }[];
+    // чужа клітинка 5:0 пережила запис у 0:0, старий рядок прибрано
+    expect(got.map((o) => o.id).sort()).toEqual(['a', 'b']);
+    expect(got.find((o) => o.id === 'a')!.x).toBe(700);
+    expect(await prisma.boardSnapshot.count({ where: { boardId: id } })).toBe(0);
   });
 
   it('зіпсований ключ клітинки — 400', async () => {
