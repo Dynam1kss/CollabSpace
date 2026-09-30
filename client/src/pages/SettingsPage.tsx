@@ -18,7 +18,12 @@ const MIN_PASSWORD = 8;
 
 // назва мови — її ж мовою, не перекладається: людина, що випадково
 // перемкнула на незнайому, має впізнати свою
-const LANGUAGE_NAMES: Record<Locale, string> = { uk: 'Українська', en: 'English', de: 'Deutsch' };
+const LANGUAGE_NAMES: Record<Locale, string> = {
+  uk: 'Українська',
+  en: 'English',
+  de: 'Deutsch',
+  fr: 'Français',
+};
 
 export function SettingsPage() {
   const { t } = useTranslation();

@@ -1,8 +1,8 @@
 export type Theme = 'light' | 'dark';
 export const THEMES: Theme[] = ['light', 'dark'];
 
-export type Locale = 'uk' | 'en' | 'de';
-export const LOCALES: Locale[] = ['uk', 'en', 'de'];
+export type Locale = 'uk' | 'en' | 'de' | 'fr';
+export const LOCALES: Locale[] = ['uk', 'en', 'de', 'fr'];
 
 // однорядковий підпис під імʼям у картці профілю. 100 символів — та сама межа,
 // що й у displayName; більше в картку завширшки 320px не влізе без простирадла

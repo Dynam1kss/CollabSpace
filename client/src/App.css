@@ -451,9 +451,13 @@ header {
   flex-wrap: wrap;
 }
 
-/* два-три варіанти поруч, вибраний — акцентом */
+/* кілька варіантів поруч, вибраний — акцентом. З чотирма мовами рядок уже не
+влазить у картку на телефоні (вилазив на 33px), тому дозволяємо перенос */
 .segmented {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
   padding: 3px;
   gap: 3px;
   border: 1px solid var(--panel-border);
@@ -2606,7 +2610,9 @@ elementFromPoint повертав би її саму замість колонк
   height: 88px;
   border-radius: 50%;
   object-fit: cover;
-  box-shadow: 0 0 0 3px var(--panel-bg), 0 0 0 4px var(--panel-border);
+  box-shadow:
+    0 0 0 3px var(--panel-bg),
+    0 0 0 4px var(--panel-border);
 }
 
 .profile-card-initials {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { de } from './de';
 import { en } from './en';
+import { fr } from './fr';
 import { uk } from './uk';
 
 // тип Translation уже не дає зібрати мову з пропущеним ключем; тут — те, чого
@@ -19,6 +20,7 @@ describe('переклади', () => {
   for (const [name, dict] of [
     ['en', en],
     ['de', de],
+    ['fr', fr],
   ] as const) {
     it(`${name}: ті самі ключі, без порожніх рядків, ті самі змінні`, () => {
       const own = Object.fromEntries(leaves(dict));

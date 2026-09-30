@@ -4,6 +4,7 @@ import type { Locale } from 'shared';
 import { LOCALES } from 'shared';
 import { de } from './de';
 import { en } from './en';
+import { fr } from './fr';
 import { uk } from './uk';
 
 // мова, як і тема, живе в акаунті, але до входу її ще нема звідки взяти —
@@ -20,14 +21,24 @@ export function readStoredLocale(): Locale {
 }
 
 // для дат і часу: en — британський порядок день.місяць, як і в решти
-export const DATE_LOCALE: Record<Locale, string> = { uk: 'uk-UA', en: 'en-GB', de: 'de-DE' };
+export const DATE_LOCALE: Record<Locale, string> = {
+  uk: 'uk-UA',
+  en: 'en-GB',
+  de: 'de-DE',
+  fr: 'fr-FR',
+};
 
 export function dateLocale() {
   return DATE_LOCALE[(i18n.language as Locale) ?? 'uk'] ?? 'uk-UA';
 }
 
 void i18n.use(initReactI18next).init({
-  resources: { uk: { translation: uk }, en: { translation: en }, de: { translation: de } },
+  resources: {
+    uk: { translation: uk },
+    en: { translation: en },
+    de: { translation: de },
+    fr: { translation: fr },
+  },
   lng: readStoredLocale(),
   fallbackLng: 'uk',
   // react сам екранує, подвійне екранування ламало б лапки й апострофи
