@@ -1296,6 +1296,9 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
 .participant {
   position: relative;
   overflow: hidden;
+  /* як і .avatar: кружечок не стискається сусідами. без цього довге імʼя
+  поруч у списку присутніх чавило його в овал (19.7px замість 28) */
+  flex: 0 0 auto;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -1307,6 +1310,15 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
   color: #fff;
   cursor: default;
   user-select: none;
+}
+
+/* кружечки, що стали кнопками заради картки профілю. `.board-page button`
+специфічніший за них і нав'язує свої 8px радіуса — і кружечок перетворювався
+на прямокутник із заокругленими кутами (у розмови на нього ще й кільце
+«говорить» лягало прямокутним) */
+button.participant,
+button.voice-chip {
+  border-radius: 50%;
 }
 
 /* статуси збереження й живого звʼязку — маленькі написи в кутку, без анімацій */
@@ -2150,6 +2162,13 @@ elementFromPoint повертав би її саму замість колонк
   .board-page button,
   .board-page input {
     min-height: 44px;
+  }
+
+  /* ті самі кружечки: 44px розтягли б їх в овал. Ціль під палець тут дає
+  імʼя поруч — воно відкриває ту саму картку */
+  .board-page button.participant,
+  .board-page button.voice-chip {
+    min-height: 0;
   }
 
   /* на картці 44px з'їли б пів тексту — компроміс */
