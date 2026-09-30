@@ -23,26 +23,30 @@ enum MemberStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  displayName  String
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  displayName     String
   // відносний /uploads/avatars/... — як і картинки на дошках; null — буква замість фото
-  avatarUrl    String?
+  avatarUrl       String?
   // рядок «про себе» під імʼям у картці профілю. 100 символів — стільки ж,
   // скільки в displayName, і рівно на два рядки картки завширшки 320px
-  bio          String?
+  bio             String?
   // light | dark — рядком, як і роль у протоколі; перевіряє zod на вході
-  theme        String   @default("light")
+  theme           String    @default("light")
   // uk | en | de | fr — мова інтерфейсу; серверні тексти помилок від неї не залежать
-  locale       String   @default("uk")
-  createdAt    DateTime @default(now())
+  locale          String    @default("uk")
+  // null — пошту ще не підтвердили. Доступу це НЕ обмежує: непідтверджений
+  // акаунт уміє все, просто бачить нагадування, поки тут порожньо
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
 
-  ownedBoards  Board[]        @relation("BoardOwner")
-  memberships  BoardMember[]
-  chatMessages ChatMessage[]
-  seats        BoardSeat[]
-  resetTokens  PasswordReset[]
+  ownedBoards   Board[]             @relation("BoardOwner")
+  memberships   BoardMember[]
+  chatMessages  ChatMessage[]
+  seats         BoardSeat[]
+  resetTokens   PasswordReset[]
+  verifications EmailVerification[]
 }
 
 // відновлення пароля поштою. Тримаємо не сам токен, а його sha256: з бази,
@@ -51,14 +55,30 @@ model User {
 // би перебирати всю таблицю. Ентропії тут 256 біт, тобто те, від чого
 // боронить argon2 (перебір короткого пароля), тут неможливе
 model PasswordReset {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   // одноразовість: після використання рядок лишається, але вже не спрацює
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// підтвердження пошти при реєстрації. Окремою таблицею від PasswordReset,
+// хоч поля ті самі: терміни різні (доба проти години), гасяться вони незалежно
+// (зміна пароля не має скасовувати підтвердження й навпаки), а спільний
+// tokenHash довелось би ще й розрізняти за видом у кожному запиті
+model EmailVerification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
@@ -71,21 +91,21 @@ model Board {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members   BoardMember[]
-  snapshot  BoardSnapshot?
-  cells     BoardSnapshotCell[]
-  chat      ChatMessage[]
-  seats     BoardSeat[]
-  versions  BoardVersion[]
+  members  BoardMember[]
+  snapshot BoardSnapshot?
+  cells    BoardSnapshotCell[]
+  chat     ChatMessage[]
+  seats    BoardSeat[]
+  versions BoardVersion[]
 }
 
 model BoardMember {
-  id      String    @id @default(cuid())
-  boardId String
-  board   Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  userId  String
-  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role    BoardRole
+  id            String       @id @default(cuid())
+  boardId       String
+  board         Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          BoardRole
   // хто дав цю роль. Потрібне лише для адміністраторів: піднятого власником
   // знімає тільки власник, піднятого іншим адміністратором — будь-який
   // адміністратор. Без звʼязку й без каскаду: це слід, а не посилання —

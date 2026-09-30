@@ -11,6 +11,8 @@ export const BIO_MAX_LENGTH = 100;
 export interface AuthUser {
   id: string;
   email: string;
+  // підтверджена пошта. Прав не додає — по ньому показують нагадування
+  emailVerified: boolean;
   displayName: string;
   avatarUrl: string | null;
   bio: string | null;
@@ -48,6 +50,10 @@ export interface ForgotPasswordRequest {
 export interface ResetPasswordRequest {
   token: string;
   password: string;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
 }
 
 export interface ChangePasswordRequest {

@@ -4,6 +4,7 @@ import type {
   LoginRequest,
   RegisterRequest,
   ResetPasswordRequest,
+  VerifyEmailRequest,
 } from 'shared';
 import { apiError, parseResponse } from './boards';
 
@@ -57,6 +58,14 @@ export function forgotPassword(payload: ForgotPasswordRequest) {
 
 export function resetPassword(payload: ResetPasswordRequest) {
   return postEmpty('/api/auth/reset-password', payload);
+}
+
+export function verifyEmail(payload: VerifyEmailRequest) {
+  return postEmpty('/api/auth/verify-email', payload);
+}
+
+export function resendVerification() {
+  return postEmpty('/api/auth/resend-verification', {});
 }
 
 export function fetchMe() {

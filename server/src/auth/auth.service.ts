@@ -34,15 +34,18 @@ export function verifyAuthToken(token: string): string | null {
   }
 }
 
-// токен відновлення пароля: 32 випадкових байти в url-безпечному вигляді.
-// у базі лежить лише sha256 від нього — див. коментар до моделі PasswordReset
+// токени з листів: 32 випадкових байти в url-безпечному вигляді. У базі
+// лежить лише sha256 від них — див. коментар до моделі PasswordReset
 export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+// доба, а не година: відновлення пароля людина просить і робить одразу, а лист
+// підтвердження часто відкривають потім — увечері, з іншого пристрою
+export const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
-export function createResetToken() {
+export function createEmailToken() {
   return randomBytes(32).toString('base64url');
 }
 
-export function hashResetToken(token: string) {
+export function hashEmailToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -54,6 +57,7 @@ export function toAuthUser(user: User): AuthUser {
     avatarUrl: user.avatarUrl,
     // у базі рядок; щось стороннє туди потрапити не може, але тип треба звузити
     theme: user.theme === 'dark' ? 'dark' : 'light',
+    emailVerified: user.emailVerifiedAt !== null,
     locale: LOCALES.includes(user.locale as Locale) ? (user.locale as Locale) : 'uk',
     bio: user.bio,
     createdAt: user.createdAt.toISOString(),

@@ -25,6 +25,10 @@
   --voice-alert-dark: #a51e48;
   --voice-alert-soft: #fdeef3;
   --voice-alert-border: #f3c0d2;
+  /* незакрита справа: підтвердження пошти. Не помилка й не успіх */
+  --warn-soft: #fff7e6;
+  --warn-border: #f0d9a8;
+  --warn-text: #8a5a00;
 }
 
 /* темна тема — не чисто чорна й не чисто біла: сіро-синя, щоб панелі
@@ -50,6 +54,9 @@
   --voice-alert-dark: #ff8fb3;
   --voice-alert-soft: #3d2531;
   --voice-alert-border: #6b3350;
+  --warn-soft: #3a2f1a;
+  --warn-border: #5c4a24;
+  --warn-text: #e8c77a;
 }
 
 body {
@@ -2731,4 +2738,43 @@ button.profile-open {
   .member-who.profile-open:hover {
     text-decoration: underline;
   }
+}
+
+/* ───── нагадування підтвердити пошту ─────
+над списком дошок, тоном як плашка встановлення, але жовтим: це не пропозиція,
+а незакрита справа. Зникає назавжди лише разом із підтвердженням */
+.verify-banner {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--warn-border);
+  border-radius: 12px;
+  background: var(--warn-soft);
+  color: var(--warn-text);
+  font-size: 0.85rem;
+}
+
+.verify-banner-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+  line-height: 1.35;
+  /* довга пошта не має розсовувати плашку в горизонтальний скрол */
+  overflow-wrap: anywhere;
+}
+
+.verify-banner .button-link {
+  color: var(--warn-text);
+  text-decoration: underline;
+}
+
+.verify-banner-close {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: inherit;
 }

@@ -15,9 +15,14 @@ afterEach(async () => {
 });
 
 // посилання з листа — єдине місце, де токен видно у відкритому вигляді:
-// у базі лежить лише його хеш
+// у базі лежить лише його хеш. Реєстрація шле ще й лист підтвердження пошти,
+// тому беремо саме той лист, що веде на скидання пароля
+const resetMails = () => sentMails.filter((m) => m.text.includes('/reset-password?token='));
+
 function tokenFromMail() {
-  const link = sentMails.at(-1)?.text.match(/token=([\w-]+)/);
+  const link = resetMails()
+    .at(-1)
+    ?.text.match(/reset-password\?token=([\w-]+)/);
   return link?.[1] ?? '';
 }
 
@@ -28,8 +33,8 @@ describe('POST /api/auth/forgot-password', () => {
     const res = await request(app).post('/api/auth/forgot-password').send({ email: payload.email });
 
     expect(res.status).toBe(204);
-    expect(sentMails).toHaveLength(1);
-    expect(sentMails[0].to).toBe(payload.email);
+    expect(resetMails()).toHaveLength(1);
+    expect(resetMails()[0].to).toBe(payload.email);
     expect(tokenFromMail().length).toBeGreaterThan(20);
   });
 
@@ -38,7 +43,7 @@ describe('POST /api/auth/forgot-password', () => {
 
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
-    expect(sentMails).toHaveLength(0);
+    expect(resetMails()).toHaveLength(0);
   });
 
   it('у базі лежить хеш, а не сам токен', async () => {

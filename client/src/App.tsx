@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AUTH_CHANGED_KEY, fetchMe } from './api/auth';
 import { InstallBanner } from './components/InstallBanner';
 import { ProfileCardHost } from './components/ProfileCard';
+import { VerifyEmailBanner } from './components/VerifyEmailBanner';
 import { ServerStatus } from './components/ServerStatus';
 import { BoardPage } from './pages/BoardPage';
 import { BoardsPage } from './pages/BoardsPage';
@@ -11,6 +12,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useAuthStore } from './store/auth-store';
 import { applyLocale, applyTheme, THEME_KEY } from './prefs';
@@ -115,6 +117,9 @@ export function App() {
                 status === 'authenticated' && user ? 'app-shell boards-shell' : 'app-shell auth-shell'
               }
             >
+              {/* нагадування про пошту — над списком дошок; до входу його нема
+              кому показувати */}
+              {status === 'authenticated' && user && <VerifyEmailBanner />}
               {status === 'authenticated' && user ? <BoardsPage /> : <AuthGate />}
               {/* під формою, а не над нею — щоб ніколи не заступала вхід */}
               <InstallBanner />
@@ -130,6 +135,17 @@ export function App() {
             <main className="app-shell auth-shell">
               <AuthCard>
                 <ResetPasswordPage />
+              </AuthCard>
+            </main>
+          }
+        />
+        {/* як і reset-password: приходять із листа, входу не вимагає */}
+        <Route
+          path="/verify-email"
+          element={
+            <main className="app-shell auth-shell">
+              <AuthCard>
+                <VerifyEmailPage />
               </AuthCard>
             </main>
           }
