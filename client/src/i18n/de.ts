@@ -91,7 +91,7 @@ export const de: Translation = {
     hint: 'Wir schicken einen Link per E-Mail, mit dem ein neues Passwort gesetzt wird.',
     send: 'Link schicken',
     sending: 'Wird geschickt…',
-    sent: 'Gibt es diese Adresse bei uns, ist der Link schon unterwegs. Er gilt 45 Minuten.',
+    sent: 'Gibt es diese Adresse bei uns, ist der Link schon unterwegs. Er gilt 1 Stunde.',
     backToLogin: '← Zurück zur Anmeldung',
     failed: 'E-Mail konnte nicht geschickt werden',
   },

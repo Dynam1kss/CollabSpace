@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { app } from '../src/app';
 import { sentMails } from '../src/auth/mailer';
+import { RESET_TOKEN_TTL_MS } from '../src/auth/auth.service';
 import { prisma } from '../src/prisma';
 import { registerUser } from './helpers';
 
@@ -101,6 +102,35 @@ describe('POST /api/auth/reset-password', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('живе годину: через 50 хв ще працює, через 61 — вже ні', async () => {
+    const token = await requestReset('ttl@test.local');
+    const row = await prisma.passwordReset.findFirst();
+    // сам термін у базі — рівно година від видачі
+    const ttlMinutes = Math.round((row!.expiresAt.getTime() - row!.createdAt.getTime()) / 60_000);
+    expect(ttlMinutes).toBe(60);
+
+    // відсуваємо видачу на 50 хв назад — токен ще дійсний
+    await prisma.passwordReset.updateMany({
+      data: { expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS - 50 * 60_000) },
+    });
+    const ok = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token, password: 'fifty-minutes-later' });
+    expect(ok.status).toBe(204);
+
+    // а через 61 хв від видачі — вже ні
+    const second = await requestReset('ttl2@test.local');
+    await prisma.passwordReset.updateMany({
+      where: { usedAt: null },
+      data: { expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS - 61 * 60_000) },
+    });
+    const late = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: second, password: 'sixty-one-later' });
+    expect(late.status).toBe(400);
+    expect(late.body.error.code).toBe('RESET_TOKEN_INVALID');
   });
 
   it('прострочений токен відхиляє', async () => {

@@ -94,7 +94,7 @@ export const fr: Translation = {
     hint: 'Nous enverrons par e-mail un lien pour définir un nouveau mot de passe.',
     send: 'Envoyer le lien',
     sending: 'Envoi…',
-    sent: 'Si cette adresse existe chez nous, le lien est déjà parti. Il est valable 45 minutes.',
+    sent: 'Si cette adresse existe chez nous, le lien est déjà parti. Il est valable 1 heure.',
     backToLogin: '← Retour à la connexion',
     failed: "Impossible d'envoyer l'e-mail",
   },

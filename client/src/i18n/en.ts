@@ -91,7 +91,7 @@ export const en: Translation = {
     hint: "We'll email you a link for setting a new password.",
     send: 'Send the link',
     sending: 'Sending…',
-    sent: 'If we have that email address, the link is already on its way. It is valid for 45 minutes.',
+    sent: 'If we have that email address, the link is already on its way. It is valid for 1 hour.',
     backToLogin: '← Back to sign in',
     failed: "Couldn't send the email",
   },

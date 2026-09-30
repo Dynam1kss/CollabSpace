@@ -36,7 +36,7 @@ export function verifyAuthToken(token: string): string | null {
 
 // токен відновлення пароля: 32 випадкових байти в url-безпечному вигляді.
 // у базі лежить лише sha256 від нього — див. коментар до моделі PasswordReset
-export const RESET_TOKEN_TTL_MS = 45 * 60 * 1000;
+export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 export function createResetToken() {
   return randomBytes(32).toString('base64url');

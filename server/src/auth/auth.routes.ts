@@ -98,7 +98,7 @@ authRouter.post('/forgot-password', authRateLimiter(), async (req, res, next) =>
     if (user) {
       const token = createResetToken();
       // старі невикористані прибираємо: два листи підряд — дійсний лише
-      // останній, інакше посилання з першого лишалось би живим ще 45 хв
+      // останній, інакше посилання з першого лишалось би живим ще годину
       await prisma.passwordReset.deleteMany({ where: { userId: user.id, usedAt: null } });
       await prisma.passwordReset.create({
         data: {
