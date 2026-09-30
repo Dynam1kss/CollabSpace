@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'node:crypto';
 import { hash, verify } from 'argon2';
 import jwt from 'jsonwebtoken';
 import type { User } from '@prisma/client';
@@ -31,6 +32,18 @@ export function verifyAuthToken(token: string): string | null {
   } catch {
     return null;
   }
+}
+
+// токен відновлення пароля: 32 випадкових байти в url-безпечному вигляді.
+// у базі лежить лише sha256 від нього — див. коментар до моделі PasswordReset
+export const RESET_TOKEN_TTL_MS = 45 * 60 * 1000;
+
+export function createResetToken() {
+  return randomBytes(32).toString('base64url');
+}
+
+export function hashResetToken(token: string) {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 export function toAuthUser(user: User): AuthUser {

@@ -1,5 +1,11 @@
-import type { AuthResponse, LoginRequest, RegisterRequest } from 'shared';
-import { parseResponse } from './boards';
+import type {
+  AuthResponse,
+  ForgotPasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  ResetPasswordRequest,
+} from 'shared';
+import { apiError, parseResponse } from './boards';
 
 function postJson<T>(url: string, payload: unknown) {
   return fetch(url, {
@@ -33,6 +39,24 @@ export async function login(payload: LoginRequest) {
   const res = await postJson<AuthResponse>('/api/auth/login', payload);
   announceAuthChange();
   return res;
+}
+
+// обидві ручки віддають 204 — тіла нема, тому postJson не годиться
+async function postEmpty(url: string, payload: unknown) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await apiError(res);
+}
+
+export function forgotPassword(payload: ForgotPasswordRequest) {
+  return postEmpty('/api/auth/forgot-password', payload);
+}
+
+export function resetPassword(payload: ResetPasswordRequest) {
+  return postEmpty('/api/auth/reset-password', payload);
 }
 
 export function fetchMe() {

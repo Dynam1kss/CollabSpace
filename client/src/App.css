@@ -264,6 +264,39 @@ header {
   color: var(--text-muted);
 }
 
+/* «забули пароль?» — праворуч під полем пароля, дрібніше за головну кнопку:
+це запасний шлях, а не рівноцінна дія */
+.auth-forgot {
+  align-self: flex-end;
+  margin-top: -0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.auth-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* екран «лист пішов» / «пароль змінено»: тієї ж форми, що й сама форма,
+але без полів */
+.auth-done {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-done h1 {
+  margin: 1.25rem 0 0;
+  font-size: 1.35rem;
+}
+
+.auth-done .form-ok {
+  line-height: 1.4;
+}
+
 /* ───── список дошок ───── */
 .boards-shell {
   max-width: 960px;

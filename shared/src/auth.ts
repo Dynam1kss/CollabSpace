@@ -32,6 +32,17 @@ export interface UpdateProfileRequest {
   locale?: Locale;
 }
 
+// відповідь на це завжди однакова (204), навіть якщо такої пошти немає —
+// інакше форма відновлення стала б перевіркою, хто в нас зареєстрований
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+}
+
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;

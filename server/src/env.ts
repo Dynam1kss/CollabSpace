@@ -37,6 +37,19 @@ const iceTransportPolicy: 'all' | 'relay' =
 // обходився б підробленим заголовком. зʼявиться nginx — виставити TRUST_PROXY=1
 const trustProxy = Number(process.env.TRUST_PROXY ?? (isProduction ? 0 : 1)) || 0;
 
+// пошта для відновлення пароля. У розробці зазвичай порожньо — тоді лист іде
+// в консоль (див. mailer), а з docker compose поруч стоїть maildev на 1025.
+// У проді без smtp запускатись не даємо: інакше «лист відправлено» був би
+// брехнею, і людина просто не змогла б відновити пароль
+const smtpHost = process.env.SMTP_HOST?.trim() || null;
+if (isProduction && !smtpHost) {
+  throw new Error('SMTP_HOST не задано — без пошти відновлення пароля не працює');
+}
+
+// звідки брати адресу для посилання в листі: сервер свого зовнішнього імені
+// не знає, а Host із запиту підставляти не можна — його підробляють
+const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+
 // стенд навантаження (bench/load.mjs) читає з сервера його ж cpu, памʼять і
 // склад кімнат. окремим прапорцем, а не за !isProduction: віддавати це наживо
 // має лише прогін вимірювань, у решти випадків воно нікому не треба
@@ -53,4 +66,10 @@ export const env = {
   iceTurnUsername: process.env.ICE_TURN_USERNAME?.trim() || undefined,
   iceTurnCredential: process.env.ICE_TURN_CREDENTIAL?.trim() || undefined,
   iceTransportPolicy,
+  appUrl,
+  smtpHost,
+  smtpPort: Number(process.env.SMTP_PORT) || 1025,
+  smtpUser: process.env.SMTP_USER?.trim() || undefined,
+  smtpPassword: process.env.SMTP_PASSWORD ?? undefined,
+  smtpFrom: process.env.SMTP_FROM?.trim() || 'CollabSpace <no-reply@collabspace.local>',
 };

@@ -19,6 +19,17 @@ services:
     volumes:
       - redis_data:/data
 
+  # перехоплювач пошти для розробки: лист нікуди не йде, а лягає у веб-скриньку
+  # на 1080. Потрібен, бо лист відновлення пароля інакше нічим не перевірити,
+  # а слати справжні листи з дев-машини не варто. У проді цього сервісу нема —
+  # там SMTP_HOST дивиться на справжній smtp
+  maildev:
+    image: maildev/maildev:2.1.0
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '1080:1080'
+
   # coturn:
   #   image: coturn/coturn:latest
   #   restart: unless-stopped

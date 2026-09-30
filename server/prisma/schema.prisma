@@ -35,10 +35,29 @@ model User {
   locale       String   @default("uk")
   createdAt    DateTime @default(now())
 
-  ownedBoards  Board[]       @relation("BoardOwner")
+  ownedBoards  Board[]        @relation("BoardOwner")
   memberships  BoardMember[]
   chatMessages ChatMessage[]
   seats        BoardSeat[]
+  resetTokens  PasswordReset[]
+}
+
+// відновлення пароля поштою. Тримаємо не сам токен, а його sha256: з бази,
+// яка витекла, листа відновлення вже не зробиш. argon2 тут не годиться —
+// рядок шукаємо ЗА хешем, а argon2 щоразу дає інший (своя сіль), і довелось
+// би перебирати всю таблицю. Ентропії тут 256 біт, тобто те, від чого
+// боронить argon2 (перебір короткого пароля), тут неможливе
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  // одноразовість: після використання рядок лишається, але вже не спрацює
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Board {

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AUTH_CHANGED_KEY, fetchMe } from './api/auth';
 import { InstallBanner } from './components/InstallBanner';
 import { ServerStatus } from './components/ServerStatus';
 import { BoardPage } from './pages/BoardPage';
 import { BoardsPage } from './pages/BoardsPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useAuthStore } from './store/auth-store';
 import { applyLocale, applyTheme, THEME_KEY } from './prefs';
@@ -17,20 +20,31 @@ import { useTranslation } from 'react-i18next';
 
 // картка й назва застосунку — спільні для входу й реєстрації, самі сторінки
 // всередині лишаються тільки формою
-function AuthGate() {
-  const [view, setView] = useState<'login' | 'register'>('login');
+function AuthCard({ children }: { children: ReactNode }) {
   return (
     <div className="auth-card">
       <div className="wordmark">
         <span className="wordmark-dot" />
         CollabSpace
       </div>
-      {view === 'login' ? (
-        <LoginPage onSwitchToRegister={() => setView('register')} />
-      ) : (
-        <RegisterPage onSwitchToLogin={() => setView('login')} />
-      )}
+      {children}
     </div>
+  );
+}
+
+function AuthGate() {
+  const [view, setView] = useState<'login' | 'register' | 'forgot'>('login');
+  return (
+    <AuthCard>
+      {view === 'login' && (
+        <LoginPage
+          onSwitchToRegister={() => setView('register')}
+          onForgotPassword={() => setView('forgot')}
+        />
+      )}
+      {view === 'register' && <RegisterPage onSwitchToLogin={() => setView('login')} />}
+      {view === 'forgot' && <ForgotPasswordPage onBack={() => setView('login')} />}
+    </AuthCard>
   );
 }
 
@@ -102,6 +116,18 @@ export function App() {
               {/* під формою, а не над нею — щоб ніколи не заступала вхід */}
               <InstallBanner />
               <ServerStatus />
+            </main>
+          }
+        />
+        {/* посилання з листа відкривають, не входячи — тому поза перевіркою.
+        Уже залогіненому теж не заважаємо: пароль він міняє собі ж */}
+        <Route
+          path="/reset-password"
+          element={
+            <main className="app-shell auth-shell">
+              <AuthCard>
+                <ResetPasswordPage />
+              </AuthCard>
             </main>
           }
         />

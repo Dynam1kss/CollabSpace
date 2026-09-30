@@ -7,9 +7,10 @@ import { errorText } from '../i18n/api-error';
 
 interface Props {
   onSwitchToRegister: () => void;
+  onForgotPassword: () => void;
 }
 
-export function LoginPage({ onSwitchToRegister }: Props) {
+export function LoginPage({ onSwitchToRegister, onForgotPassword }: Props) {
   const { t } = useTranslation();
   const setUser = useAuthStore((state) => state.setUser);
   const [email, setEmail] = useState('');
@@ -38,6 +39,9 @@ export function LoginPage({ onSwitchToRegister }: Props) {
         {t('auth.password')}
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </label>
+      <button type="button" className="button-link auth-forgot" onClick={onForgotPassword}>
+        {t('auth.forgotPassword')}
+      </button>
       {error && <p className="form-error">{error}</p>}
       <button type="submit" className="button-primary">
         {t('auth.signIn')}
