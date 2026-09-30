@@ -8,6 +8,8 @@ export interface BoardAccess {
   role: 'OWNER' | BoardRole;
   // у власника ролі ніхто не давав — тому null
   roleGrantedBy: string | null;
+  // відколи людина на цій дошці: рядок учасника, а у власника — сама дошка
+  memberSince: Date;
 }
 
 // єдине місце, де вирішується, чи має юзер доступ до дошки і з якою роллю
@@ -18,11 +20,18 @@ export async function getBoardAccess(boardId: string, userId: string): Promise<B
     include: { members: { where: { userId, status: 'ACCEPTED' } } },
   });
   if (!board) return null;
-  if (board.ownerId === userId) return { board, role: 'OWNER', roleGrantedBy: null };
+  if (board.ownerId === userId) {
+    return { board, role: 'OWNER', roleGrantedBy: null, memberSince: board.createdAt };
+  }
 
   const membership = board.members[0];
   if (!membership) return null;
-  return { board, role: membership.role, roleGrantedBy: membership.roleGrantedBy };
+  return {
+    board,
+    role: membership.role,
+    roleGrantedBy: membership.roleGrantedBy,
+    memberSince: membership.createdAt,
+  };
 }
 
 // імʼя для списку присутніх. Окремим запитом і раз на коннект: getBoardAccess
@@ -31,9 +40,13 @@ export async function getBoardAccess(boardId: string, userId: string): Promise<B
 export async function getUserCard(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { displayName: true, avatarUrl: true },
+    select: { displayName: true, avatarUrl: true, bio: true },
   });
-  return { displayName: user?.displayName ?? '', avatarUrl: user?.avatarUrl ?? null };
+  return {
+    displayName: user?.displayName ?? '',
+    avatarUrl: user?.avatarUrl ?? null,
+    bio: user?.bio ?? null,
+  };
 }
 
 export async function getDisplayName(userId: string) {
@@ -101,6 +114,8 @@ export function toBoardDetail(
     email: m.user.email,
     displayName: m.user.displayName,
     avatarUrl: m.user.avatarUrl,
+    bio: m.user.bio,
+    createdAt: m.createdAt.toISOString(),
     role: m.role,
     roleGrantedBy: m.roleGrantedBy,
     status: m.status,

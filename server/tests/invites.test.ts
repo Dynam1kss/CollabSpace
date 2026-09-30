@@ -44,6 +44,7 @@ describe('запрошення на дошку', () => {
           displayName: 'Власниця',
           email: owner.payload.email,
           avatarUrl: null,
+          bio: null,
         },
         createdAt: expect.any(String),
       },

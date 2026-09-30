@@ -2556,3 +2556,154 @@ elementFromPoint повертав би її саму замість колонк
   border: none;
   border-radius: 4px;
 }
+
+/* ───── картка профілю ─────
+одна на застосунок, у порталі на body: відкривається і зі списків, і з
+полотна. Підкладка не затемнює — картка маленька, і затемнення на всю дошку
+виглядало б як модальне вікно, яким вона не є */
+.profile-card-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.profile-card {
+  position: fixed;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 1.25rem 1rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme='dark'] .profile-card {
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* хрестик у куті картки — без рамки: картка й так маленька, ще одна
+коробка в кутку робить з неї діалог */
+.profile-card-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+}
+
+/* фото велике й кругле — заради нього картку й відкривають. Кільце відділяє
+його від тла картки, коли фото світле */
+.profile-card-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 3px var(--panel-bg), 0 0 0 4px var(--panel-border);
+}
+
+.profile-card-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+
+.profile-card-name {
+  margin: 0.85rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  /* довге імʼя переносимо, а не обрізаємо: тут місця досить, а картку
+  відкривають саме щоб прочитати, хто це */
+  overflow-wrap: anywhere;
+}
+
+.profile-card-role {
+  margin-top: 0.4rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.profile-card-bio {
+  margin: 0.7rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.profile-card-rows {
+  width: 100%;
+  margin: 0.9rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.profile-card-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.profile-card-rows dt {
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.profile-card-rows dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  /* пошта довша за місце — хвіст ховаємо, а не розсовуємо картку */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* кружечки й імена, з яких картка відкривається: курсор і лише ледь помітна
+реакція на наведення — це і далі елемент списку, а не кнопка */
+.profile-open {
+  cursor: pointer;
+}
+
+button.profile-open {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+}
+
+@media (hover: hover) {
+  .profile-open:hover {
+    filter: brightness(1.06);
+  }
+
+  .member-who.profile-open:hover {
+    text-decoration: underline;
+  }
+}

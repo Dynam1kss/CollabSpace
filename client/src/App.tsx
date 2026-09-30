@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AUTH_CHANGED_KEY, fetchMe } from './api/auth';
 import { InstallBanner } from './components/InstallBanner';
+import { ProfileCardHost } from './components/ProfileCard';
 import { ServerStatus } from './components/ServerStatus';
 import { BoardPage } from './pages/BoardPage';
 import { BoardsPage } from './pages/BoardsPage';
@@ -103,6 +104,8 @@ export function App() {
 
   return (
     <BrowserRouter>
+      {/* одна на застосунок: відкривають її і зі списків, і з полотна */}
+      <ProfileCardHost />
       <Routes>
         <Route
           path="/"

@@ -22,11 +22,13 @@ profileRouter.patch('/', async (req, res, next) => {
     if (!parsed.success) {
       throw new AppError(400, 'VALIDATION_ERROR', 'Некоректні дані профілю');
     }
-    const { displayName, theme, locale } = parsed.data as UpdateProfileRequest;
+    const { displayName, theme, locale, bio } = parsed.data as UpdateProfileRequest;
 
     const user = await prisma.user.update({
       where: { id: req.userId },
-      data: { displayName, theme, locale },
+      // порожній підпис тримаємо як null, а не '': інакше в базі два різних
+      // «нема підпису», і кожне місце показу мусило б знати про обидва
+      data: { displayName, theme, locale, bio: bio === undefined ? undefined : bio.trim() || null },
     });
     const body: AuthResponse = { user: toAuthUser(user) };
     res.json(body);

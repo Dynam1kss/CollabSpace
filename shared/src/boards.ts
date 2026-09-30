@@ -35,6 +35,10 @@ export interface BoardMemberInfo {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string | null;
+  // коли людину запросили на дошку. У прийнятого це ж і «відколи він тут»:
+  // рядок на місці, міняється в ньому лише статус
+  createdAt: string;
   role: BoardRole;
   // хто дав цю роль — від цього залежить, чи зможе цього адміністратора
   // зняти інший адміністратор (див. canManageMember)
@@ -48,7 +52,13 @@ export interface BoardInvite {
   boardTitle: string;
   role: BoardRole;
   // null — той, хто кликав, уже видалив акаунт
-  invitedBy: { userId: string; displayName: string; email: string; avatarUrl: string | null } | null;
+  invitedBy: {
+    userId: string;
+    displayName: string;
+    email: string;
+    avatarUrl: string | null;
+    bio: string | null;
+  } | null;
   createdAt: string;
 }
 

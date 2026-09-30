@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { usePresenceStore, otherMembers } from './presence-store';
+import { cardFromPresence, usePresenceStore, otherMembers } from './presence-store';
 import { colorForUser } from './presence-colors';
 import { PresenceFace } from '../components/PresenceFace';
+import { anchorOf, openProfileCard } from '../components/profile-card-store';
 import { PeopleIcon } from './icons';
 import { useNarrow } from '../use-narrow';
 import { useTranslation } from 'react-i18next';
@@ -24,17 +25,19 @@ export function Participants() {
           <span className="participants-empty">{t('participants.alone')}</span>
         ) : (
           members.map((member) => (
-            <span
+            <button
+              type="button"
               key={member.clientId}
-              className="participant"
+              className="participant profile-open"
               style={{ background: colorForUser(member.userId) }}
               title={t('participants.memberRole', {
                 name: member.displayName,
                 role: t(`roles.${member.role}`),
               })}
+              onClick={(e) => openProfileCard({ ...cardFromPresence(member), at: anchorOf(e) })}
             >
               <PresenceFace name={member.displayName} url={member.avatarUrl} />
-            </span>
+            </button>
           ))
         )}
       </div>
@@ -74,10 +77,22 @@ export function Participants() {
         {members.length === 0 && <li className="participants-empty">{t('participants.alone')}</li>}
         {members.map((member) => (
           <li key={member.clientId}>
-            <span className="participant" style={{ background: colorForUser(member.userId) }}>
+            <button
+              type="button"
+              className="participant profile-open"
+              style={{ background: colorForUser(member.userId) }}
+              aria-label={t('profile.open', { name: member.displayName })}
+              onClick={(e) => openProfileCard({ ...cardFromPresence(member), at: anchorOf(e) })}
+            >
               <PresenceFace name={member.displayName} url={member.avatarUrl} />
-            </span>
-            <span className="member-who">{member.displayName}</span>
+            </button>
+            <button
+              type="button"
+              className="member-who profile-open"
+              onClick={(e) => openProfileCard({ ...cardFromPresence(member), at: anchorOf(e) })}
+            >
+              {member.displayName}
+            </button>
             <span className="board-role">{t(`roles.${member.role}`)}</span>
           </li>
         ))}

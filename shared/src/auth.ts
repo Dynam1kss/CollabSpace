@@ -4,11 +4,16 @@ export const THEMES: Theme[] = ['light', 'dark'];
 export type Locale = 'uk' | 'en' | 'de';
 export const LOCALES: Locale[] = ['uk', 'en', 'de'];
 
+// однорядковий підпис під імʼям у картці профілю. 100 символів — та сама межа,
+// що й у displayName; більше в картку завширшки 320px не влізе без простирадла
+export const BIO_MAX_LENGTH = 100;
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string | null;
   theme: Theme;
   locale: Locale;
   createdAt: string;
@@ -30,6 +35,8 @@ export interface UpdateProfileRequest {
   displayName?: string;
   theme?: Theme;
   locale?: Locale;
+  // порожній рядок — прибрати підпис; поле відсутнє — не чіпати
+  bio?: string;
 }
 
 // відповідь на це завжди однакова (204), навіть якщо такої пошти немає —

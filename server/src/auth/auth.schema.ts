@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LOCALES, THEMES } from 'shared';
+import { BIO_MAX_LENGTH, LOCALES, THEMES } from 'shared';
 
 // ті самі правила й для реєстрації, і для зміни в налаштуваннях
 export const displayNameSchema = z.string().min(1).max(100);
@@ -16,6 +16,7 @@ export const updateProfileSchema = z
     displayName: displayNameSchema.optional(),
     theme: z.enum(THEMES as [string, ...string[]]).optional(),
     locale: z.enum(LOCALES as [string, ...string[]]).optional(),
+    bio: z.string().max(BIO_MAX_LENGTH).optional(),
   })
   .refine((body) => Object.values(body).some((v) => v !== undefined));
 

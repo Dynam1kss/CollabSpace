@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { BIO_MAX_LENGTH } from 'shared';
 import request from 'supertest';
 import { app } from '../src/app';
 import { UPLOADS_DIR } from '../src/boards/images.routes';
@@ -23,6 +24,60 @@ afterEach(async () => {
 });
 
 const fileOf = (url: string) => resolve(UPLOADS_DIR, url.replace(/^\/uploads\//, ''));
+
+describe('профіль: підпис', () => {
+  it('зберігає підпис і віддає його в /auth/me', async () => {
+    const { agent } = await registerUser();
+
+    const res = await agent.patch('/api/me').send({ bio: 'малюю схеми, люблю каву' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.bio).toBe('малюю схеми, люблю каву');
+
+    const me = await agent.get('/api/auth/me');
+    expect(me.body.user.bio).toBe('малюю схеми, люблю каву');
+  });
+
+  it('у нового користувача підпису нема', async () => {
+    const { user } = await registerUser();
+    expect(user.bio).toBeNull();
+  });
+
+  it('порожній рядок прибирає підпис, а не лишає порожнечу', async () => {
+    const { agent } = await registerUser();
+    await agent.patch('/api/me').send({ bio: 'було' });
+
+    const res = await agent.patch('/api/me').send({ bio: '   ' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.bio).toBeNull();
+  });
+
+  it('довший за межу не приймає, старий лишається', async () => {
+    const { agent } = await registerUser();
+    await agent.patch('/api/me').send({ bio: 'короткий' });
+
+    const res = await agent.patch('/api/me').send({ bio: 'я'.repeat(BIO_MAX_LENGTH + 1) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+
+    const me = await agent.get('/api/auth/me');
+    expect(me.body.user.bio).toBe('короткий');
+  });
+
+  it('рівно на межі приймає', async () => {
+    const { agent } = await registerUser();
+    const res = await agent.patch('/api/me').send({ bio: 'я'.repeat(BIO_MAX_LENGTH) });
+    expect(res.status).toBe(200);
+    expect(res.body.user.bio).toHaveLength(BIO_MAX_LENGTH);
+  });
+
+  it('зміна лише імені підпис не чіпає', async () => {
+    const { agent } = await registerUser();
+    await agent.patch('/api/me').send({ bio: 'лишається' });
+
+    const res = await agent.patch('/api/me').send({ displayName: 'Нове' });
+    expect(res.body.user.bio).toBe('лишається');
+  });
+});
 
 describe('профіль: імʼя', () => {
   it('міняє своє імʼя, і /auth/me уже віддає нове', async () => {

@@ -55,6 +55,7 @@ export function toAuthUser(user: User): AuthUser {
     // у базі рядок; щось стороннє туди потрапити не може, але тип треба звузити
     theme: user.theme === 'dark' ? 'dark' : 'light',
     locale: LOCALES.includes(user.locale as Locale) ? (user.locale as Locale) : 'uk',
+    bio: user.bio,
     createdAt: user.createdAt.toISOString(),
   };
 }

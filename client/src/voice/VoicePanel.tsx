@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { VOICE_MAX_PARTICIPANTS } from 'shared';
-import { usePresenceStore } from '../canvas/presence-store';
+import { cardFromPresence, usePresenceStore } from '../canvas/presence-store';
 import { colorForUser } from '../canvas/presence-colors';
 import { PresenceFace } from '../components/PresenceFace';
+import { anchorOf, openProfileCard } from '../components/profile-card-store';
 import { forceVoice } from '../api/boards';
 import { canManageMember } from 'shared';
 import { setDeafened, setMicMuted, startVoice, stopVoice, voiceIsFull } from './voice-mesh';
@@ -142,12 +143,16 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
             const canForce = selfRole ? canManageMember(selfRole, member, ownerId) : false;
             return (
               <span key={clientId} className="voice-peer-row">
-                <span
-                  className={speaking[clientId] ? 'voice-chip speaking' : 'voice-chip'}
+                <button
+                  type="button"
+                  className={
+                    speaking[clientId] ? 'voice-chip profile-open speaking' : 'voice-chip profile-open'
+                  }
                   title={t(speaking[clientId] ? 'voice.peerSpeaking' : 'voice.peer', {
                     name: member.displayName,
                     state: describe(peers[clientId]),
                   })}
+                  onClick={(e) => openProfileCard({ ...cardFromPresence(member), at: anchorOf(e) })}
                 >
                   <span
                     className={`voice-peer ${peers[clientId].phase}`}
@@ -160,12 +165,18 @@ export function VoicePanel({ boardId, currentUserId, ownerId }: Props) {
                   >
                     <PresenceFace name={member.displayName} url={member.avatarUrl} />
                   </span>
-                </span>
+                </button>
                 {/* на тачі те, що на десктопі лежить у title кружечка, мусить
                 бути текстом — наведення там нема */}
                 {narrow && (
                   <span className="voice-peer-who">
-                    <span className="voice-peer-name">{member.displayName}</span>
+                    <button
+                      type="button"
+                      className="voice-peer-name profile-open"
+                      onClick={(e) => openProfileCard({ ...cardFromPresence(member), at: anchorOf(e) })}
+                    >
+                      {member.displayName}
+                    </button>
                     <span className="voice-note">{describe(peers[clientId])}</span>
                   </span>
                 )}

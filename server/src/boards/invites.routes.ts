@@ -21,7 +21,7 @@ invitesRouter.get('/', async (req, res, next) => {
     ];
     const inviters = await prisma.user.findMany({
       where: { id: { in: inviterIds } },
-      select: { id: true, displayName: true, email: true, avatarUrl: true },
+      select: { id: true, displayName: true, email: true, avatarUrl: true, bio: true },
     });
     const byId = new Map(inviters.map((u) => [u.id, u]));
 
@@ -37,6 +37,7 @@ invitesRouter.get('/', async (req, res, next) => {
               displayName: inviter.displayName,
               email: inviter.email,
               avatarUrl: inviter.avatarUrl,
+              bio: inviter.bio,
             }
           : null,
         createdAt: r.createdAt.toISOString(),

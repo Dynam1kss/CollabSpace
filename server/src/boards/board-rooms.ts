@@ -28,6 +28,12 @@ interface Client {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string | null;
+  // час підключення саме цього сокета — з нього рахується «на дошці N хв».
+  // окремого трекера присутності не заводимо: сокет і є присутність, а
+  // впаде він — запис зникне разом з ним
+  joinedAt: number;
+  memberSince: Date;
   // чи людина зараз у голосовій розмові. Тримаємо тут, щоб новачок дізнався
   // склад розмови одразу на вході, а не питав окремим кадром
   inVoice: boolean;
@@ -293,7 +299,7 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
     reject(socket, '404 Not Found');
     return;
   }
-  const { displayName, avatarUrl } = await getUserCard(userId);
+  const { displayName, avatarUrl, bio } = await getUserCard(userId);
   boardRoomWss.handleUpgrade(req, socket, head, (ws) => {
     clients.set(ws, {
       id: nextClientId++,
@@ -303,6 +309,9 @@ async function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer, board
       userId,
       displayName,
       avatarUrl,
+      bio,
+      joinedAt: Date.now(),
+      memberSince: access.memberSince,
       inVoice: false,
     });
     boardRoomWss.emit('connection', ws, req);
@@ -334,6 +343,9 @@ function toMember(client: Client): PresenceMember {
     userId: client.userId,
     displayName: client.displayName,
     avatarUrl: client.avatarUrl,
+    bio: client.bio,
+    joinedAt: client.joinedAt,
+    memberSince: client.memberSince.toISOString(),
     role: client.role,
     roleGrantedBy: client.roleGrantedBy,
     inVoice: client.inVoice,

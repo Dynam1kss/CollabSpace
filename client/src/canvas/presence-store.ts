@@ -108,6 +108,25 @@ export const usePresenceStore = create<PresenceState>((set) => ({
     }),
 }));
 
+// присутній → дані для картки профілю. Один переклад на всі місця, звідки
+// картку відкривають з дошки: стілець, список присутніх, панель голосу
+export function cardFromPresence(member: PresenceMember) {
+  return {
+    person: {
+      userId: member.userId,
+      displayName: member.displayName,
+      avatarUrl: member.avatarUrl,
+      bio: member.bio,
+    },
+    context: {
+      kind: 'presence' as const,
+      role: member.role,
+      joinedAt: member.joinedAt,
+      memberSince: member.memberSince,
+    },
+  };
+}
+
 // усі, крім мене — саме їх показуємо в списку й малюємо на полотні
 export function otherMembers(state: PresenceState) {
   return Object.values(state.members).filter((m) => m.clientId !== state.selfClientId);

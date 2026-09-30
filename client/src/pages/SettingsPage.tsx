@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { BIO_MAX_LENGTH } from 'shared';
 import type { Locale, Theme } from 'shared';
 import { changePassword, updateProfile, uploadAvatar } from '../api/profile';
 import { errorText } from '../i18n/api-error';
@@ -33,6 +34,10 @@ export function SettingsPage() {
   const [name, setName] = useState(user?.displayName ?? '');
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
+
+  const [bio, setBio] = useState(user?.bio ?? '');
+  const [bioError, setBioError] = useState<string | null>(null);
+  const [bioSaved, setBioSaved] = useState(false);
 
   const [prefsError, setPrefsError] = useState<string | null>(null);
 
@@ -98,6 +103,28 @@ export function SettingsPage() {
       setNameSaved(true);
     } catch (err) {
       setNameError(errorText(err, t('settings.nameFailed'), { VALIDATION_ERROR: t('settings.nameInvalid') }));
+    }
+  }
+
+  async function handleBio(e: FormEvent) {
+    e.preventDefault();
+    setBioSaved(false);
+    const trimmed = bio.trim();
+    if (trimmed.length > BIO_MAX_LENGTH) {
+      setBioError(t('settings.bioTooLong', { max: BIO_MAX_LENGTH }));
+      return;
+    }
+    try {
+      setUser((await updateProfile({ bio: trimmed })).user);
+      setBio(trimmed);
+      setBioError(null);
+      setBioSaved(true);
+    } catch (err) {
+      setBioError(
+        errorText(err, t('settings.bioFailed'), {
+          VALIDATION_ERROR: t('settings.bioTooLong', { max: BIO_MAX_LENGTH }),
+        }),
+      );
     }
   }
 
@@ -222,6 +249,29 @@ export function SettingsPage() {
           {nameError && <p className="form-error">{nameError}</p>}
           {nameSaved && <p className="form-ok">{t('common.saved')}</p>}
           <button type="submit" className="button-primary" disabled={name.trim() === user.displayName}>
+            {t('common.save')}
+          </button>
+        </form>
+      </section>
+
+      <section className="settings-card">
+        <h2>{t('settings.bio')}</h2>
+        <form onSubmit={handleBio}>
+          <label>
+            {t('settings.bioLabel')}
+            <input
+              value={bio}
+              maxLength={BIO_MAX_LENGTH}
+              onChange={(e) => {
+                setBio(e.target.value);
+                setBioSaved(false);
+              }}
+            />
+          </label>
+          <span className="board-role">{t('settings.bioHint', { max: BIO_MAX_LENGTH })}</span>
+          {bioError && <p className="form-error">{bioError}</p>}
+          {bioSaved && <p className="form-ok">{t('common.saved')}</p>}
+          <button type="submit" className="button-primary" disabled={bio.trim() === (user.bio ?? '')}>
             {t('common.save')}
           </button>
         </form>

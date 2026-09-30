@@ -210,6 +210,33 @@ describe('кімнати дошок поверх ws', () => {
     expect(toV2self && [...toV2self]).toEqual([2]);
   });
 
+  it('присутність несе підпис, час коннекту й відколи людина на дошці', async () => {
+    const { boardId, owner, viewer } = await boardWithMembers();
+    await owner.agent.patch('/api/me').send({ bio: 'малюю схеми' });
+    const before = Date.now();
+
+    const a = connect(boardId, owner.cookie);
+    const rosterA = nextMessage(a);
+    await opened(a);
+    const me = JSON.parse((await rosterA)!.subarray(1).toString()).members[0];
+
+    expect(me.bio).toBe('малюю схеми');
+    // час коннекту серверний — з нього рахується «на дошці N хв»
+    expect(me.joinedAt).toBeGreaterThanOrEqual(before);
+    expect(me.joinedAt).toBeLessThanOrEqual(Date.now());
+    // у власника рядка учасника нема — відлік іде від створення дошки
+    expect(Date.parse(me.memberSince)).toBeLessThanOrEqual(Date.now());
+
+    // у запрошеного — його власний рядок, не дошка
+    const v = connect(boardId, viewer.cookie);
+    const rosterV = nextMessage(v);
+    await opened(v);
+    const members = JSON.parse((await rosterV)!.subarray(1).toString()).members;
+    const him = members.find((m: { role: string }) => m.role === 'VIEWER');
+    expect(him.bio).toBeNull();
+    expect(Date.parse(him.memberSince)).toBeGreaterThanOrEqual(Date.parse(me.memberSince));
+  });
+
   it('роутер присутності: список при вході, join і leave решті', async () => {
     const { boardId, owner, editor, viewer } = await boardWithMembers();
     const a = connect(boardId, owner.cookie);

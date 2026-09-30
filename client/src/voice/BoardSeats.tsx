@@ -3,7 +3,8 @@ import type Konva from 'konva';
 import { Circle, Group, Image as KonvaImage, Text } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { colorForUser, initialsOf } from '../canvas/presence-colors';
-import { usePresenceStore } from '../canvas/presence-store';
+import { cardFromPresence, usePresenceStore } from '../canvas/presence-store';
+import { openProfileCard } from '../components/profile-card-store';
 import { publishSeat, SEAT_THROTTLE_MS } from '../canvas/presence-channel';
 import { createPresenceTween } from '../canvas/objects/presence-tween';
 import { useBoardStore } from '../canvas/board-store';
@@ -90,7 +91,22 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
         const member = members[clientId];
         if (!member || clientId === selfClientId) return null;
         return (
-          <Group key={clientId} ref={tween.ref(clientId)} listening={false}>
+          // чужий стілець слухає клік — з нього відкривається картка профілю.
+          // картка в dom, а не на полотні, тому позицію беремо з події миші
+          <Group
+            key={clientId}
+            ref={tween.ref(clientId)}
+            onClick={(e) => openProfileCard({ ...cardFromPresence(member), at: pointerOf(e) })}
+            onTap={(e) => openProfileCard({ ...cardFromPresence(member), at: pointerOf(e) })}
+            onMouseEnter={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = 'pointer';
+            }}
+            onMouseLeave={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = '';
+            }}
+          >
             <SeatBody
               color={colorForUser(member.userId)}
               initials={initialsOf(member.displayName)}
@@ -99,6 +115,7 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
               inVoice={!!voicePeers[clientId]}
               speaking={!!speaking[clientId]}
               k={k}
+              touch={touchInput}
             />
           </Group>
         );
@@ -134,6 +151,16 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
       )}
     </>
   );
+}
+
+// точка кліку в координатах вікна. Беремо не з evt, а вказівник самої сцени:
+// konva вже звела туди і мишу, і палець, і додаємо лише зсув полотна на сторінці
+function pointerOf(e: KonvaEventObject<Event>) {
+  const stage = e.target.getStage();
+  const point = stage?.getPointerPosition();
+  if (!stage || !point) return { x: 0, y: 0 };
+  const box = stage.container().getBoundingClientRect();
+  return { x: box.left + point.x, y: box.top + point.y };
 }
 
 // той самий прийом, що в ImageShape: звичайний Image, поки вантажиться — нічого.

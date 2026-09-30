@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { canManageMember } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
 import { Avatar } from '../components/Avatar';
+import { anchorOf, openProfileCard } from '../components/profile-card-store';
 import {
   ApiError,
   addBoardMember,
@@ -22,6 +23,21 @@ interface Props {
   // потрібен для ієрархії: адміністратора, якого підняв власник, чіпає
   // лише власник
   ownerId: string;
+}
+
+// учасник списку → картка профілю. Контекст membership, не presence: цей
+// список живе поза дошкою, присутності тут узагалі нема звідки взяти
+function cardOf(m: BoardMemberInfo) {
+  return {
+    person: {
+      userId: m.userId,
+      displayName: m.displayName,
+      avatarUrl: m.avatarUrl,
+      bio: m.bio,
+      email: m.email,
+    },
+    context: { kind: 'membership' as const, role: m.role, status: m.status, since: m.createdAt },
+  };
 }
 
 // розкривна секція під дошкою у списку (лише для власника): список
@@ -114,9 +130,22 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
         <ul className="member-list">
           {members.map((m) => (
             <li key={m.userId}>
-              {/* імʼя і пошта поруч: імена бувають однакові, пошта — ні */}
-              <Avatar userId={m.userId} name={m.displayName} url={m.avatarUrl} size={28} />
-              <span className="member-who">
+              {/* імʼя і пошта поруч: імена бувають однакові, пошта — ні.
+              картка тут БЕЗ присутності: на дошці цієї людини зараз немає,
+              і «на дошці 5 хв» було б вигадкою */}
+              <button
+                type="button"
+                className="profile-open"
+                aria-label={t('profile.open', { name: m.displayName })}
+                onClick={(e) => openProfileCard({ ...cardOf(m), at: anchorOf(e) })}
+              >
+                <Avatar userId={m.userId} name={m.displayName} url={m.avatarUrl} size={28} />
+              </button>
+              <button
+                type="button"
+                className="member-who profile-open"
+                onClick={(e) => openProfileCard({ ...cardOf(m), at: anchorOf(e) })}
+              >
                 {m.displayName}
                 <span className="board-role"> {m.email}</span>
                 {m.status === 'PENDING' && (
@@ -124,7 +153,7 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
                     {t('members.pending')}
                   </span>
                 )}
-              </span>
+              </button>
               <select
                 value={m.role}
                 disabled={busyUserId === m.userId || !canManage(m)}
