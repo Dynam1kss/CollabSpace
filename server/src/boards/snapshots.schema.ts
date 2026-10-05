@@ -19,6 +19,9 @@ const base = {
 
 const point = z.object({ x: z.number(), y: z.number() });
 
+// вирівнювання тексту — теж необовʼязкове: до 06.10 все було вліво
+const align = z.enum(['left', 'center', 'right']).optional();
+
 export const boardObjectSchema = z.discriminatedUnion('type', [
   z.object({
     ...base,
@@ -31,6 +34,7 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     column: z.enum(['todo', 'in-progress', 'done']).nullable().default(null),
     // стікери до 06.10 розміру не мають — тоді він був прибитий у коді
     fontSize: z.number().optional(),
+    align,
   }),
   z.object({
     ...base,
@@ -40,6 +44,7 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     color: z.string(),
     autoWidth: z.boolean(),
     minHeight: z.number(),
+    align,
   }),
   z.object({
     ...base,

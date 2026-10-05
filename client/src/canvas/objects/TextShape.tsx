@@ -1,6 +1,7 @@
 import { Group, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import { textAlign } from 'shared';
 import type { TextObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
@@ -75,6 +76,7 @@ export function TextShape({ object, isSelected, isEditing, draggable, inkOverFil
         text={object.text}
         width={object.autoWidth ? undefined : object.width}
         wrap={object.autoWidth ? 'none' : 'word'}
+        align={textAlign(object)}
         fontSize={object.fontSize}
         fontFamily={TEXT_FONT_FAMILY}
         lineHeight={TEXT_LINE_HEIGHT}

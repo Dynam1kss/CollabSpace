@@ -1,7 +1,7 @@
 import { Group, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import { stickyFontSize } from 'shared';
+import { stickyFontSize, textAlign } from 'shared';
 import type { StickyObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
@@ -93,6 +93,7 @@ export function StickyNoteShape({ object, isSelected, isEditing, draggable, regi
           lineHeight={TEXT_LINE_HEIGHT}
           fill={object.textColor}
           wrap="word"
+          align={textAlign(object)}
           listening={false}
         />
       </Group>

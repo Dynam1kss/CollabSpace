@@ -317,3 +317,29 @@ export function HistoryIcon() {
     </Svg>
   );
 }
+
+// вирівнювання тексту: три смужки різної довжини — як це малюють усюди,
+// тому підпис до них можна не читати
+export function AlignLeftIcon() {
+  return (
+    <Svg>
+      <path d="M3.5 5h13M3.5 9h8M3.5 13h11M3.5 17h6" />
+    </Svg>
+  );
+}
+
+export function AlignCenterIcon() {
+  return (
+    <Svg>
+      <path d="M3.5 5h13M6 9h8M4.5 13h11M7 17h6" />
+    </Svg>
+  );
+}
+
+export function AlignRightIcon() {
+  return (
+    <Svg>
+      <path d="M3.5 5h13M8.5 9h8M5.5 13h11M10.5 17h6" />
+    </Svg>
+  );
+}

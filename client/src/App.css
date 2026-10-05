@@ -1715,7 +1715,9 @@ elementFromPoint повертав би її саму замість колонк
   display: inline-flex;
   border-radius: 50%;
   /* два кільця: біле відбиває від сусіднього кружечка, зелене — сам сигнал */
-  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0), 0 0 0 0 rgba(34, 197, 94, 0);
+  box-shadow:
+    0 0 0 0 rgba(255, 255, 255, 0),
+    0 0 0 0 rgba(34, 197, 94, 0);
   transition: box-shadow 0.12s ease-out;
 }
 
@@ -1863,6 +1865,25 @@ elementFromPoint повертав би її саму замість колонк
 .board-page .ctx-panel .ctx-toggle.active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* вирівнювання тексту — три кнопки впритул, щоб читались як один перемикач,
+   а не як три окремі дії */
+.board-page .ctx-panel .ctx-group {
+  display: inline-flex;
+  gap: 0;
+}
+
+.board-page .ctx-panel .ctx-group .ctx-toggle {
+  border-radius: 0;
+}
+
+.board-page .ctx-panel .ctx-group .ctx-toggle:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.board-page .ctx-panel .ctx-group .ctx-toggle:last-child {
+  border-radius: 0 8px 8px 0;
 }
 
 /* ───── вузький екран (телефон) ─────
@@ -2568,7 +2589,9 @@ elementFromPoint повертав би її саму замість колонк
   padding: 6px 8px;
   background: rgba(0, 0, 0, 0.75);
   color: #9f9;
-  font: 11px/1.3 ui-monospace, monospace;
+  font:
+    11px/1.3 ui-monospace,
+    monospace;
   border-radius: 6px;
   pointer-events: auto;
 }

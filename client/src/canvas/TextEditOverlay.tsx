@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { stickyFontSize } from 'shared';
+import { stickyFontSize, textAlign } from 'shared';
 import type { BoardObject } from 'shared';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
@@ -72,6 +72,9 @@ export function TextEditOverlay({ object, viewport }: Props) {
         fontFamily: TEXT_FONT_FAMILY,
         lineHeight: TEXT_LINE_HEIGHT,
         color,
+        // те саме, що й у вузла konva, — інакше на вході в редагування текст
+        // стрибав би вліво й назад на виході
+        textAlign: textAlign(object),
         // від лівого верхнього кута, як крутить і konva — інакше поворот
         // ішов би навколо центру коробки й не збігався з фігурою
         transformOrigin: 'top left',

@@ -20,6 +20,14 @@ export interface BoardObjectBase {
   locked?: boolean;
 }
 
+// горизонтальне вирівнювання тексту. Поле необовʼязкове: усе, намальоване до
+// 06.10, вирівняне вліво, і дописувати їм це в базу нема потреби
+export type TextAlign = 'left' | 'center' | 'right';
+
+export function textAlign(object: { align?: TextAlign }): TextAlign {
+  return object.align ?? 'left';
+}
+
 export type StickyColumn = 'todo' | 'in-progress' | 'done';
 
 // column — колонка канбан-подання; null — стікер поза дошкою задач, на
@@ -34,6 +42,7 @@ export interface StickyObject extends BoardObjectBase {
   // старі стікери поля не мають — у них читається STICKY_FONT_SIZE, тобто
   // рівно те, чим вони й малювались
   fontSize?: number;
+  align?: TextAlign;
 }
 
 // розмір тексту стікера, яким він був до появи самого поля. Міняти не можна:
@@ -55,6 +64,7 @@ export interface TextObject extends BoardObjectBase {
   color: string;
   autoWidth: boolean;
   minHeight: number;
+  align?: TextAlign;
 }
 
 export type ShapeKind = 'rect' | 'ellipse';

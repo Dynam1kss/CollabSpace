@@ -143,6 +143,36 @@ describe('снепшот дошки', () => {
     expect(byId['старий']).not.toHaveProperty('fontSize');
   });
 
+  it('вирівнювання тексту переживає знімок, старі обʼєкти лишаються без поля', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({
+        objects: [
+          { ...sticky, id: 'по-центру', align: 'center' },
+          { ...sticky, id: 'без-поля' },
+        ],
+      })
+      .expect(204);
+
+    const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    const byId = Object.fromEntries(res.body.objects.map((o: { id: string }) => [o.id, o]));
+    expect(byId['по-центру']).toMatchObject({ align: 'center' });
+    expect(byId['без-поля']).not.toHaveProperty('align');
+  });
+
+  it('невідоме вирівнювання — 400', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+
+    const res = await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [{ ...sticky, align: 'justify' }] });
+    expect(res.status).toBe(400);
+  });
+
   it('невалідний обʼєкт — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });

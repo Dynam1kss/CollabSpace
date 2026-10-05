@@ -1,11 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { stickyFontSize } from 'shared';
+import { stickyFontSize, textAlign } from 'shared';
+import type { TextAlign } from 'shared';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import {
+  AlignCenterIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
   BringFrontIcon,
   ChairIcon,
   DuplicateIcon,
@@ -104,8 +108,11 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
   const fillObject = selected.find((o) => o.type === 'sticky' || o.type === 'shape');
   const textColorObject = selected.find((o) => o.type === 'sticky' || o.type === 'text');
   const strokeObject = selected.find((o) => o.type === 'shape' || o.type === 'connector');
-  // розмір шрифту є і в тексту, і в стікера — поле одне на обидва
+  // розмір шрифту є і в тексту, і в стікера — поле одне на обидва.
+  // вирівнювання так само: у стікера коробка стала, тож там воно навіть
+  // помітніше, ніж у блоку, що хугає свій текст
   const fontObject = selected.find((o) => o.type === 'text' || o.type === 'sticky');
+  const alignValue = fontObject ? textAlign(fontObject) : 'left';
 
   // увімкненим вважаємо, лише коли дозволено всім виділеним — інакше перший
   // клік має саме ВВІМКНУТИ решті, а не вимкнути тим, у кого вже стоїть
@@ -165,6 +172,13 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     for (const o of selected) {
       if (o.type === 'text') update(o.id, { fontSize, ...fitTextBox({ ...o, fontSize }) });
       else if (o.type === 'sticky') update(o.id, { fontSize });
+    }
+  }
+
+  function setAlign(align: TextAlign) {
+    const update = useBoardStore.getState().update;
+    for (const o of selected) {
+      if (o.type === 'text' || o.type === 'sticky') update(o.id, { align });
     }
   }
 
@@ -231,6 +245,30 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           max={FONT_SIZE_MAX}
           onCommit={setFontSize}
         />
+      )}
+
+      {fontObject && (
+        <span className="ctx-group" role="group" aria-label={t('ctx.align')}>
+          {(
+            [
+              ['left', <AlignLeftIcon key="l" />],
+              ['center', <AlignCenterIcon key="c" />],
+              ['right', <AlignRightIcon key="r" />],
+            ] as const
+          ).map(([value, icon]) => (
+            <button
+              key={value}
+              type="button"
+              className={alignValue === value ? 'ctx-toggle active' : 'ctx-toggle'}
+              title={t(`ctx.align_${value}`)}
+              aria-label={t(`ctx.align_${value}`)}
+              aria-pressed={alignValue === value}
+              onClick={() => setAlign(value)}
+            >
+              {icon}
+            </button>
+          ))}
+        </span>
       )}
 
       {canManageSeats && (
