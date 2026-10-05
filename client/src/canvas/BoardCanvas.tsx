@@ -10,7 +10,7 @@ import { exportFrame, exportTargets } from './board-export';
 import type { ExportFrame } from './board-export';
 import { getVisibleBoardRect, screenToBoard } from './coordinates';
 import type { Point, Viewport } from './coordinates';
-import { useEditorStore } from './editor-store';
+import { objectsListen, useEditorStore } from './editor-store';
 import { contentBounds } from './fit-to-objects';
 import { ObjectRenderer } from './objects/ObjectRenderer';
 import { RemoteCursors } from './objects/RemoteCursors';
@@ -275,7 +275,9 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
             />
           </Layer>
 
-          <Layer ref={objectsLayerRef}>
+          {/* під інструментом створення шар «прозорий»: клік має дійти до Stage
+          і поставити новий обʼєкт навіть поверх наявного (editor-store) */}
+          <Layer ref={objectsLayerRef} listening={objectsListen(activeTool)}>
             {/* eslint-disable-next-line react-hooks/refs -- getRegisterRef читає
             registerRefCache.current лише для кешування функції за id, не для
             виводу в рендер; без кешу React бачив би нову ref-функцію щоразу */}

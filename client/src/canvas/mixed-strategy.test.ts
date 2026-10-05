@@ -4,6 +4,7 @@ import { CELL_SIZE, decodeCellKey, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'sha
 import type { BoardObject, BoardPoint, CellRect, ConnectorObject } from 'shared';
 import { AoiSync } from './aoi-sync';
 import { CellDocs } from './cell-docs';
+import { withPoints as boxOf } from './objects/point-box';
 
 // одна кімната, двоє клієнтів на РІЗНИХ стратегіях — рівно те, що сталось у
 // власника: у нього в localStorage лишилось 'aoi' з прогонів стенду, у другого
@@ -245,16 +246,6 @@ describe('чому режим мусить бути один на кімнату
     expect(other.objects.get('стрілка')!.x).toBe(100);
   });
 });
-
-// те саме, що withPoints у connector-geometry; звідти не імпортуємо, бо той
-// модуль тягне konva, а вона в node-середовищі просить пакет canvas
-const boxOf = (points: BoardPoint[]) => {
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
-  return { points, x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
-};
 
 const arrow = (id: string, points: BoardPoint[]): BoardObject =>
   ({

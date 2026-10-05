@@ -4,7 +4,10 @@ import { useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
 import { lockedObjectIds, usePresenceStore } from './presence-store';
 import { deletableIds } from './object-lock';
-import { withPoints } from './objects/connector-geometry';
+import { withPoints } from './objects/point-box';
+import { createAtPoint } from './object-defaults';
+import type { CreatableTool } from './object-defaults';
+import type { Point } from './coordinates';
 
 // копія лягає не точно поверх оригіналу, а трохи вбік (координати дошки)
 // зсув цілого обʼєкта: у конектора рухаються самі точки, у решти — x/y
@@ -20,6 +23,18 @@ const PASTE_OFFSET = 20;
 export function nextZIndex() {
   const all = useBoardStore.getState().getAll();
   return all.length === 0 ? 0 : Math.max(...all.map((o) => o.zIndex)) + 1;
+}
+
+// створити обʼєкт активним інструментом у точці дошки. Після створення
+// інструмент вертається на «вибір», а новий обʼєкт стає виділеним. Порядок
+// важливий: setActiveTool сама скидає selectedIds, тому виділяємо після неї
+export function createWithTool(tool: CreatableTool, point: Point, createdBy: string) {
+  const object = createAtPoint(tool, point, { createdBy, zIndex: nextZIndex() });
+  useBoardStore.getState().add(object);
+  const { setActiveTool, select } = useEditorStore.getState();
+  setActiveTool('select');
+  select(object.id);
+  return object;
 }
 
 function selectedObjects() {

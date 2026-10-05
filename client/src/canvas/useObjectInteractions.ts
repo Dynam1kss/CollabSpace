@@ -7,10 +7,11 @@ import { screenToBoard } from './coordinates';
 import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import type { ToolId } from './editor-store';
-import { createAtPoint, createConnectorFromPoints, createShapeFromRect } from './object-defaults';
+import { createConnectorFromPoints, createShapeFromRect } from './object-defaults';
 import type { CreatableTool } from './object-defaults';
 import {
   copySelected,
+  createWithTool,
   cutSelected,
   deleteSelected,
   duplicateSelected,
@@ -151,7 +152,9 @@ export function useObjectInteractions(
   );
 
   // клік (не протягування) інструментом стікера/тексту — одразу створює
-  // обʼєкт стандартного розміру в точці кліку
+  // обʼєкт стандартного розміру в точці кліку. Обʼєкт під курсором цього не
+  // перебиває: під інструментом створення шар обʼєктів подій не ловить
+  // (objectsListen), тому e.target тут — сам Stage
   const handleStageClick = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
       const stage = e.target.getStage();
@@ -160,16 +163,9 @@ export function useObjectInteractions(
 
       const screenPoint = stage.getPointerPosition();
       if (!screenPoint) return;
-      const boardPoint = screenToBoard(screenPoint, viewportRef.current);
-      const object = createAtPoint(activeTool, boardPoint, {
-        createdBy: currentUserId,
-        zIndex: nextZIndex(),
-      });
-      useBoardStore.getState().add(object);
-      setActiveTool('select');
-      select(object.id);
+      createWithTool(activeTool, screenToBoard(screenPoint, viewportRef.current), currentUserId);
     },
-    [activeTool, currentUserId, select, setActiveTool],
+    [activeTool, currentUserId],
   );
 
   // тап по порожньому місцю на дотику будь-яким інструментом малювання —
@@ -190,16 +186,9 @@ export function useObjectInteractions(
 
       const screenPoint = stage.getPointerPosition();
       if (!screenPoint) return;
-      const boardPoint = screenToBoard(screenPoint, viewportRef.current);
-      const object = createAtPoint(activeTool, boardPoint, {
-        createdBy: currentUserId,
-        zIndex: nextZIndex(),
-      });
-      useBoardStore.getState().add(object);
-      setActiveTool('select');
-      select(object.id);
+      createWithTool(activeTool, screenToBoard(screenPoint, viewportRef.current), currentUserId);
     },
-    [activeTool, currentUserId, select, setActiveTool],
+    [activeTool, currentUserId],
   );
 
   useEffect(() => {

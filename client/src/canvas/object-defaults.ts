@@ -10,7 +10,7 @@ import type {
   TextObject,
 } from 'shared';
 import type { Point } from './coordinates';
-import { withPoints } from './objects/connector-geometry';
+import { withPoints } from './objects/point-box';
 import { fitTextBox } from './text-layout';
 import { DEFAULT_INK } from '../theme';
 import { i18n } from '../i18n';
@@ -41,6 +41,10 @@ const CONNECTOR_LENGTH = 140;
 const MIN_DRAWN_SIZE = 8; // менше цього — вважаємо це кліком, не протягуванням
 
 export type CreatableTool = 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
+
+// усі інструменти, що щось створюють — список в одному місці, щоб перевірки
+// не перелічували їх руками й не відставали від коду
+export const CREATABLE_TOOLS: CreatableTool[] = ['sticky', 'text', 'rect', 'ellipse', 'connector'];
 
 interface CreationMeta {
   createdBy: string;

@@ -14,7 +14,8 @@ import { pivotOffset } from '../object-pivot';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
 import { MIN_BOX_SIDE } from '../limits';
 import { fitTextBox } from '../text-layout';
-import { flattenPoints, withPoints } from './connector-geometry';
+import { flattenPoints } from './connector-geometry';
+import { withPoints } from './point-box';
 import {
   MIN_SIZE,
   gripFor,

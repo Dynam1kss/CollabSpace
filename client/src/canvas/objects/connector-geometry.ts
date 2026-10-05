@@ -8,16 +8,6 @@ export const CONNECTOR_TENSION = 0.4;
 // своя математика тензії рано чи пізно розійшлась би з тим, що намальовано
 const measurer = new Konva.Line({ tension: CONNECTOR_TENSION });
 
-// bounding box по всіх точках — єдине місце, де рахуються x/y/width/height
-// конектора; хто міняє points, той і має прогнати їх через withPoints
-export function withPoints(points: BoardPoint[]) {
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
-  return { points, x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
-}
-
 // другорядні точки — на самій кривій (t=0.5 свого сегмента), а не посередині
 // хорди, інакше біля вигину висять осторонь лінії. В моделі їх нема,
 // рахуються на кожен рендер. konva веде перший і останній сегменти

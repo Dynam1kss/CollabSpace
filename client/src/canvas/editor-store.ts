@@ -5,6 +5,15 @@ import { lockOwner, usePresenceStore } from './presence-store';
 
 export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
 
+// шар обʼєктів ловить події лише під інструментом вибору. Під будь-яким
+// інструментом створення обʼєкти «прозорі» — інакше клік по наявному стікеру
+// до Stage не доходив (сам обʼєкт ставив cancelBubble, див. useSelectOnPointerDown),
+// і поверх чогось новий обʼєкт не створювався взагалі: доводилось шукати
+// порожнє місце (06.10)
+export function objectsListen(tool: ToolId) {
+  return tool === 'select';
+}
+
 // стан UI редактора (інструмент, виділення, текст у режимі редагування) —
 // не про самі об'єкти дошки (той стан у board-store) і не про CRDT-синхронізацію,
 // суто ефемерний клієнтський стан, який ні з ким не ділиться
