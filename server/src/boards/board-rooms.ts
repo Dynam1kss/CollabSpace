@@ -7,10 +7,21 @@ import {
   CURSOR_BYTES,
   decodeCellKey,
   encodeCellKey,
+  isSyncStrategy,
   SYNC_MSG,
   SYNC_REQUESTER_ID_BYTES,
+  SYNC_STRATEGY_MISMATCH,
 } from 'shared';
-import type { BoardRole, CellSubscribeMessage, PresenceMember, RestoredMessage, RosterMessage } from 'shared';
+import type {
+  BoardRole,
+  CellSubscribeMessage,
+  PresenceMember,
+  RestoredMessage,
+  RosterMessage,
+  SyncStrategy,
+  SyncStrategyMessage,
+} from 'shared';
+import { env } from '../env';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getUserCard } from './boards.service';
@@ -222,6 +233,22 @@ export function roomSize(boardId: string) {
   return rooms.get(boardId)?.size ?? 0;
 }
 
+// стратегія синхронізації кімнат. Одна на сервер: ділити її по дошках нема за
+// чим — вибір робить той, хто розгортає, а не автор дошки. Жива змінна, а не
+// просто env, бо стенд вимірювань переставляє її між прогонами (/api/bench/strategy)
+let roomStrategy: SyncStrategy = env.syncStrategy;
+
+export function syncStrategyOfRooms() {
+  return roomStrategy;
+}
+
+// лише для стенду: прогін міряє три стратегії поспіль, і перезапускати сервер
+// між ними означало б міряти ще й холодний старт
+export function setSyncStrategyOfRooms(strategy: SyncStrategy) {
+  roomStrategy = strategy;
+  diag('стратегію кімнат переставлено', { strategy });
+}
+
 // для /api/metrics: скільки зараз сокетів і кімнат тримає сервер. дошки й
 // клітинки окремо — у стратегії 3 кімнат клітинок набагато більше, ніж дошок
 export function roomStats() {
@@ -415,6 +442,18 @@ function readShowViewTargets(buf: Buffer) {
   }
 }
 
+// що клієнт оголосив у кадрі STRATEGY. Сміття й зіпсований json — теж не та
+// стратегія: рвемо сокет, бо писати нам такий клієнт однаково не має
+function readStrategy(buf: Buffer): SyncStrategy | 'невідома' {
+  try {
+    const body: unknown = JSON.parse(buf.subarray(1).toString('utf8'));
+    const { strategy } = (body ?? {}) as { strategy?: unknown };
+    return isSyncStrategy(strategy) ? strategy : 'невідома';
+  } catch {
+    return 'невідома';
+  }
+}
+
 // єдиний кадр, який сервер зберігає, а не ретранслює: спершу база призначає
 // id і час, і вже готове повідомлення йде всім у кімнаті — разом із автором,
 // бо саме з цієї відповіді він і побачить своє повідомлення
@@ -504,6 +543,9 @@ boardRoomWss.on('connection', (socket) => {
   });
   missedPings.set(socket, 0);
   socket.on('pong', () => missedPings.set(socket, 0));
+  // стратегія — перший кадр, ще до roster: клієнт не має створювати документи,
+  // поки не знає, куди писати (журнал 05.10)
+  send(socket, jsonFrame(SYNC_MSG.STRATEGY, { strategy: roomStrategy } satisfies SyncStrategyMessage));
   send(socket, jsonFrame(SYNC_MSG.ROSTER, roster));
   // після перезавантаження сторінки заборона має лишитись — тому переспівуємо
   // її новому сокету окремо, а не покладаємось на roster, який лише знімок
@@ -521,6 +563,23 @@ boardRoomWss.on('connection', (socket) => {
     const others = [...room.entries()].filter(([id]) => id !== client.id);
 
     switch (buf[0]) {
+      // клієнт відзвітував, яку стратегію взяв. Збіглось — просто мовчимо; не
+      // збіглось (у браузері свій ?sync= зі стенду) — рвемо сокет одразу: тихо
+      // лишити його в кімнаті гірше, ніж не пустити. Він однаково нікого не
+      // почує, зате виглядатиме «онлайн» (журнал 05.10)
+      case SYNC_MSG.STRATEGY: {
+        const announced = readStrategy(buf);
+        if (announced === roomStrategy) return;
+        diag('клієнт оголосив іншу стратегію — закриваю', {
+          boardId: client.boardId,
+          clientId: client.id,
+          announced,
+          room: roomStrategy,
+        });
+        socket.close(SYNC_STRATEGY_MISMATCH, `кімната працює у режимі ${roomStrategy}`);
+        return;
+      }
+
       case SYNC_MSG.UPDATE:
         // глядач не пише — його байти нікуди не йдуть, навіть якщо клієнт обійшов заборону
         if (client.role === 'VIEWER') return;

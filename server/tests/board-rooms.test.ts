@@ -3,10 +3,18 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { CHAT_MAX_LENGTH, encodeCellKey, SYNC_MSG } from 'shared';
+import { CHAT_MAX_LENGTH, encodeCellKey, SYNC_MSG, SYNC_STRATEGY_MISMATCH } from 'shared';
+import type { SyncStrategy } from 'shared';
 import { app } from '../src/app';
 import { addMember } from './helpers';
-import { cellRoomSize, roomSize, sweepDeadSockets, tryUpgradeBoardRoom } from '../src/boards/board-rooms';
+import {
+  cellRoomSize,
+  roomSize,
+  setSyncStrategyOfRooms,
+  syncStrategyOfRooms,
+  sweepDeadSockets,
+  tryUpgradeBoardRoom,
+} from '../src/boards/board-rooms';
 import { prisma } from '../src/prisma';
 
 // той самий роутинг апгрейду, що в index.ts, лише на випадковому порту
@@ -63,13 +71,22 @@ function rejected(ws: WebSocket) {
   });
 }
 
+// кадр стратегії прилітає першим у кожному сокеті, і до присутності він
+// стосунку не має — тести нижче чекають roster/join/leave, тому пропускаємо
 function nextMessage(ws: WebSocket, timeoutMs = 300) {
   return new Promise<Buffer | null>((resolve) => {
-    const timer = setTimeout(() => resolve(null), timeoutMs);
-    ws.once('message', (data) => {
+    const timer = setTimeout(() => {
+      ws.off('message', onMessage);
+      resolve(null);
+    }, timeoutMs);
+    const onMessage = (data: unknown) => {
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+      if (buf[0] === SYNC_MSG.STRATEGY) return;
       clearTimeout(timer);
-      resolve(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer));
-    });
+      ws.off('message', onMessage);
+      resolve(buf);
+    };
+    ws.on('message', onMessage);
   });
 }
 
@@ -110,6 +127,9 @@ function nextOfType(ws: WebSocket, type: number, timeoutMs = 1000) {
     ws.on('message', onMessage);
   });
 }
+
+const strategyFrame = (strategy: SyncStrategy) =>
+  Buffer.concat([Buffer.from([SYNC_MSG.STRATEGY]), Buffer.from(JSON.stringify({ strategy }), 'utf8')]);
 
 // id учасника потрібен для patch-ролі; у user() його нема, тому дістаємо з бази
 async function editorUserId(u: { email: string }) {
@@ -807,7 +827,9 @@ describe('кімнати клітинок (стратегія 3)', () => {
   const cellMsg = (type: number, cell: string, body: number[] = []) =>
     Buffer.concat([Buffer.from([type]), Buffer.from(encodeCellKey(cell)), Buffer.from(body)]);
   const subscribe = (ws: WebSocket, add: string[], remove: string[] = []) =>
-    ws.send(Buffer.concat([Buffer.from([SYNC_MSG.CELL_SUBSCRIBE]), Buffer.from(JSON.stringify({ add, remove }))]));
+    ws.send(
+      Buffer.concat([Buffer.from([SYNC_MSG.CELL_SUBSCRIBE]), Buffer.from(JSON.stringify({ add, remove }))]),
+    );
   // усі кадри вмісту клітинок за вікно часу — щоб довести, що НЕ прийшло нічого
   const collectCell = (ws: WebSocket, ms = 250) =>
     new Promise<Buffer[]>((resolve) => {
@@ -951,5 +973,79 @@ describe('кімнати клітинок (стратегія 3)', () => {
     const toB = nextOfType(b, SYNC_MSG.CELL_SYNC_REQUEST);
     a.send(cellMsg(SYNC_MSG.CELL_SYNC_REQUEST, '3:3', [0]));
     expect(await toB).not.toBeNull();
+  });
+});
+
+describe('стратегія кімнати', () => {
+  const settleMs = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  async function board() {
+    const owner = await user();
+    const res = await owner.agent.post('/api/boards').send({ title: 'Режим' });
+    return { boardId: res.body.id as string, owner };
+  }
+
+  it('перший кадр у сокеті — стратегія кімнати, і вона ж у env', async () => {
+    const { boardId, owner } = await board();
+    const ws = connect(boardId, owner.cookie);
+    const first = new Promise<Buffer>((resolve) => {
+      ws.once('message', (data) => resolve(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer)));
+    });
+    await opened(ws);
+    const buf = await first;
+    expect(buf[0]).toBe(SYNC_MSG.STRATEGY);
+    expect(JSON.parse(buf.subarray(1).toString('utf8'))).toEqual({
+      strategy: syncStrategyOfRooms(),
+    });
+  });
+
+  it('оголосив той самий режим — сокет живий', async () => {
+    const { boardId, owner } = await board();
+    const ws = connect(boardId, owner.cookie);
+    await opened(ws);
+    ws.send(strategyFrame(syncStrategyOfRooms()));
+    await settleMs(150);
+    expect(ws.readyState).toBe(WebSocket.OPEN);
+    expect(roomSize(boardId)).toBe(1);
+  });
+
+  it('оголосив інший режим — сервер рве сокет із власним кодом', async () => {
+    const { boardId, owner } = await board();
+    const ws = connect(boardId, owner.cookie);
+    await opened(ws);
+    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+      ws.once('close', (code, reason) => resolve({ code, reason: reason.toString('utf8') }));
+    });
+    ws.send(strategyFrame(syncStrategyOfRooms() === 'aoi' ? 'batched' : 'aoi'));
+    const { code, reason } = await closed;
+    expect(code).toBe(SYNC_STRATEGY_MISMATCH);
+    expect(reason).toContain(syncStrategyOfRooms());
+  });
+
+  it('сміття замість стратегії — так само рве', async () => {
+    const { boardId, owner } = await board();
+    const ws = connect(boardId, owner.cookie);
+    await opened(ws);
+    const closed = new Promise<number>((resolve) => ws.once('close', (code) => resolve(code)));
+    ws.send(Buffer.concat([Buffer.from([SYNC_MSG.STRATEGY]), Buffer.from('не json', 'utf8')]));
+    expect(await closed).toBe(SYNC_STRATEGY_MISMATCH);
+  });
+
+  it('стенд переставляє режим, і новий сокет уже чує новий', async () => {
+    const was = syncStrategyOfRooms();
+    try {
+      setSyncStrategyOfRooms('per-event');
+      const { boardId, owner } = await board();
+      const ws = connect(boardId, owner.cookie);
+      const first = new Promise<Buffer>((resolve) => {
+        ws.once('message', (data) =>
+          resolve(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer)),
+        );
+      });
+      await opened(ws);
+      expect(JSON.parse((await first).subarray(1).toString('utf8'))).toEqual({ strategy: 'per-event' });
+    } finally {
+      setSyncStrategyOfRooms(was);
+    }
   });
 });

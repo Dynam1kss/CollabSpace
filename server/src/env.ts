@@ -1,6 +1,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from 'dotenv';
+import { isSyncStrategy } from 'shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -55,9 +56,17 @@ const appUrl = (process.env.APP_URL ?? 'http://localhost:5173').replace(/\/$/, '
 // має лише прогін вимірювань, у решти випадків воно нікому не треба
 const benchMetrics = process.env.BENCH_METRICS === '1';
 
+// якою стратегією синхронізації працюють кімнати цього сервера. Вирішує сервер,
+// а не браузер: стратегії ходять різними каналами (UPDATE кімнаті дошки проти
+// CELL_UPDATE кімнатам клітинок), тож двоє на різних режимах в одній кімнаті
+// одне одного просто не чують (журнал 05.10). За замовчуванням aoi — те, чим
+// застосунок працює насправді
+const syncStrategy = isSyncStrategy(process.env.SYNC_STRATEGY) ? process.env.SYNC_STRATEGY : 'aoi';
+
 export const env = {
   port: Number(process.env.PORT) || 3000,
   benchMetrics,
+  syncStrategy,
   trustProxy,
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-not-for-production',
   isProduction,

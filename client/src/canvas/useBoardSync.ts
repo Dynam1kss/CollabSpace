@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
-import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
+import { SYNC_MSG, SYNC_REQUESTER_ID_BYTES, SYNC_STRATEGY_MISMATCH } from 'shared';
 import {
   publishLock,
   publishSelection,
@@ -21,6 +21,7 @@ import type {
   RosterMessage,
   SeatPosition,
   ShowViewMessage,
+  SyncStrategyMessage,
   VoiceIceMessage,
   VoiceSdpMessage,
   VoiceStateMessage,
@@ -51,8 +52,9 @@ import {
   useBoardStore,
 } from './board-store';
 import { AoiSync, attachAoi } from './aoi-sync';
-import { syncStrategy } from './sync-strategy';
-import { diag } from './diag';
+import { adoptSyncStrategy, syncStrategy, syncStrategyUnavailable } from './sync-strategy';
+import type { SyncStrategy } from './sync-strategy';
+import { diag, diagAlarm } from './diag';
 import { usePresenceStore } from './presence-store';
 
 // 'kicked' — не різновид обриву, а окрема причина: власник забрав доступ.
@@ -74,6 +76,8 @@ function text(bytes: Uint8Array) {
   return decoder.decode(bytes);
 }
 
+const encoder = new TextEncoder();
+
 function frame(type: number, ...parts: Uint8Array[]) {
   const total = parts.reduce((n, p) => n + p.length, 1);
   const out = new Uint8Array(total);
@@ -84,6 +88,10 @@ function frame(type: number, ...parts: Uint8Array[]) {
     offset += p.length;
   }
   return out;
+}
+
+function jsonFrame(type: number, payload: unknown) {
+  return frame(type, encoder.encode(JSON.stringify(payload)));
 }
 
 // жива синхронізація документа стору з іншими вкладками тієї ж дошки через
@@ -146,34 +154,38 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
 
     // стратегія 3: вміст іде кімнатами клітинок, а не цілою дошкою. Решта
     // сокета (присутність, чат, голос, ролі) — та сама. «наживо» — усі
-    // передплачені клітинки вже мають історію (той самий зміст, що й для дошки)
-    const aoi =
-      syncStrategy() === 'aoi'
-        ? new AoiSync(cellDocs, {
-            send: (frame) => send(frame),
-            canWrite: () => canWriteRef.current,
-            fetchSnapshot: () => fetchBoardSnapshot(boardId).then((r) => r.objects),
-            interacting: () => useEditorStore.getState().interacting,
-            saveCells: (cells, objects) =>
-              saveBoardSnapshot(boardId, objects, false, cells).then(() => cellDocs.clearDirty(cells)),
-            onStatus: (ready) => {
-              if (ready) setStatus('live');
-            },
-          })
-        : null;
-    if (aoi) {
-      setCellSyncHooks({
-        localUpdate: (cell, update) => aoi.localUpdate(cell, update),
-        needCell: (cell) => aoi.needCell(cell),
+    // передплачені клітинки вже мають історію (той самий зміст, що й для дошки).
+    // створюємо це не одразу, а аж коли сервер оголосить режим кімнати: до того
+    // ми не знаємо, у який документ іде вміст (журнал 05.10)
+    let aoi: AoiSync | null = null;
+    let unsubGesture = () => {};
+    // boardId у замиканнях нижче вже не перевіряється — ефект без нього не йде
+    const board = boardId;
+
+    function startAoi() {
+      const sync = new AoiSync(cellDocs, {
+        send: (frame) => send(frame),
+        canWrite: () => canWriteRef.current,
+        fetchSnapshot: () => fetchBoardSnapshot(board).then((r) => r.objects),
+        interacting: () => useEditorStore.getState().interacting,
+        saveCells: (cells, objects) =>
+          saveBoardSnapshot(board, objects, false, cells).then(() => cellDocs.clearDirty(cells)),
+        onStatus: (ready) => {
+          if (ready) setStatus('live');
+        },
       });
-      attachAoi(aoi);
+      aoi = sync;
+      setCellSyncHooks({
+        localUpdate: (cell, update) => sync.localUpdate(cell, update),
+        needCell: (cell) => sync.needCell(cell),
+      });
+      attachAoi(sync);
+      // відкладене зняття передплати чекає кінця жесту
+      unsubGesture = useEditorStore.subscribe((state, prev) => {
+        if (prev.interacting && !state.interacting) sync.gestureEnded();
+      });
+      sync.start();
     }
-    // відкладене зняття передплати чекає кінця жесту
-    const unsubGesture = aoi
-      ? useEditorStore.subscribe((state, prev) => {
-          if (prev.interacting && !state.interacting) aoi.gestureEnded();
-        })
-      : () => {};
 
     // снепшот з rest вантажиться паралельно з рукостисканням сокета і часто
     // встигає лягти в документ раніше — такі оновлення send() просто викидав,
@@ -208,10 +220,18 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       syncRetry = window.setInterval(askForHistory, SYNC_RETRY_MS);
     }
 
-    ws.onopen = () => {
-      diag('ws відкрито', { boardId, обʼєктів: useBoardStore.getState().getAll().length });
-      if (aoi) {
-        aoi.start();
+    // перший кадр у сокеті — STRATEGY, і лише з нього починається вміст:
+    // до нього ми не знаємо, чи писати в головний документ, чи в клітинки.
+    // Своє значення шлемо назад: якщо в браузері примус зі стенду й він не
+    // збігся з кімнатою, сервер цей сокет закриє (а не лишить його тихо
+    // «онлайн», як було до 05.10)
+    function beginContentSync(announced: SyncStrategy) {
+      adoptSyncStrategy(announced);
+      const mine = syncStrategy();
+      send(jsonFrame(SYNC_MSG.STRATEGY, { strategy: mine } satisfies SyncStrategyMessage));
+      diag('стратегія кімнати', { boardId, announced, mine });
+      if (mine === 'aoi') {
+        startAoi();
         return;
       }
       // віддаємо свій стан цілком — інакше сусід не зможе прийняти жодної
@@ -223,6 +243,10 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       // що в мене вже є → у відповідь прийде все, чого бракує (див. shared/sync)
       askForHistory();
       syncRetry = window.setInterval(askForHistory, SYNC_RETRY_MS);
+    }
+
+    ws.onopen = () => {
+      diag('ws відкрито', { boardId, обʼєктів: useBoardStore.getState().getAll().length });
     };
 
     ws.onmessage = (e: MessageEvent<ArrayBuffer>) => {
@@ -230,6 +254,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       if (data.length === 0) return;
       const payload = data.subarray(1);
       switch (data[0]) {
+        case SYNC_MSG.STRATEGY:
+          beginContentSync((JSON.parse(text(payload)) as SyncStrategyMessage).strategy);
+          return;
         case SYNC_MSG.CELL_UPDATE:
         case SYNC_MSG.CELL_SYNC_REQUEST:
         case SYNC_MSG.CELL_SYNC_REPLY:
@@ -469,6 +496,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     // перепідключення нема, тому закритий сокет уже не оживе — повтори гасимо
     const dropped = () => {
       window.clearInterval(syncRetry);
+      // режим кімнати так і не прийшов — відпускаємо тих, хто його чекає,
+      // інакше дошка без мережі висіла б у «завантаженні» назавжди
+      syncStrategyUnavailable();
       if (kicked) return;
       // присутність приходить лише цим сокетом. Поки він був живий, список
       // був правдою; тепер про кімнату не відомо нічого, і лишати останній
@@ -478,7 +508,14 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       usePresenceStore.getState().reset();
       setStatus('offline');
     };
-    ws.onclose = dropped;
+    ws.onclose = (e) => {
+      // сервер не пустив: у браузері примус (?sync=) не того режиму, що в
+      // кімнати. Мовчки «офлайн» тут було б загадкою — тому окремий рядок
+      if (e.code === SYNC_STRATEGY_MISMATCH) {
+        diagAlarm('сервер закрив сокет: не та стратегія', { boardId, причина: e.reason });
+      }
+      dropped();
+    };
     ws.onerror = dropped;
 
     return () => {

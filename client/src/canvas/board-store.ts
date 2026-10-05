@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { diag } from './diag';
 import { syncStrategy } from './sync-strategy';
 import { CellDocs } from './cell-docs';
+import { CellUndo } from './cell-undo';
 import type {
   BoardObject,
   ConnectorObject,
@@ -57,7 +58,18 @@ export function setCellSyncHooks(hooks: CellSyncHooks | null) {
   cellSyncHooks = hooks;
 }
 
+// 500мс — те саме групування, що yjs бере за замовчуванням: серія дій в один
+// такт (вставка кількох копій, видалення групи) лягає одним кроком. На жести
+// це число не впливає взагалі, там час вимкнено — див. beginUndoGesture
+const DISCRETE_CAPTURE_MS = 500;
+
+// стратегія 3: історія правок теж по клітинках — один UndoManager на кілька
+// документів не вішається (див. cell-undo)
+export const cellUndo = new CellUndo(DISCRETE_CAPTURE_MS, () => refreshUndoState());
+
 export const cellDocs = new CellDocs({
+  onOpenCell: (cell, map) => cellUndo.track(cell, map),
+  onCloseCell: (cell) => cellUndo.forget(cell),
   onMirror: (changes) =>
     useBoardStore.setState((state) => {
       const objects = { ...state.objects };
@@ -104,11 +116,6 @@ export function lastEmptiedBy() {
   return emptiedBy;
 }
 
-// 500мс — те саме групування, що yjs бере за замовчуванням: серія дій в один
-// такт (вставка кількох копій, видалення групи) лягає одним кроком. На жести
-// це число не впливає взагалі, там час вимкнено — див. beginUndoGesture
-const DISCRETE_CAPTURE_MS = 500;
-
 // відкочуємо лише свої правки: trackedOrigins — це null, тобто транзакції без
 // позначки. REMOTE_ORIGIN (чуже з мережі, useBoardSync) і APP_ORIGIN повз
 // нього, бо ctrl+z не має відкочувати сусідові його ж роботу
@@ -120,10 +127,11 @@ export const useUndoState = create<{ canUndo: boolean; canRedo: boolean }>(() =>
 }));
 
 function refreshUndoState() {
-  useUndoState.setState({
-    canUndo: boardUndo.undoStack.length > 0,
-    canRedo: boardUndo.redoStack.length > 0,
-  });
+  useUndoState.setState(
+    aoi()
+      ? { canUndo: cellUndo.canUndo, canRedo: cellUndo.canRedo }
+      : { canUndo: boardUndo.undoStack.length > 0, canRedo: boardUndo.redoStack.length > 0 },
+  );
 }
 
 function createUndo() {
@@ -144,6 +152,10 @@ export let boardUndo = createUndo();
 // жест покадрово. Всередині жесту час не ділить кроки взагалі: пауза посеред
 // тягання (рука спинилась прицілитись) не має різати його надвоє
 export function beginUndoGesture() {
+  if (aoi()) {
+    cellUndo.beginGesture();
+    return;
+  }
   boardUndo.stopCapturing();
   boardUndo.captureTimeout = Number.MAX_SAFE_INTEGER;
 }
@@ -153,9 +165,25 @@ export function beginUndoGesture() {
 // мікротаскою пізніше — інакше хвіст жесту став би окремим ctrl+z
 export function endUndoGesture() {
   queueMicrotask(() => {
+    if (aoi()) {
+      cellUndo.endGesture();
+      return;
+    }
     boardUndo.captureTimeout = DISCRETE_CAPTURE_MS;
     boardUndo.stopCapturing();
   });
+}
+
+// куди йдуть ctrl+z і ctrl+y — залежить від стратегії: у головний документ чи
+// по клітинках. Вище цього board-undo вже не розбирає, яким режимом ми працюємо
+export function performUndo() {
+  if (aoi()) cellUndo.undo();
+  else boardUndo.undo();
+}
+
+export function performRedo() {
+  if (aoi()) cellUndo.redo();
+  else boardUndo.redo();
 }
 
 export const useBoardStore = create<BoardObjectsState>((set, get) => ({
@@ -263,6 +291,7 @@ export function replaceBoardContent(objects: BoardObject[]) {
 // повернув би шматки стану до відкату поверх нового. Тож історію правок чистимо
 export function clearUndoHistory() {
   boardUndo.clear();
+  cellUndo.clear();
 }
 
 // глядач. Його записи в документ сервер нікуди не шле, тож власний запис того

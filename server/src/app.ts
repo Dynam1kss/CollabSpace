@@ -2,11 +2,12 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import { isSyncStrategy } from 'shared';
 import type { HealthResponse, IceConfigResponse, IceServerConfig } from 'shared';
 import { requireAuth } from './auth/auth.middleware';
 import { authRouter } from './auth/auth.routes';
 import { profileRouter } from './auth/profile.routes';
-import { roomStats } from './boards/board-rooms';
+import { roomStats, setSyncStrategyOfRooms } from './boards/board-rooms';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
 import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
@@ -66,6 +67,19 @@ if (env.benchMetrics) {
       memory: process.memoryUsage(),
       rooms: roomStats(),
     });
+  });
+
+  // стенд міряє три стратегії поспіль і мусить переставляти режим кімнат, не
+  // перезапускаючи сервер. Браузеру цього не віддаємо ніколи: саме з того, що
+  // режим вибирав клієнт, і виріс розʼїзд кімнати (журнал 05.10)
+  app.post('/api/bench/strategy', (req, res) => {
+    const { strategy } = req.body as { strategy?: unknown };
+    if (!isSyncStrategy(strategy)) {
+      res.status(400).json({ error: 'невідома стратегія' });
+      return;
+    }
+    setSyncStrategyOfRooms(strategy);
+    res.json({ strategy });
   });
 }
 

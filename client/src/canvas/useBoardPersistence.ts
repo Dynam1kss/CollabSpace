@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchBoardSnapshot, saveBoardSnapshot } from '../api/boards';
 import { asAppEdit, cellDocs, docHasHistory, lastEmptiedBy, seedMirror, useBoardStore } from './board-store';
-import { syncStrategy } from './sync-strategy';
+import { syncStrategy, syncStrategyAnnounced } from './sync-strategy';
 import { diag, diagAlarm } from './diag';
 import { useEditorStore } from './editor-store';
 
@@ -169,8 +169,11 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
     };
 
     diag('снепшот: запит пішов', { boardId });
-    fetchBoardSnapshot(boardId)
-      .then(({ objects }) => {
+    // запит іде одразу, а розкладаємо його лише коли сервер оголосив режим
+    // кімнати: у стратегії 3 знімок у головний документ класти не можна, а до
+    // кадру STRATEGY ми не знаємо, чи вона (журнал 05.10)
+    Promise.all([fetchBoardSnapshot(boardId), syncStrategyAnnounced()])
+      .then(([{ objects }]) => {
         diag('снепшот: відповідь', { boardId, обʼєктів: objects.length, скасовано: cancelled });
         if (cancelled) return;
         // стратегія 3 знімок у стор не кладе: клітинки беруть свій вміст самі,

@@ -101,8 +101,23 @@ export async function boardWith(owner, others, objects, title = 'Стенд') {
 export const deleteBoard = (owner, id) => api(owner.page, 'DELETE', `/api/boards/${id}`);
 export const snapshotOf = (user, id) => api(user.page, 'GET', `/api/boards/${id}/snapshot`);
 
+// режим кімнати тепер вибирає сервер і оголошує його клієнтам першим кадром
+// (журнал 05.10) — браузеру цього не віддають, бо саме з того, що режим жив у
+// localStorage, і розʼїхалась кімната. Тому стенд переставляє режим на сервері,
+// а не дописує ?sync= в адресу
+export async function setServerStrategy(strategy) {
+  const r = await fetch(`${BASE}/api/bench/strategy`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ strategy }),
+  });
+  if (!r.ok) {
+    throw new Error(`/api/bench/strategy: ${r.status} (сервер без BENCH_METRICS=1?)`);
+  }
+}
+
 export async function openBoard(user, boardId, strategy) {
-  await user.page.goto(`${BASE}/boards/${boardId}?sync=${strategy}`);
+  await user.page.goto(`${BASE}/boards/${boardId}`);
   // 60с на обидва чекання: на дошці в тисячу обʼєктів і з півсотнею вкладок
   // разом і перший кадр, і рукостискання бувають довгими — це не привід валити
   // прогін
@@ -112,6 +127,11 @@ export async function openBoard(user, boardId, strategy) {
     null,
     { timeout: 60000 },
   );
+  // звіряємо, що клієнт узяв саме той режим: інакше прогін тихо міряв би не те
+  const adopted = await user.page.getAttribute('.sync-status', 'data-strategy');
+  if (adopted !== strategy) {
+    throw new Error(`клієнт працює в режимі ${adopted}, а прогін просив ${strategy}`);
+  }
   await user.page.waitForTimeout(500);
 }
 

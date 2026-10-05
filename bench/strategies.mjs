@@ -15,6 +15,7 @@ import {
   openBoard,
   resetCounters,
   saveResults,
+  setServerStrategy,
   sticky,
 } from './lib.mjs';
 
@@ -120,6 +121,7 @@ const rows = [];
 for (const [name, run] of Object.entries(scenarios)) {
   const finals = {};
   for (const strategy of STRATEGIES) {
+    await setServerStrategy(strategy);
     const boardId = await boardWith(owner, [peer], objects);
     await openBoard(owner, boardId, strategy);
     await openBoard(peer, boardId, strategy);

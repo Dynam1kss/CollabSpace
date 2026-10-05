@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { BoardObject } from 'shared';
 import { boardDoc, resetBoardDoc, useBoardStore } from './board-store';
-import { resolveSyncStrategy, setSyncStrategy } from './sync-strategy';
+import { adoptSyncStrategy, resolveSyncStrategy, setSyncStrategy, syncStrategy } from './sync-strategy';
 import type { SyncStrategy } from './sync-strategy';
 
 const sticky = (id: string): BoardObject =>
@@ -68,20 +68,35 @@ describe('стратегії синхронізації жесту', () => {
 });
 
 describe('resolveSyncStrategy', () => {
-  it('за замовчуванням batched', () => {
-    expect(resolveSyncStrategy('', null, undefined)).toEqual({ strategy: 'batched', persist: null });
+  it('за замовчуванням batched, і це лише запас — режим кімнати скаже сервер', () => {
+    expect(resolveSyncStrategy('', undefined, false)).toEqual({ strategy: 'batched', forced: false });
   });
 
-  it('query важливіший за збережене й за змінну збірки, і запамʼятовується', () => {
-    expect(resolveSyncStrategy('?sync=per-event', 'batched', 'batched')).toEqual({
-      strategy: 'per-event',
-      persist: 'per-event',
+  it('?sync= у звичайній збірці не діє: режим кімнати не підмінити з адреси', () => {
+    expect(resolveSyncStrategy('?sync=aoi', undefined, false)).toEqual({
+      strategy: 'batched',
+      forced: false,
     });
   });
 
-  it('збережене важливіше за змінну збірки; сміття ігнорується', () => {
-    expect(resolveSyncStrategy('', 'per-event', 'batched').strategy).toBe('per-event');
-    expect(resolveSyncStrategy('?sync=nonsense', null, 'per-event').strategy).toBe('per-event');
-    expect(resolveSyncStrategy('', 'nonsense', undefined).strategy).toBe('batched');
+  it('у збірці стенду ?sync= діє й стає примусом', () => {
+    expect(resolveSyncStrategy('?sync=per-event', 'batched', true)).toEqual({
+      strategy: 'per-event',
+      forced: true,
+    });
+  });
+
+  it('змінна збірки — запас, сміття ігнорується', () => {
+    expect(resolveSyncStrategy('', 'per-event', false).strategy).toBe('per-event');
+    expect(resolveSyncStrategy('?sync=nonsense', 'per-event', true).strategy).toBe('per-event');
+    expect(resolveSyncStrategy('', 'nonsense', false).strategy).toBe('batched');
+  });
+});
+
+describe('оголошення стратегії сервером', () => {
+  it('кадр сервера перебиває місцевий запас', () => {
+    setSyncStrategy('batched');
+    adoptSyncStrategy('aoi');
+    expect(syncStrategy()).toBe('aoi');
   });
 });

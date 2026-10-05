@@ -1,4 +1,4 @@
-import { boardUndo, useBoardStore } from './board-store';
+import { performRedo, performUndo, useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
 
 // ctrl+z / ctrl+y. Відкочується лише вміст дошки — додавання, зміна й
@@ -6,12 +6,12 @@ import { useEditorStore } from './editor-store';
 // документ не пишуться взагалі, тому й повертати їх нема звідки: «скасувати»
 // має повернути намальоване, а не те, куди я перед тим дивився
 export function undoBoard() {
-  boardUndo.undo();
+  performUndo();
   dropDeadSelection();
 }
 
 export function redoBoard() {
-  boardUndo.redo();
+  performRedo();
   dropDeadSelection();
 }
 

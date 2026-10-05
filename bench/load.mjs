@@ -28,6 +28,7 @@ import {
   resetCounters,
   resetProbe,
   saveResults,
+  setServerStrategy,
   serverMetrics,
   snapshotOf,
   sticky,
@@ -174,6 +175,8 @@ function uniqueByPos(samples) {
 }
 
 async function run(strategy, n) {
+  // режим кімнат живе на сервері, тому переставляємо його тут, до першої вкладки
+  await setServerStrategy(strategy);
   const regions = regionsFor(n);
   const totalObjects = regions * OBJECTS_PER_REGION;
   const label = `${strategy} / ${n}`;

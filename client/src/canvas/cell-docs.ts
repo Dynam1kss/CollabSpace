@@ -30,6 +30,10 @@ interface Hooks {
   // запис у клітинку, якої ще нема серед відкритих (обʼєкт переїхав чи
   // створений далеко) — синхронізація має передплатитись ДО самого запису
   onNeedCell: (cell: string) => void;
+  // документ клітинки зʼявився/зник — сюди чіпляється undo (cell-undo).
+  // необовʼязкові: перевіркам самого протоколу історія правок ні до чого
+  onOpenCell?: (cell: string, map: Y.Map<BoardObject>) => void;
+  onCloseCell?: (cell: string) => void;
 }
 
 type Patch = Partial<BoardObject>;
@@ -71,6 +75,8 @@ export class CellDocs {
     const map = doc.getMap<BoardObject>('objects');
     const entry: Cell = { doc, map, ready: false, dirty: false };
     this.cells.set(cell, entry);
+    // undo чіпляємо до першого запису: write() одразу за open() вже пише
+    this.hooks.onOpenCell?.(cell, map);
     map.observe((event) => this.remirror(event.keysChanged));
     doc.on('update', (update: Uint8Array, origin: unknown) => {
       if (origin === CELL_REMOTE) return;
@@ -83,6 +89,8 @@ export class CellDocs {
     const entry = this.cells.get(cell);
     if (!entry) return;
     const keys = new Set([...entry.map.keys(), ...(this.seeds.get(cell)?.keys() ?? [])]);
+    // перед destroy: менеджер undo ще має відчепитись від живого документа
+    this.hooks.onCloseCell?.(cell);
     entry.doc.destroy();
     this.cells.delete(cell);
     this.seeds.delete(cell);

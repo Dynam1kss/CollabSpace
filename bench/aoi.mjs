@@ -15,6 +15,7 @@ import {
   panTo,
   resetCounters,
   saveResults,
+  setServerStrategy,
   snapshotOf,
   sticky,
 } from './lib.mjs';
@@ -59,6 +60,7 @@ const xOf = (user, id) =>
 
 const results = [];
 for (const strategy of STRATEGIES) {
+  await setServerStrategy(strategy);
   const boardId = await boardWith(users.A, [users.A2, users.B, users.C], objects, 'Область інтересу');
   for (const [name, user] of Object.entries(users)) {
     await openBoard(user, boardId, strategy);

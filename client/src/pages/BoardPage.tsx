@@ -12,6 +12,7 @@ import { useBoardSync } from '../canvas/useBoardSync';
 import { useCanvasViewport } from '../canvas/useCanvasViewport';
 import { getVisibleBoardRect, screenToBoard } from '../canvas/coordinates';
 import { setAoiView } from '../canvas/aoi-sync';
+import { syncStrategy } from '../canvas/sync-strategy';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { ChatPanel } from '../canvas/ChatPanel';
@@ -337,7 +338,11 @@ export function BoardPage() {
           <ChatPanel boardId={board.id} />
           <VoicePanel boardId={board.id} currentUserId={currentUserId} ownerId={board.ownerId} />
         </div>
-        <div className={`board-island sync-status ${syncStatus}`}>{t(`board.sync.${syncStatus}`)}</div>
+        {/* режим кімнати — у атрибут: стенд ним звіряє, що міряє саме те, що просив,
+            а на другому пристрої це найшвидший спосіб побачити, чим він працює */}
+        <div className={`board-island sync-status ${syncStatus}`} data-strategy={syncStrategy()}>
+          {t(`board.sync.${syncStatus}`)}
+        </div>
         <div className="board-island save-status">{t(`board.save.${saveStatus}`)}</div>
       </div>
     </div>
