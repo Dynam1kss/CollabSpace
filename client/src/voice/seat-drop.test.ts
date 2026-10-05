@@ -1,9 +1,9 @@
 import * as Y from 'yjs';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ShapeObject } from 'shared';
+import type { ImageObject, ShapeObject } from 'shared';
 import { boardDoc, cellDocs, resetBoardDoc, useBoardStore } from '../canvas/board-store';
 import { setSyncStrategy } from '../canvas/sync-strategy';
-import { nearestFreeSeat } from './seat-position';
+import { nearestFreeSeat, SEAT_RADIUS } from './seat-position';
 
 // «дозволити стільці» працювало через раз: скидання стільця на обʼєкт із
 // забороною то відбивалось, то проходило. Сам шлях рішення виявився цілим —
@@ -42,6 +42,28 @@ const accepted = (x: number, y: number) => {
 
 const inside = (p: { x: number; y: number }) => p.x > -100 && p.x < 100 && p.y > -100 && p.y < 100;
 
+// велике тло: саме на таких обʼєктах стілець і лишався — вийти з них старий
+// кільцевий пошук не діставав (журнал 06.10)
+const backdrop = (): ImageObject => ({
+  id: 'backdrop',
+  type: 'image',
+  x: -600,
+  y: -450,
+  width: 1200,
+  height: 900,
+  rotation: 0,
+  zIndex: 0,
+  createdBy: 'u1',
+  createdAt: '2026-10-06T00:00:00.000Z',
+  url: '/uploads/backdrop.png',
+});
+
+const distToBox = (p: { x: number; y: number }, r: ImageObject) => {
+  const nx = Math.max(r.x, Math.min(p.x, r.x + r.width));
+  const ny = Math.max(r.y, Math.min(p.y, r.y + r.height));
+  return Math.hypot(p.x - nx, p.y - ny);
+};
+
 afterEach(() => {
   setSyncStrategy('batched');
   resetBoardDoc();
@@ -79,6 +101,43 @@ describe('скидання стільця на обʼєкт і прапорец�
       for (const allowed of [true, true, false, false, true, false]) {
         useBoardStore.getState().update('sofa', { seatsAllowed: allowed });
         expect(accepted(0, 0), `прапорець ${allowed}`).toBe(allowed);
+      }
+    });
+  }
+
+  for (const strategy of ['batched', 'aoi'] as const) {
+    it(`${strategy}: велике тло — стілець виходить із нього і з центру, і з краю`, () => {
+      setSyncStrategy(strategy);
+      resetBoardDoc();
+      useBoardStore.getState().add(backdrop());
+      const big = backdrop();
+
+      // по всьому обʼєкту, не лише в центрі: раніше результат залежав саме від
+      // того, наскільки глибоко скинули, — звідси й «через раз»
+      for (const [x, y] of [
+        [0, 0],
+        [-550, -400],
+        [550, 400],
+        [0, -440],
+        [-590, 0],
+        [300, 200],
+      ]) {
+        const seat = dropAt(x, y);
+        expect(distToBox(seat, big), `скидання в ${x},${y}`).toBeGreaterThanOrEqual(SEAT_RADIUS - 1e-6);
+      }
+    });
+
+    it(`${strategy}: дозвіл на тому самому тлі — стілець лишається де відпустили`, () => {
+      setSyncStrategy(strategy);
+      resetBoardDoc();
+      useBoardStore.getState().add({ ...backdrop(), seatsAllowed: true });
+
+      for (const [x, y] of [
+        [0, 0],
+        [-550, -400],
+        [300, 200],
+      ]) {
+        expect(accepted(x, y), `скидання в ${x},${y}`).toBe(true);
       }
     });
   }

@@ -71,7 +71,11 @@ export function BoardSeats({ viewportScale, onDropMine }: Props) {
   }
 
   // відпустили — сідаємо на найближче вільне місце. Інакше двоє стільців
-  // лягають один в один, і ні ініціалів, ні імен уже не прочитати
+  // лягають один в один, і ні ініціалів, ні імен уже не прочитати.
+  // виправлену точку шлемо решті завжди, навіть коли вона та сама, що й
+  // відпущена: publishSeat притримує кадр не більше за свій інтервал і
+  // випускає останнє значення хвостовим таймером (presence-channel), тому
+  // сусіди не лишаються з проміжною точкою жесту
   function handleDragEnd(e: KonvaEventObject<DragEvent>) {
     const taken = Object.entries(useSeatStore.getState().others)
       .filter(([key]) => Number(key) !== selfClientId)
