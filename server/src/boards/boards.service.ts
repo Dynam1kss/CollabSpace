@@ -1,4 +1,5 @@
 import type { Board, BoardMember, BoardRole, User } from '@prisma/client';
+import { MEMBER_ERROR } from 'shared';
 import type { BoardDetail, BoardMemberInfo, BoardSummary } from 'shared';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
@@ -77,7 +78,10 @@ export function requireBoardOwner(access: BoardAccess | null): BoardAccess {
 export function requireBoardAdmin(access: BoardAccess | null): BoardAccess {
   const resolved = requireBoardAccess(access);
   if (resolved.role !== 'OWNER' && resolved.role !== 'ADMIN') {
-    throw new AppError(403, 'FORBIDDEN', 'Потрібні права адміністратора дошки');
+    // окремий код, не загальний FORBIDDEN: саме по ньому панель учасників
+    // розуміє, що прав уже нема, і ховається. Решта відмов — про ціль дії,
+    // а не про мене, і панель має лишитись на місці (05.10)
+    throw new AppError(403, MEMBER_ERROR.NOT_BOARD_MANAGER, 'Потрібні права адміністратора дошки');
   }
   return resolved;
 }

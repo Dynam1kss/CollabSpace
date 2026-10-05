@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { canManageMember } from 'shared';
+import { canManageMember, MEMBER_ERROR } from 'shared';
 import type {
   AddBoardMemberRequest,
   BoardDetail,
@@ -134,10 +134,10 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new AppError(404, 'USER_NOT_FOUND', 'Користувача з такою поштою не знайдено');
+      throw new AppError(404, MEMBER_ERROR.USER_NOT_FOUND, 'Користувача з такою поштою не знайдено');
     }
     if (user.id === access.board.ownerId) {
-      throw new AppError(400, 'ALREADY_OWNER', 'Власник дошки й так має до неї повний доступ');
+      throw new AppError(400, MEMBER_ERROR.ALREADY_OWNER, 'Власник дошки й так має до неї повний доступ');
     }
     // ця ручка — upsert, тож для того, хто вже на дошці, вона рівносильна
     // зміні ролі. Без цієї перевірки через неї можна було обійти всю
@@ -180,17 +180,17 @@ boardsRouter.post('/:id/members', async (req, res, next) => {
 // для кнопок, не більше
 async function requireCanManage(access: BoardAccess, targetUserId: string) {
   if (targetUserId === access.board.ownerId) {
-    throw new AppError(403, 'FORBIDDEN', 'Власника дошки змінити не можна');
+    throw new AppError(403, MEMBER_ERROR.OWNER_IMMUTABLE, 'Власника дошки змінити не можна');
   }
   const target = await prisma.boardMember.findUnique({
     where: { boardId_userId: { boardId: access.board.id, userId: targetUserId } },
     select: { role: true, roleGrantedBy: true },
   });
   if (!target) {
-    throw new AppError(404, 'MEMBER_NOT_FOUND', 'Такого учасника на дошці немає');
+    throw new AppError(404, MEMBER_ERROR.MEMBER_NOT_FOUND, 'Такого учасника на дошці немає');
   }
   if (!canManageMember(access.role, target, access.board.ownerId)) {
-    throw new AppError(403, 'FORBIDDEN', 'Недостатньо прав для цього учасника');
+    throw new AppError(403, MEMBER_ERROR.CANNOT_MANAGE_MEMBER, 'Недостатньо прав для цього учасника');
   }
   return target;
 }

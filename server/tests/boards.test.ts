@@ -109,16 +109,16 @@ describe('дошки — CRUD і права доступу', () => {
     expect(after!.role).toBe('VIEWER');
 
     // права справді поїхали за роллю: глядачу писати вже не можна
-    const save = await member.agent
-      .put(`/api/boards/${boardId}/snapshot`)
-      .send({ objects: [] });
+    const save = await member.agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] });
     expect(save.status).toBe(403);
 
     // і назад
     await owner.agent
       .patch(`/api/boards/${boardId}/members`)
       .send({ userId: member.user.id, role: 'EDITOR' });
-    expect((await member.agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] })).status).toBe(204);
+    expect((await member.agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] })).status).toBe(
+      204,
+    );
   });
 
   it('роль міняє лише власник, і лише наявному учаснику', async () => {
@@ -143,21 +143,32 @@ describe('дошки — CRUD і права доступу', () => {
 
     // кого нема в списку — тому й міняти нема чого
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: stranger.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await owner.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: stranger.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(404);
     // а власника не можна чіпати в принципі, і про це кажемо прямо
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: owner.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await owner.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: owner.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(403);
 
     // покручене тіло
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: member.user.id, role: 'BOSS' }))
-        .status,
+      (
+        await owner.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: member.user.id, role: 'BOSS' })
+      ).status,
     ).toBe(400);
-    expect((await owner.agent.patch(`/api/boards/${boardId}/members`).send({ role: 'VIEWER' })).status).toBe(400);
+    expect((await owner.agent.patch(`/api/boards/${boardId}/members`).send({ role: 'VIEWER' })).status).toBe(
+      400,
+    );
 
     // роль учасника після всіх спроб не змінилась
     const row = await prisma.boardMember.findFirst({ where: { boardId, userId: member.user.id } });
@@ -183,20 +194,29 @@ describe('дошки — CRUD і права доступу', () => {
 
     // адмін міняє роль редактору — можна
     expect(
-      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: editor.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await admin.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: editor.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(200);
 
     // і навіть підняти його до адміністратора
     expect(
-      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: editor.user.id, role: 'ADMIN' }))
-        .status,
+      (
+        await admin.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: editor.user.id, role: 'ADMIN' })
+      ).status,
     ).toBe(200);
 
     // а от іншого адміністратора — ні: над адміном стоїть лише власник
     expect(
-      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: other.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await admin.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: other.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(403);
     expect(
       (await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: other.user.id })).status,
@@ -204,8 +224,11 @@ describe('дошки — CRUD і права доступу', () => {
 
     // власника не чіпає ніхто — ні за роллю, ні виганяючи
     expect(
-      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: owner.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await admin.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: owner.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(403);
     expect(
       (await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: owner.user.id })).status,
@@ -213,8 +236,11 @@ describe('дошки — CRUD і права доступу', () => {
 
     // власник над адміністратором — може все
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: other.user.id, role: 'EDITOR' }))
-        .status,
+      (
+        await owner.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: other.user.id, role: 'EDITOR' })
+      ).status,
     ).toBe(200);
     expect(
       (await owner.agent.delete(`/api/boards/${boardId}/members`).send({ userId: admin.user.id })).status,
@@ -232,16 +258,16 @@ describe('дошки — CRUD і права доступу', () => {
 
     for (const who of [editor, viewer]) {
       expect(
-        (await who.agent.patch(`/api/boards/${boardId}/members`).send({ userId: viewer.user.id, role: 'ADMIN' }))
-          .status,
+        (
+          await who.agent
+            .patch(`/api/boards/${boardId}/members`)
+            .send({ userId: viewer.user.id, role: 'ADMIN' })
+        ).status,
       ).toBe(403);
       expect(
         (await who.agent.delete(`/api/boards/${boardId}/members`).send({ userId: viewer.user.id })).status,
       ).toBe(403);
-      expect(
-        (await addMember(who, boardId, owner, 'VIEWER'))
-          .status,
-      ).toBe(403);
+      expect((await addMember(who, boardId, owner, 'VIEWER')).status).toBe(403);
     }
   });
 
@@ -277,19 +303,20 @@ describe('дошки — CRUD і права доступу', () => {
     ).toBe(204);
 
     // доступу немає взагалі — тому 404, як і в будь-якого чужого
+    expect((await addMember(admin, boardId, outsider, 'EDITOR')).status).toBe(404);
     expect(
-      (await addMember(admin, boardId, outsider, 'EDITOR'))
-        .status,
-    ).toBe(404);
-    expect(
-      (await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: victim.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await admin.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: victim.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(404);
     expect(
       (await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: victim.user.id })).status,
     ).toBe(404);
     expect(
-      (await admin.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: victim.user.id, mute: true })).status,
+      (await admin.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: victim.user.id, mute: true }))
+        .status,
     ).toBe(404);
 
     // і нічого з цього не сталось
@@ -309,14 +336,19 @@ describe('дошки — CRUD і права доступу', () => {
     await addMember(owner, boardId, victim, 'EDITOR');
 
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: admin.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await owner.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: admin.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(200);
 
     // дошку він ще бачить, тому 403, а не 404
     for (const res of [
       await addMember(admin, boardId, outsider, 'EDITOR'),
-      await admin.agent.patch(`/api/boards/${boardId}/members`).send({ userId: victim.user.id, role: 'VIEWER' }),
+      await admin.agent
+        .patch(`/api/boards/${boardId}/members`)
+        .send({ userId: victim.user.id, role: 'VIEWER' }),
       await admin.agent.delete(`/api/boards/${boardId}/members`).send({ userId: victim.user.id }),
       await admin.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: victim.user.id, mute: true }),
     ]) {
@@ -325,7 +357,9 @@ describe('дошки — CRUD і права доступу', () => {
 
     const after = await owner.agent.get(`/api/boards/${boardId}`);
     expect(after.body.members).toHaveLength(2);
-    expect(after.body.members.find((m: { userId: string }) => m.userId === victim.user.id).role).toBe('EDITOR');
+    expect(after.body.members.find((m: { userId: string }) => m.userId === victim.user.id).role).toBe(
+      'EDITOR',
+    );
   });
 
   // додавання — це upsert, тому для того, хто вже на дошці, воно рівносильне
@@ -339,14 +373,8 @@ describe('дошки — CRUD і права доступу', () => {
     await addMember(owner, boardId, admin, 'ADMIN');
     await addMember(owner, boardId, other, 'ADMIN');
 
-    expect(
-      (await addMember(admin, boardId, other, 'VIEWER'))
-        .status,
-    ).toBe(403);
-    expect(
-      (await addMember(admin, boardId, owner, 'VIEWER'))
-        .status,
-    ).toBe(400);
+    expect((await addMember(admin, boardId, other, 'VIEWER')).status).toBe(403);
+    expect((await addMember(admin, boardId, owner, 'VIEWER')).status).toBe(400);
   });
 
   // над адміністратором стоїть не завжди лише власник — залежить від того,
@@ -373,13 +401,19 @@ describe('дошки — CRUD і права доступу', () => {
 
     // adminB не той, хто піднімав, — але піднімав теж адміністратор, тож можна
     expect(
-      (await adminB.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'EDITOR' }))
-        .status,
+      (
+        await adminB.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: promoted.user.id, role: 'EDITOR' })
+      ).status,
     ).toBe(200);
     // а один одного ці двоє не чіпають: їх обох підняв власник
     expect(
-      (await adminB.agent.patch(`/api/boards/${boardId}/members`).send({ userId: adminA.user.id, role: 'EDITOR' }))
-        .status,
+      (
+        await adminB.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: adminA.user.id, role: 'EDITOR' })
+      ).status,
     ).toBe(403);
     expect(
       (await adminA.agent.delete(`/api/boards/${boardId}/members`).send({ userId: adminB.user.id })).status,
@@ -396,8 +430,11 @@ describe('дошки — CRUD і права доступу', () => {
     await addMember(adminA, boardId, promoted, 'ADMIN');
 
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'VIEWER' }))
-        .status,
+      (
+        await owner.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: promoted.user.id, role: 'VIEWER' })
+      ).status,
     ).toBe(200);
     expect(
       (await owner.agent.delete(`/api/boards/${boardId}/members`).send({ userId: adminA.user.id })).status,
@@ -417,11 +454,16 @@ describe('дошки — CRUD і права доступу', () => {
     await addMember(owner, boardId, adminB, 'ADMIN');
     await addMember(adminA, boardId, promoted, 'ADMIN');
 
-    await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'ADMIN' });
+    await owner.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: promoted.user.id, role: 'ADMIN' });
 
     expect(
-      (await adminB.agent.patch(`/api/boards/${boardId}/members`).send({ userId: promoted.user.id, role: 'EDITOR' }))
-        .status,
+      (
+        await adminB.agent
+          .patch(`/api/boards/${boardId}/members`)
+          .send({ userId: promoted.user.id, role: 'EDITOR' })
+      ).status,
     ).toBe(403);
   });
 
@@ -438,13 +480,19 @@ describe('дошки — CRUD і права доступу', () => {
     await addMember(adminA, boardId, promoted, 'ADMIN');
 
     expect(
-      (await adminB.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: promoted.user.id, mute: true })).status,
+      (
+        await adminB.agent
+          .patch(`/api/boards/${boardId}/voice`)
+          .send({ userId: promoted.user.id, mute: true })
+      ).status,
     ).toBe(204);
     expect(
-      (await adminB.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: adminA.user.id, mute: true })).status,
+      (await adminB.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: adminA.user.id, mute: true }))
+        .status,
     ).toBe(403);
     expect(
-      (await owner.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: adminA.user.id, mute: true })).status,
+      (await owner.agent.patch(`/api/boards/${boardId}/voice`).send({ userId: adminA.user.id, mute: true }))
+        .status,
     ).toBe(204);
   });
 
@@ -511,5 +559,124 @@ describe('вихід із дошки', () => {
     expect((await stranger.agent.post(`/api/boards/${boardId}/leave`)).status).toBe(404);
     expect((await invited.agent.post(`/api/boards/${boardId}/leave`)).status).toBe(404);
     expect((await invited.agent.get('/api/invites')).body.invites).toHaveLength(1);
+  });
+});
+
+// 05.10: панель учасників ховалась на будь-якому 403/404, і «немає такої пошти»
+// читалось як «ти вже не власник». Тому кожна досяжна відмова цієї ручки має
+// свій код, а «прав більше нема» — рівно два з них
+describe('додавання учасника: коди відмов', () => {
+  async function board() {
+    const owner = await registerUser();
+    const res = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    return { owner, boardId: res.body.id as string };
+  }
+
+  type Caller = Awaited<ReturnType<typeof registerUser>>;
+  const add = (who: Caller, boardId: string, email: string, role = 'EDITOR') =>
+    who.agent.post(`/api/boards/${boardId}/members`).send({ email, role });
+
+  it('невідома пошта — 404 USER_NOT_FOUND, а не втрата прав', async () => {
+    const { owner, boardId } = await board();
+    const res = await add(owner, boardId, 'nobody@test.local');
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('USER_NOT_FOUND');
+  });
+
+  it('запрошують власника — 400 ALREADY_OWNER', async () => {
+    const { owner, boardId } = await board();
+    const res = await add(owner, boardId, owner.payload.email);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('ALREADY_OWNER');
+  });
+
+  it('порожня пошта — 400 VALIDATION_ERROR', async () => {
+    const { owner, boardId } = await board();
+    const res = await add(owner, boardId, 'не-пошта');
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  // це не відмова: ручка — upsert, тож для того, хто вже на дошці, вона
+  // рівносильна зміні ролі. Ліміту на кількість учасників у системі немає
+  it('той, хто вже на дошці, — не помилка, а зміна ролі', async () => {
+    const { owner, boardId } = await board();
+    const member = await registerUser();
+    expect((await addMember(owner, boardId, member, 'EDITOR')).status).toBe(201);
+
+    const again = await add(owner, boardId, member.payload.email, 'VIEWER');
+    expect(again.status).toBe(201);
+    const roles = again.body.members.map((m: { email: string; role: string }) => [m.email, m.role]);
+    expect(roles).toContainEqual([member.payload.email, 'VIEWER']);
+  });
+
+  it('пʼятеро підряд додаються без жодної відмови', async () => {
+    const { owner, boardId } = await board();
+    for (let i = 0; i < 5; i++) {
+      const who = await registerUser();
+      const res = await add(owner, boardId, who.payload.email);
+      expect(res.status, who.payload.email).toBe(201);
+    }
+    const detail = await owner.agent.get(`/api/boards/${boardId}`);
+    expect(detail.body.members).toHaveLength(5);
+  });
+
+  it('адміністратор проти адміністратора від власника — 403 CANNOT_MANAGE_MEMBER, права цілі', async () => {
+    const { owner, boardId } = await board();
+    const admin = await registerUser();
+    const other = await registerUser();
+    await addMember(owner, boardId, admin, 'ADMIN');
+    await addMember(owner, boardId, other, 'ADMIN');
+
+    const res = await add(admin, boardId, other.payload.email, 'VIEWER');
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('CANNOT_MANAGE_MEMBER');
+  });
+
+  it('спроба перевести власника в учасники — 403 OWNER_IMMUTABLE', async () => {
+    const { owner, boardId } = await board();
+    const admin = await registerUser();
+    await addMember(owner, boardId, admin, 'ADMIN');
+
+    const res = await admin.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: 'будь-що', role: 'VIEWER' });
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('MEMBER_NOT_FOUND');
+
+    const ownerRow = await prisma.user.findUnique({ where: { email: owner.payload.email } });
+    const onOwner = await admin.agent
+      .patch(`/api/boards/${boardId}/members`)
+      .send({ userId: ownerRow!.id, role: 'VIEWER' });
+    expect(onOwner.status).toBe(403);
+    expect(onOwner.body.error.code).toBe('OWNER_IMMUTABLE');
+  });
+
+  // справжня втрата прав: адміністратора знизили, поки панель була відкрита
+  it('знижений адміністратор — 403 NOT_BOARD_MANAGER', async () => {
+    const { owner, boardId } = await board();
+    const admin = await registerUser();
+    const outsider = await registerUser();
+    await addMember(owner, boardId, admin, 'ADMIN');
+    expect((await add(admin, boardId, outsider.payload.email)).status).toBe(201);
+
+    const adminRow = await prisma.user.findUnique({ where: { email: admin.payload.email } });
+    await owner.agent.patch(`/api/boards/${boardId}/members`).send({ userId: adminRow!.id, role: 'EDITOR' });
+
+    const res = await add(admin, boardId, outsider.payload.email);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('NOT_BOARD_MANAGER');
+  });
+
+  // власник прав не губить інакше, ніж разом із дошкою: OWNER бере не з рядка
+  // учасника, а з board.ownerId, і знизити його нема кому
+  it('власник: прав не губить, а на видаленій дошці — BOARD_NOT_FOUND', async () => {
+    const { owner, boardId } = await board();
+    const outsider = await registerUser();
+    await owner.agent.delete(`/api/boards/${boardId}`);
+
+    const res = await add(owner, boardId, outsider.payload.email);
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('BOARD_NOT_FOUND');
   });
 });

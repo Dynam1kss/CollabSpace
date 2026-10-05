@@ -99,6 +99,36 @@ export interface AddBoardMemberRequest {
   role: BoardRole;
 }
 
+// коди відмов при керуванні учасниками. Код — машинне, по ньому клієнт вибирає
+// текст; на status покладатись не можна, бо на одному 403/404 сидить і «у тебе
+// більше нема прав», і «такої пошти нема». Панель учасників розрізняла їх саме
+// за status і будь-яку відмову показувала як втрату прав (05.10)
+export const MEMBER_ERROR = {
+  // пошта не належить жодному зареєстрованому користувачу
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  // запрошують власника дошки — у нього й так повний доступ
+  ALREADY_OWNER: 'ALREADY_OWNER',
+  // такого учасника на дошці немає (його прибрали, поки панель була відкрита)
+  MEMBER_NOT_FOUND: 'MEMBER_NOT_FOUND',
+  // власника дошки чіпати не можна нікому, зокрема й іншому власнику
+  OWNER_IMMUTABLE: 'OWNER_IMMUTABLE',
+  // ієрархія: цього конкретного учасника я чіпати не можу (адміністратор
+  // проти адміністратора, якого підняв власник). Мої права при цьому цілі
+  CANNOT_MANAGE_MEMBER: 'CANNOT_MANAGE_MEMBER',
+  // ЄДИНИЙ код, що означає «прав на дошці більше нема»: я вже не власник і не
+  // адміністратор. Разом із BOARD_NOT_FOUND (дошку видалили або мене прибрали
+  // звідти цілком) це те, через що панель має зникнути, а не просто показати
+  // помилку
+  NOT_BOARD_MANAGER: 'NOT_BOARD_MANAGER',
+} as const;
+
+export type MemberErrorCode = (typeof MEMBER_ERROR)[keyof typeof MEMBER_ERROR];
+
+// відмови, після яких керувати учасниками вже нема сенсу — панель ховається
+export function isLostBoardRights(code: string) {
+  return code === MEMBER_ERROR.NOT_BOARD_MANAGER || code === 'BOARD_NOT_FOUND';
+}
+
 // роль міняємо на місці, не видаляючи й не заводячи учасника наново —
 // інакше ряд у базі щоразу новий, а з ним і його id
 export interface UpdateBoardMemberRequest {

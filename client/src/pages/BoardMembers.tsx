@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { canManageMember } from 'shared';
+import { canManageMember, isLostBoardRights } from 'shared';
 import type { BoardMemberInfo, BoardRole } from 'shared';
 import { Avatar } from '../components/Avatar';
 import { anchorOf, openProfileCard } from '../components/profile-card-store';
@@ -57,10 +57,12 @@ export function BoardMembers({ boardId, myRole, ownerId }: Props) {
   // тими кнопками, що й були, і людина не розуміла, чому нічого не діється
   const [lost, setLost] = useState(false);
 
-  // 403/404 від будь-якої дії означає «прав уже немає» — ховаємо панель,
-  // а не просто показуємо помилку під списком
+  // ховаємо панель лише коли сервер прямо сказав, що прав більше нема. Раніше
+  // тут стояла перевірка за status, і «немає користувача з такою поштою» (404)
+  // теж читалось як «ти вже не власник» — власник додавав учасника й бачив
+  // пораду оновити сторінку замість причини (05.10)
   const handleFailure = (err: unknown, fallback: string) => {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+    if (err instanceof ApiError && isLostBoardRights(err.code)) {
       setLost(true);
       setError(t('members.rightsChanged'));
       return;
