@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { stickyFontSize, textAlign } from 'shared';
-import type { TextAlign } from 'shared';
+import { lineDash, stickyFontSize, textAlign } from 'shared';
+import type { LineDash, TextAlign } from 'shared';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
@@ -10,6 +10,11 @@ import {
   AlignCenterIcon,
   AlignLeftIcon,
   AlignRightIcon,
+  ArrowEndIcon,
+  ArrowStartIcon,
+  DashDashedIcon,
+  DashDottedIcon,
+  DashSolidIcon,
   BringFrontIcon,
   ChairIcon,
   DuplicateIcon,
@@ -107,7 +112,11 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
 
   const fillObject = selected.find((o) => o.type === 'sticky' || o.type === 'shape');
   const textColorObject = selected.find((o) => o.type === 'sticky' || o.type === 'text');
-  const strokeObject = selected.find((o) => o.type === 'shape' || o.type === 'connector');
+  const strokeObject = selected.find(
+    (o) => o.type === 'shape' || o.type === 'connector' || o.type === 'line',
+  );
+  // штрих і вістря — тільки в прямої
+  const lineObject = selected.find((o) => o.type === 'line');
   // розмір шрифту є і в тексту, і в стікера — поле одне на обидва.
   // вирівнювання так само: у стікера коробка стала, тож там воно навіть
   // помітніше, ніж у блоку, що хугає свій текст
@@ -154,14 +163,16 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
   function setStrokeColor(color: string) {
     const update = useBoardStore.getState().update;
     for (const o of selected) {
-      if (o.type === 'shape' || o.type === 'connector') update(o.id, { strokeColor: color });
+      if (o.type === 'shape' || o.type === 'connector' || o.type === 'line')
+        update(o.id, { strokeColor: color });
     }
   }
 
   function setStrokeWidth(width: number) {
     const update = useBoardStore.getState().update;
     for (const o of selected) {
-      if (o.type === 'shape' || o.type === 'connector') update(o.id, { strokeWidth: width });
+      if (o.type === 'shape' || o.type === 'connector' || o.type === 'line')
+        update(o.id, { strokeWidth: width });
     }
   }
 
@@ -173,6 +184,18 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       if (o.type === 'text') update(o.id, { fontSize, ...fitTextBox({ ...o, fontSize }) });
       else if (o.type === 'sticky') update(o.id, { fontSize });
     }
+  }
+
+  function setDash(dash: LineDash) {
+    const update = useBoardStore.getState().update;
+    for (const o of selected) if (o.type === 'line') update(o.id, { dash });
+  }
+
+  // вістря перемикаються незалежно: лінія буває і без них, і з обома
+  function toggleArrow(which: 'arrowStart' | 'arrowEnd') {
+    const update = useBoardStore.getState().update;
+    const on = !!lineObject && lineObject.type === 'line' && !!lineObject[which];
+    for (const o of selected) if (o.type === 'line') update(o.id, { [which]: !on });
   }
 
   function setAlign(align: TextAlign) {
@@ -216,7 +239,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           onPick={setTextColor}
         />
       )}
-      {strokeObject && (strokeObject.type === 'shape' || strokeObject.type === 'connector') && (
+      {strokeObject && (
         <ColorButton
           label={t('ctx.stroke')}
           color={strokeObject.strokeColor}
@@ -226,7 +249,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
         />
       )}
 
-      {strokeObject && (strokeObject.type === 'shape' || strokeObject.type === 'connector') && (
+      {strokeObject && (
         <NumberField
           label={t('ctx.strokeWidth')}
           icon={<StrokeWidthIcon />}
@@ -245,6 +268,52 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           max={FONT_SIZE_MAX}
           onCommit={setFontSize}
         />
+      )}
+
+      {lineObject && lineObject.type === 'line' && (
+        <>
+          <span className="ctx-group" role="group" aria-label={t('ctx.dash')}>
+            {(
+              [
+                ['solid', <DashSolidIcon key="s" />],
+                ['dashed', <DashDashedIcon key="d" />],
+                ['dotted', <DashDottedIcon key="o" />],
+              ] as const
+            ).map(([value, icon]) => (
+              <button
+                key={value}
+                type="button"
+                className={lineDash(lineObject) === value ? 'ctx-toggle active' : 'ctx-toggle'}
+                title={t(`ctx.dash_${value}`)}
+                aria-label={t(`ctx.dash_${value}`)}
+                aria-pressed={lineDash(lineObject) === value}
+                onClick={() => setDash(value)}
+              >
+                {icon}
+              </button>
+            ))}
+          </span>
+          <span className="ctx-group" role="group" aria-label={t('ctx.arrows')}>
+            {(
+              [
+                ['arrowStart', <ArrowStartIcon key="s" />],
+                ['arrowEnd', <ArrowEndIcon key="e" />],
+              ] as const
+            ).map(([which, icon]) => (
+              <button
+                key={which}
+                type="button"
+                className={lineObject[which] ? 'ctx-toggle active' : 'ctx-toggle'}
+                title={t(`ctx.${which}`)}
+                aria-label={t(`ctx.${which}`)}
+                aria-pressed={!!lineObject[which]}
+                onClick={() => toggleArrow(which)}
+              >
+                {icon}
+              </button>
+            ))}
+          </span>
+        </>
       )}
 
       {fontObject && (

@@ -94,6 +94,32 @@ export interface ConnectorObject extends BoardObjectBase {
   arrowEnd: boolean;
 }
 
+// штрих лінії: суцільний, штриховий, крапковий. Поле необовʼязкове — лінія
+// без нього суцільна
+export type LineDash = 'solid' | 'dashed' | 'dotted';
+
+// пряма між двома точками. Окремий тип, а не конектор із двома точками: у
+// конектора points — це ламана, яку konva веде сплайном, з вставними
+// середніми точками й натягом. Прямій усе це не потрібне, а наслідувати
+// довелось би разом із помилками. Тут рівно два кінці.
+// x/y/width/height — рамка по цих двох точках (виділення, hit-тест, клітинка
+// в стратегії 3); тримати їх узгодженими — справа коду, що міняє лінію
+export interface LineObject extends BoardObjectBase {
+  type: 'line';
+  from: BoardPoint;
+  to: BoardPoint;
+  strokeColor: string;
+  strokeWidth: number;
+  dash?: LineDash;
+  // вістря на кінцях. Необовʼязкові, бо найчастіша лінія — без них
+  arrowStart?: boolean;
+  arrowEnd?: boolean;
+}
+
+export function lineDash(object: Pick<LineObject, 'dash'>): LineDash {
+  return object.dash ?? 'solid';
+}
+
 // url — відносний шлях /uploads/..., сам файл лежить на диску сервера
 export interface ImageObject extends BoardObjectBase {
   type: 'image';
@@ -105,5 +131,6 @@ export interface ImageObject extends BoardObjectBase {
   flipY?: boolean;
 }
 
-export type BoardObject = StickyObject | TextObject | ShapeObject | ConnectorObject | ImageObject;
+export type BoardObject =
+  StickyObject | TextObject | ShapeObject | ConnectorObject | LineObject | ImageObject;
 export type BoardObjectType = BoardObject['type'];

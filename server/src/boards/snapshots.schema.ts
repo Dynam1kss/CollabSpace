@@ -64,6 +64,18 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     ...base,
+    type: z.literal('line'),
+    from: point,
+    to: point,
+    strokeColor: z.string(),
+    strokeWidth: z.number(),
+    // без поля — суцільна; вістря найчастіше немає взагалі
+    dash: z.enum(['solid', 'dashed', 'dotted']).optional(),
+    arrowStart: z.boolean().optional(),
+    arrowEnd: z.boolean().optional(),
+  }),
+  z.object({
+    ...base,
     type: z.literal('image'),
     url: z.string().min(1),
     // без них zod різав віддзеркалення при кожному збереженні

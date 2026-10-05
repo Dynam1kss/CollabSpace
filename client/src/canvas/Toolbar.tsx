@@ -7,6 +7,7 @@ import {
   ConnectorIcon,
   EllipseIcon,
   ImageIcon,
+  LineIcon,
   RectIcon,
   RedoIcon,
   SelectIcon,
@@ -28,6 +29,7 @@ const TOOLS: { id: ToolId; hotkey: string; icon: ReactNode }[] = [
   { id: 'rect', hotkey: 'R', icon: <RectIcon /> },
   { id: 'ellipse', hotkey: 'E', icon: <EllipseIcon /> },
   { id: 'connector', hotkey: 'C', icon: <ConnectorIcon /> },
+  { id: 'line', hotkey: 'L', icon: <LineIcon /> },
 ];
 
 const HOTKEY_MAP: Record<string, ToolId> = Object.fromEntries(TOOLS.map((t) => [t.hotkey, t.id]));

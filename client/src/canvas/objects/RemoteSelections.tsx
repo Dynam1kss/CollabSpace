@@ -60,6 +60,32 @@ export function RemoteSelections({ objects, viewportScale }: Props) {
           );
         }
 
+        // пряма — такий самий ореол уздовж самої лінії, лише без натягу
+        if (object.type === 'line') {
+          const halo = {
+            points: [object.from.x, object.from.y, object.to.x, object.to.y],
+            stroke: color,
+            strokeWidth: object.strokeWidth + padding * 2,
+            opacity: 0.45,
+            lineCap: 'round' as const,
+            lineJoin: 'round' as const,
+            listening: false,
+          };
+          return object.arrowStart || object.arrowEnd ? (
+            <Arrow
+              key={id}
+              {...halo}
+              pointerAtBeginning={!!object.arrowStart}
+              pointerAtEnding={!!object.arrowEnd}
+              pointerLength={10}
+              pointerWidth={10}
+              fill={color}
+            />
+          ) : (
+            <Line key={id} {...halo} />
+          );
+        }
+
         // крутимо навколо того ж центру, що й сам обʼєкт: з x - padding рамка
         // на куті відʼїжджала, а в еліпса — на сотню пікселів
         const pivot = pivotOffset(object);

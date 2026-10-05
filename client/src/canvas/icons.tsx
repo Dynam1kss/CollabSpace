@@ -343,3 +343,54 @@ export function AlignRightIcon() {
     </Svg>
   );
 }
+
+// пряма — просто відрізок навскіс, щоб не плутався зі стрілкою-зʼєднувачем
+export function LineIcon() {
+  return (
+    <Svg>
+      <path d="M4 16L16 4" />
+    </Svg>
+  );
+}
+
+// штрих лінії: суцільна / штрихова / крапкова
+export function DashSolidIcon() {
+  return (
+    <Svg>
+      <path d="M3 10h14" />
+    </Svg>
+  );
+}
+
+export function DashDashedIcon() {
+  return (
+    <Svg>
+      <path d="M3 10h4M8 10h4M16 10h1" />
+    </Svg>
+  );
+}
+
+export function DashDottedIcon() {
+  return (
+    <Svg>
+      <path d="M3.5 10h.6M7 10h.6M10.5 10h.6M14 10h.6M17 10h.4" />
+    </Svg>
+  );
+}
+
+// вістря на початку / в кінці прямої
+export function ArrowStartIcon() {
+  return (
+    <Svg>
+      <path d="M4 10h12M4 10l4-3M4 10l4 3" />
+    </Svg>
+  );
+}
+
+export function ArrowEndIcon() {
+  return (
+    <Svg>
+      <path d="M4 10h12M16 10l-4-3M16 10l-4 3" />
+    </Svg>
+  );
+}

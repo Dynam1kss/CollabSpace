@@ -6,7 +6,7 @@ import type { Bounds } from './fit-to-objects';
 // колір «чорнила» обʼєкта — те, що в темній темі підмінюється світлим
 function inkOf(o: BoardObject) {
   if (o.type === 'text') return o.color;
-  if (o.type === 'shape' || o.type === 'connector') return o.strokeColor;
+  if (o.type === 'shape' || o.type === 'connector' || o.type === 'line') return o.strokeColor;
   return null;
 }
 

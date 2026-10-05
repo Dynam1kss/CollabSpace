@@ -3,7 +3,7 @@ import type { BoardObject } from 'shared';
 import { beginUndoGesture, endUndoGesture } from './board-store';
 import { lockOwner, usePresenceStore } from './presence-store';
 
-export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
+export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'line';
 
 // шар обʼєктів ловить події лише під інструментом вибору. Під будь-яким
 // інструментом створення обʼєкти «прозорі» — інакше клік по наявному стікеру

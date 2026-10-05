@@ -65,9 +65,7 @@ export function RemoteViewports({ viewportScale, visible }: Props) {
 
   useEffect(() => {
     tween.retarget(
-      Object.fromEntries(
-        Object.entries(viewports).map(([key, r]) => [key, [r.x, r.y, r.width, r.height]]),
-      ),
+      Object.fromEntries(Object.entries(viewports).map(([key, r]) => [key, [r.x, r.y, r.width, r.height]])),
     );
   }, [tween, viewports]);
 

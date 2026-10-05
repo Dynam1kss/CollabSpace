@@ -173,6 +173,82 @@ describe('снепшот дошки', () => {
     expect(res.status).toBe(400);
   });
 
+  it('пряма переживає знімок разом зі штрихом і вістрями', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const line = {
+      id: 'l1',
+      type: 'line',
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 50,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      from: { x: 10, y: 20 },
+      to: { x: 110, y: 70 },
+      strokeColor: '#1f2937',
+      strokeWidth: 3,
+      dash: 'dashed',
+      arrowStart: true,
+      arrowEnd: false,
+    };
+
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [line, { ...line, id: 'l2', dash: undefined, arrowStart: undefined }] })
+      .expect(204);
+
+    const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    const byId = Object.fromEntries(res.body.objects.map((o: { id: string }) => [o.id, o]));
+    expect(byId['l1']).toMatchObject({
+      type: 'line',
+      from: { x: 10, y: 20 },
+      to: { x: 110, y: 70 },
+      dash: 'dashed',
+      arrowStart: true,
+      arrowEnd: false,
+    });
+    // проста пряма — без зайвих полів
+    expect(byId['l2']).not.toHaveProperty('dash');
+    expect(byId['l2']).not.toHaveProperty('arrowStart');
+  });
+
+  it('пряма без кінців чи з невідомим штрихом — 400', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const base = {
+      id: 'l1',
+      type: 'line',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      from: { x: 0, y: 0 },
+      to: { x: 10, y: 10 },
+      strokeColor: '#000',
+      strokeWidth: 2,
+    };
+
+    const noEnds = { ...base, to: undefined };
+    expect(
+      (await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [noEnds] })).status,
+    ).toBe(400);
+    expect(
+      (
+        await agent
+          .put(`/api/boards/${board.body.id}/snapshot`)
+          .send({ objects: [{ ...base, dash: 'wavy' }] })
+      ).status,
+    ).toBe(400);
+  });
+
   it('невалідний обʼєкт — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });

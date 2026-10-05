@@ -8,6 +8,7 @@ import type {
   BoardObject,
   ConnectorObject,
   ImageObject,
+  LineObject,
   ShapeObject,
   StickyObject,
   TextObject,
@@ -19,6 +20,7 @@ type BoardObjectPatch =
   | Partial<Omit<TextObject, 'id' | 'type'>>
   | Partial<Omit<ShapeObject, 'id' | 'type'>>
   | Partial<Omit<ConnectorObject, 'id' | 'type'>>
+  | Partial<Omit<LineObject, 'id' | 'type'>>
   | Partial<Omit<ImageObject, 'id' | 'type'>>;
 
 interface BoardObjectsState {

@@ -372,7 +372,7 @@ function DraftPreview({
   start,
   current,
 }: {
-  tool: 'rect' | 'ellipse' | 'connector';
+  tool: 'rect' | 'ellipse' | 'connector' | 'line';
   start: { x: number; y: number };
   current: { x: number; y: number };
 }) {
@@ -395,7 +395,7 @@ function DraftPreview({
       />
     );
   }
-  if (tool === 'connector') {
+  if (tool === 'connector' || tool === 'line') {
     return (
       <Line
         points={[start.x, start.y, current.x, current.y]}

@@ -3,6 +3,7 @@ import type {
   BoardObject,
   ConnectorObject,
   ImageObject,
+  LineObject,
   ShapeObject,
   ShapeKind,
   StickyColumn,
@@ -10,7 +11,7 @@ import type {
   TextObject,
 } from 'shared';
 import type { Point } from './coordinates';
-import { withPoints } from './objects/point-box';
+import { withEnds, withPoints } from './objects/point-box';
 import { fitTextBox } from './text-layout';
 import { DEFAULT_INK } from '../theme';
 import { i18n } from '../i18n';
@@ -40,11 +41,11 @@ const SHAPE_SIZE = { width: 120, height: 90 };
 const CONNECTOR_LENGTH = 140;
 const MIN_DRAWN_SIZE = 8; // менше цього — вважаємо це кліком, не протягуванням
 
-export type CreatableTool = 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
+export type CreatableTool = 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'line';
 
 // усі інструменти, що щось створюють — список в одному місці, щоб перевірки
 // не перелічували їх руками й не відставали від коду
-export const CREATABLE_TOOLS: CreatableTool[] = ['sticky', 'text', 'rect', 'ellipse', 'connector'];
+export const CREATABLE_TOOLS: CreatableTool[] = ['sticky', 'text', 'rect', 'ellipse', 'connector', 'line'];
 
 interface CreationMeta {
   createdBy: string;
@@ -73,6 +74,8 @@ export function createAtPoint(tool: CreatableTool, point: Point, meta: CreationM
       return createShape(tool, point.x, point.y, SHAPE_SIZE.width, SHAPE_SIZE.height, meta);
     case 'connector':
       return createConnector(point, { x: point.x + CONNECTOR_LENGTH, y: point.y }, meta);
+    case 'line':
+      return createLine(point, { x: point.x + CONNECTOR_LENGTH, y: point.y }, meta);
   }
 }
 
@@ -99,6 +102,25 @@ export function createShapeFromRect(
     Math.max(MIN_DRAWN_SIZE, height),
     meta,
   );
+}
+
+// протягування для прямої — те саме правило, що й у зʼєднувача: надто короткий
+// жест вважаємо кліком і даємо стандартну довжину
+export function createLineFromPoints(from: Point, to: Point, meta: CreationMeta): LineObject {
+  if (Math.hypot(to.x - from.x, to.y - from.y) < MIN_DRAWN_SIZE) {
+    return createLine(from, { x: from.x + CONNECTOR_LENGTH, y: from.y }, meta);
+  }
+  return createLine(from, to, meta);
+}
+
+function createLine(from: Point, to: Point, meta: CreationMeta): LineObject {
+  return {
+    ...baseFields(meta),
+    ...withEnds(from, to),
+    type: 'line',
+    strokeColor: DEFAULT_STROKE_COLOR,
+    strokeWidth: 2,
+  };
 }
 
 // протягування для зʼєднувача — кінці саме там, де відпустили/натиснули палець/курсор

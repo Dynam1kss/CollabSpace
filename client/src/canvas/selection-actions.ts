@@ -5,6 +5,7 @@ import { useEditorStore } from './editor-store';
 import { lockedObjectIds, usePresenceStore } from './presence-store';
 import { deletableIds } from './object-lock';
 import { withPoints } from './objects/point-box';
+import { movedLine } from './objects/line-geometry';
 import { createAtPoint } from './object-defaults';
 import type { CreatableTool } from './object-defaults';
 import type { Point } from './coordinates';
@@ -15,6 +16,8 @@ function moveByDelta(obj: BoardObject, dx: number, dy: number) {
   if (obj.type === 'connector') {
     return withPoints(obj.points.map((p) => ({ x: p.x + dx, y: p.y + dy })));
   }
+  // у прямої, як і в конектора, рухається не рамка, а самі кінці
+  if (obj.type === 'line') return movedLine(obj, dx, dy);
   return { x: obj.x + dx, y: obj.y + dy };
 }
 

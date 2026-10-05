@@ -11,3 +11,16 @@ export function withPoints(points: BoardPoint[]) {
   const y = Math.min(...ys);
   return { points, x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
 }
+
+// рамка прямої по двох її кінцях. Окрема від withPoints, бо в лінії модель
+// інша — два іменовані кінці, а не масив точок
+export function withEnds(from: BoardPoint, to: BoardPoint) {
+  return {
+    from,
+    to,
+    x: Math.min(from.x, to.x),
+    y: Math.min(from.y, to.y),
+    width: Math.abs(to.x - from.x),
+    height: Math.abs(to.y - from.y),
+  };
+}

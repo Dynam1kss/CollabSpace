@@ -7,7 +7,7 @@ import { screenToBoard } from './coordinates';
 import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import type { ToolId } from './editor-store';
-import { createConnectorFromPoints, createShapeFromRect } from './object-defaults';
+import { createConnectorFromPoints, createLineFromPoints, createShapeFromRect } from './object-defaults';
 import type { CreatableTool } from './object-defaults';
 import {
   copySelected,
@@ -25,8 +25,8 @@ function isTypingTarget(target: EventTarget | null) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
 
-function isDrawTool(tool: ToolId): tool is 'rect' | 'ellipse' | 'connector' {
-  return tool === 'rect' || tool === 'ellipse' || tool === 'connector';
+function isDrawTool(tool: ToolId): tool is 'rect' | 'ellipse' | 'connector' | 'line' {
+  return tool === 'rect' || tool === 'ellipse' || tool === 'connector' || tool === 'line';
 }
 
 function isCreatableTool(tool: ToolId): tool is CreatableTool {
@@ -47,7 +47,7 @@ interface RubberBand {
 }
 
 interface Draft {
-  tool: 'rect' | 'ellipse' | 'connector';
+  tool: 'rect' | 'ellipse' | 'connector' | 'line';
   start: Point;
   current: Point;
 }
@@ -103,16 +103,18 @@ export function useObjectInteractions(
       const object =
         d.tool === 'connector'
           ? createConnectorFromPoints(d.start, d.current, meta)
-          : createShapeFromRect(
-              d.tool,
-              {
-                x: Math.min(d.start.x, d.current.x),
-                y: Math.min(d.start.y, d.current.y),
-                width: Math.abs(d.current.x - d.start.x),
-                height: Math.abs(d.current.y - d.start.y),
-              },
-              meta,
-            );
+          : d.tool === 'line'
+            ? createLineFromPoints(d.start, d.current, meta)
+            : createShapeFromRect(
+                d.tool,
+                {
+                  x: Math.min(d.start.x, d.current.x),
+                  y: Math.min(d.start.y, d.current.y),
+                  width: Math.abs(d.current.x - d.start.x),
+                  height: Math.abs(d.current.y - d.start.y),
+                },
+                meta,
+              );
       useBoardStore.getState().add(object);
       // порядок важливий: setActiveTool сама скидає selectedIds (щоб перемикання
       // на інший інструмент не лишало виділення від попереднього) — тому спершу

@@ -2,6 +2,7 @@ import type Konva from 'konva';
 import type { BoardObject } from 'shared';
 import { ConnectorShape } from './ConnectorShape';
 import { ImageShape } from './ImageShape';
+import { LineShape } from './LineShape';
 import { ShapeNode } from './ShapeNode';
 import { StickyNoteShape } from './StickyNoteShape';
 import { TextShape } from './TextShape';
@@ -12,7 +13,7 @@ interface Props {
   // текст цього обʼєкта зараз редагується в textarea поверх полотна
   isEditing: boolean;
   draggable: boolean;
-  // потрібен лише конектору — щоб кружечки кінців були сталого розміру на екрані
+  // потрібен конектору й прямій — щоб кружечки кінців були сталого розміру на екрані
   viewportScale: number;
   // дефолтне чорнило лежить поверх непрозорого — не підмінювати на світле
   inkOverFill: boolean;
@@ -63,6 +64,17 @@ export function ObjectRenderer({
     case 'connector':
       return (
         <ConnectorShape
+          object={object}
+          isSelected={isSelected}
+          draggable={draggable}
+          viewportScale={viewportScale}
+          inkOverFill={inkOverFill}
+          registerRef={registerRef}
+        />
+      );
+    case 'line':
+      return (
+        <LineShape
           object={object}
           isSelected={isSelected}
           draggable={draggable}

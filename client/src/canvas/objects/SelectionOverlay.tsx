@@ -15,7 +15,7 @@ import { FONT_SIZE_MAX, FONT_SIZE_MIN } from '../object-defaults';
 import { MIN_BOX_SIDE } from '../limits';
 import { fitTextBox } from '../text-layout';
 import { flattenPoints } from './connector-geometry';
-import { withPoints } from './point-box';
+import { withEnds, withPoints } from './point-box';
 import {
   MIN_SIZE,
   gripFor,
@@ -250,7 +250,12 @@ export function SelectionOverlay({
     selectedObjects.length === 1 && selectedObjects[0].type === 'text'
       ? (selectedObjects[0] as TextObject)
       : null;
-  const soleConnector = selectedObjects.length === 1 && selectedObjects[0].type === 'connector';
+  // одинокий конектор чи пряма ведуться власними кружечками кінців, тому
+  // трансформер їм не даємо: дві рамки з ручками одна поверх одної лише
+  // плутали б, та й тягнути лінію за кут рамки нема сенсу
+  const soleConnector =
+    selectedObjects.length === 1 &&
+    (selectedObjects[0].type === 'connector' || selectedObjects[0].type === 'line');
   // картинку саму по собі тягнемо лише пропорційно, інакше вона сплющується
   const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
   // пропорція заблокована для тексту й картинки завжди, для решти — з shift
@@ -533,7 +538,7 @@ export function SelectionOverlay({
         resizeTextLive(node as Konva.Group, anchor, soleText.minHeight);
       } else if (obj.type === 'text') {
         scaleTextLive(node as Konva.Group, obj.autoWidth);
-      } else if (obj.type === 'connector') {
+      } else if (obj.type === 'connector' || obj.type === 'line') {
         bakeConnectorTransform(node as Konva.Group);
       }
     }
@@ -584,6 +589,13 @@ export function SelectionOverlay({
       if (obj.type === 'connector') {
         // handleTransform уже переніс усе в точки вузла, тут фіксуємо в сторі
         updateObject(obj.id, withPoints(bakeConnectorTransform(node as Konva.Group)));
+        continue;
+      }
+
+      // у прямої та сама механіка, лише кінців рівно два
+      if (obj.type === 'line') {
+        const [from, to] = bakeConnectorTransform(node as Konva.Group);
+        if (from && to) updateObject(obj.id, withEnds(from, to));
         continue;
       }
 

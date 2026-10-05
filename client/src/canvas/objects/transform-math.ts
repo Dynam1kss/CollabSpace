@@ -83,7 +83,10 @@ export function handlePoint(rect: Rect, handle: string, rotation = 0, pivot = NO
 
 // кутова ручка тягне обидві осі, ребро — лише одну
 export function isCornerHandle(handle: string) {
-  return (handle.includes('top') || handle.includes('bottom')) && (handle.includes('left') || handle.includes('right'));
+  return (
+    (handle.includes('top') || handle.includes('bottom')) &&
+    (handle.includes('left') || handle.includes('right'))
+  );
 }
 
 export interface ResizeResult extends Rect {
