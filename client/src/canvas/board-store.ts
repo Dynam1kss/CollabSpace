@@ -70,7 +70,10 @@ export const cellUndo = new CellUndo(DISCRETE_CAPTURE_MS, () => refreshUndoState
 export const cellDocs = new CellDocs({
   onOpenCell: (cell, map) => cellUndo.track(cell, map),
   onCloseCell: (cell) => cellUndo.forget(cell),
-  onMirror: (changes) =>
+  // зворотний бік тієї самої межі: поза стратегією 3 клітинки дзеркала не
+  // торкаються. Сюди долітає хіба що closeAll зі скидання документа
+  onMirror: (changes) => {
+    if (!aoi()) return;
     useBoardStore.setState((state) => {
       const objects = { ...state.objects };
       for (const [id, value] of changes) {
@@ -78,7 +81,8 @@ export const cellDocs = new CellDocs({
         else delete objects[id];
       }
       return { objects };
-    }),
+    });
+  },
   onLocalUpdate: (cell, update) => cellSyncHooks?.localUpdate(cell, update),
   onNeedCell: (cell) => cellSyncHooks?.needCell(cell),
 });
@@ -253,6 +257,13 @@ export const useBoardStore = create<BoardObjectsState>((set, get) => ({
 // будь-яка зміна мапи (своя чи чужа з мережі) → перезбираємо дзеркало лише
 // по зачеплених ключах; нове посилання objects — React перемальовує як і раніше
 function mirror(event: Y.YMapEvent<BoardObject>) {
+  // у стратегії 3 правда про вміст — у клітинках, і головний документ до
+  // дзеркала не має стосунку взагалі. Без цієї перевірки чужий UPDATE (клієнт
+  // іншої стратегії, старий клієнт, помилка) переписував би дзеркало поверх
+  // клітинок: обʼєкт отримував двох письменників, і прапорці на ньому
+  // перемикались самі собою — звідси «дозволити стільці» через раз (05.10).
+  // Сервер такого клієнта вже не пускає, це другий рубіж
+  if (aoi()) return;
   if (yObjects.size === 0) {
     const origin: unknown = event.transaction.origin;
     emptiedBy = origin === APP_ORIGIN ? 'app' : origin == null ? 'user' : 'remote';
