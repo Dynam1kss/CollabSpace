@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { stickyFontSize } from 'shared';
 import type { BoardObject } from 'shared';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
@@ -25,7 +26,10 @@ const MIN_INPUT_FONT_PX = 16;
 export function TextEditOverlay({ object, viewport }: Props) {
   const theme = useTheme();
   const objectsMap = useBoardStore((s) => s.objects);
-  const overFill = useMemo(() => inkOverFill(Object.values(objectsMap)).has(object.id), [objectsMap, object.id]);
+  const overFill = useMemo(
+    () => inkOverFill(Object.values(objectsMap)).has(object.id),
+    [objectsMap, object.id],
+  );
   // текстовий блок росте під час набору так само, як виросте після коміту
   const [textSize, setTextSize] = useState(() =>
     object.type === 'text' ? { width: object.width, height: object.height } : null,
@@ -42,7 +46,7 @@ export function TextEditOverlay({ object, viewport }: Props) {
   // потрібний розмір на екрані може бути скільки завгодно малим, а полю
   // ставимо не менше порога і стискаємо все разом трансформом: у браузера
   // шрифт лишається великим, на екрані виглядає як і має
-  const wantedFont = (object.type === 'text' ? object.fontSize : 16) * viewport.scale;
+  const wantedFont = (object.type === 'text' ? object.fontSize : stickyFontSize(object)) * viewport.scale;
   const fontSize = Math.max(MIN_INPUT_FONT_PX, wantedFont);
   const shrink = wantedFont / fontSize;
   // коробку роздуваємо рівно настільки, наскільки її потім стисне трансформ —

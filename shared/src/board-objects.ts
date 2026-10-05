@@ -30,6 +30,18 @@ export interface StickyObject extends BoardObjectBase {
   fillColor: string;
   textColor: string;
   column: StickyColumn | null;
+  // необовʼязковий, як seatsAllowed: до 06.10 розмір був прибитий у коді, і
+  // старі стікери поля не мають — у них читається STICKY_FONT_SIZE, тобто
+  // рівно те, чим вони й малювались
+  fontSize?: number;
+}
+
+// розмір тексту стікера, яким він був до появи самого поля. Міняти не можна:
+// на це число спираються всі дошки, збережені раніше
+export const STICKY_FONT_SIZE = 16;
+
+export function stickyFontSize(object: Pick<StickyObject, 'fontSize'>) {
+  return object.fontSize ?? STICKY_FONT_SIZE;
 }
 
 // autoWidth — ширина ще ніким не задана: блок росте вшир за текстом без

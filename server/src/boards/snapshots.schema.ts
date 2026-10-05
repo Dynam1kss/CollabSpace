@@ -29,6 +29,8 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     // стікери, збережені до появи канбану, поля не мають — при перезбереженні
     // стає null (у відповіді GET старий снепшот віддається як є, клієнт це знає)
     column: z.enum(['todo', 'in-progress', 'done']).nullable().default(null),
+    // стікери до 06.10 розміру не мають — тоді він був прибитий у коді
+    fontSize: z.number().optional(),
   }),
   z.object({
     ...base,

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { stickyFontSize } from 'shared';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
@@ -103,7 +104,8 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
   const fillObject = selected.find((o) => o.type === 'sticky' || o.type === 'shape');
   const textColorObject = selected.find((o) => o.type === 'sticky' || o.type === 'text');
   const strokeObject = selected.find((o) => o.type === 'shape' || o.type === 'connector');
-  const textObject = selected.find((o) => o.type === 'text');
+  // розмір шрифту є і в тексту, і в стікера — поле одне на обидва
+  const fontObject = selected.find((o) => o.type === 'text' || o.type === 'sticky');
 
   // увімкненим вважаємо, лише коли дозволено всім виділеним — інакше перший
   // клік має саме ВВІМКНУТИ решті, а не вимкнути тим, у кого вже стоїть
@@ -156,10 +158,13 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     }
   }
 
+  // у текстового блоку розмір тягне за собою коробку (вона похідна від вмісту),
+  // у стікера коробка стала — там міняється лише саме число
   function setFontSize(fontSize: number) {
     const update = useBoardStore.getState().update;
     for (const o of selected) {
       if (o.type === 'text') update(o.id, { fontSize, ...fitTextBox({ ...o, fontSize }) });
+      else if (o.type === 'sticky') update(o.id, { fontSize });
     }
   }
 
@@ -217,11 +222,11 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           onCommit={setStrokeWidth}
         />
       )}
-      {textObject && textObject.type === 'text' && (
+      {fontObject && (
         <NumberField
           label={t('ctx.fontSize')}
           icon={<TextIcon />}
-          value={textObject.fontSize}
+          value={fontObject.type === 'text' ? fontObject.fontSize : stickyFontSize(fontObject)}
           min={FONT_SIZE_MIN}
           max={FONT_SIZE_MAX}
           onCommit={setFontSize}

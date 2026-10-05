@@ -121,6 +121,28 @@ describe('снепшот дошки', () => {
     expect(res.body.objects[0]).toMatchObject({ flipX: true, flipY: false });
   });
 
+  // поле зʼявилось 06.10; старі стікери його не мають і мусять пережити
+  // перезбереження без домальованого числа — інакше дошка «сама змінилась»
+  it('розмір тексту стікера їздить у знімок і назад, а без нього поля просто немає', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({
+        objects: [
+          { ...sticky, id: 'з-розміром', fontSize: 28 },
+          { ...sticky, id: 'старий' },
+        ],
+      })
+      .expect(204);
+
+    const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    const byId = Object.fromEntries(res.body.objects.map((o: { id: string }) => [o.id, o]));
+    expect(byId['з-розміром']).toMatchObject({ fontSize: 28 });
+    expect(byId['старий']).not.toHaveProperty('fontSize');
+  });
+
   it('невалідний обʼєкт — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });

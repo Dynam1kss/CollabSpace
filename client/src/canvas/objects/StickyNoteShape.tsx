@@ -1,6 +1,7 @@
 import { Group, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import { stickyFontSize } from 'shared';
 import type { StickyObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
@@ -69,22 +70,32 @@ export function StickyNoteShape({ object, isSelected, isEditing, draggable, regi
         strokeWidth={isSelected ? 1.5 : 0}
         strokeScaleEnabled={false}
       />
-      {/* поки поверх стоїть textarea редагування — konva-текст ховаємо, інакше букви двояться */}
-      <Text
-        name="text"
-        visible={!isEditing}
-        text={object.text}
-        x={10}
-        y={10}
-        width={Math.max(0, object.width - 20)}
-        height={Math.max(0, object.height - 20)}
-        fontSize={16}
-        fontFamily={TEXT_FONT_FAMILY}
-        lineHeight={TEXT_LINE_HEIGHT}
-        fill={object.textColor}
-        wrap="word"
+      {/* поки поверх стоїть textarea редагування — konva-текст ховаємо, інакше букви двояться.
+      обрізаємо по самій коробці: з великим шрифтом рядки інакше вилізли б за стікер,
+      а переносу тут мало — висота коробки стала (06.10) */}
+      <Group
+        clipX={0}
+        clipY={0}
+        clipWidth={object.width}
+        clipHeight={object.height}
         listening={false}
-      />
+        visible={!isEditing}
+      >
+        <Text
+          name="text"
+          text={object.text}
+          x={10}
+          y={10}
+          width={Math.max(0, object.width - 20)}
+          height={Math.max(0, object.height - 20)}
+          fontSize={stickyFontSize(object)}
+          fontFamily={TEXT_FONT_FAMILY}
+          lineHeight={TEXT_LINE_HEIGHT}
+          fill={object.textColor}
+          wrap="word"
+          listening={false}
+        />
+      </Group>
     </Group>
   );
 }
