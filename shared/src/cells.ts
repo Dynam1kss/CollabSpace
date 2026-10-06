@@ -13,6 +13,12 @@ export const CELL_SIZE = 2000;
 // синхронізуватись, поки до неї ще докручують, і край екрана не буває порожнім
 export const VIEW_MARGIN_RATIO = 0.5;
 
+// ...але не менше за чверть клітинки. Половина вікна — це частка ЕКРАНА, і при
+// сильному наближенні вона мізерна в одиницях дошки: на телефоні при 400%
+// вікно із запасом виходило 195 одиниць, десята частина клітинки, і сусідня
+// клітинка бралася в роботу тоді, коли вже заїжджала на екран (журнал 06.10)
+export const VIEW_MARGIN_MIN = CELL_SIZE / 4;
+
 export interface CellRect {
   x: number;
   y: number;
@@ -52,10 +58,18 @@ export function cellsInRect(rect: CellRect): string[] {
   return out;
 }
 
+// запас по кожній осі окремо: вікно буває дуже витягнутим — телефон стоймя
+// це 390×844, і одне число на обидві осі там нічого не описує
+export function viewMargin(view: CellRect) {
+  return {
+    mx: Math.max(view.width * VIEW_MARGIN_RATIO, VIEW_MARGIN_MIN),
+    my: Math.max(view.height * VIEW_MARGIN_RATIO, VIEW_MARGIN_MIN),
+  };
+}
+
 // видиме вікно разом із запасом — саме на ці клітинки клієнт і передплачується
 export function cellsOfInterest(view: CellRect): string[] {
-  const mx = view.width * VIEW_MARGIN_RATIO;
-  const my = view.height * VIEW_MARGIN_RATIO;
+  const { mx, my } = viewMargin(view);
   return cellsInRect({
     x: view.x - mx,
     y: view.y - my,

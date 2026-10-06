@@ -332,13 +332,14 @@ const phoneCenter = { x: PHONE.width / 2, y: PHONE.height / 2 };
 
 describe('стратегія 3: чужий обʼєкт і камера телефона', () => {
   // дошка, де телефон стоїть у 0:0 на масштабі 4, а другий пристрій створює
-  // обʼєкт у 1:0 — там, де телефон не передплачений
+  // обʼєкт у 1:0 — там, де телефон не передплачений. 900 по x, бо запас тепер
+  // не менший за чверть клітинки: від 1451 межа 1:0 уже в області інтересу
   async function board() {
     const w = world([]);
     const phone = w.join();
     const desk = w.join();
     attachAoi(phone.sync);
-    const start = centerOnPoint({ x: 1800, y: 300 }, 4, PHONE.width, PHONE.height);
+    const start = centerOnPoint({ x: 900, y: 300 }, 4, PHONE.width, PHONE.height);
     commit(start);
     desk.sync.setView(viewAt(1, 0), true);
     await pause();
@@ -352,9 +353,9 @@ describe('стратегія 3: чужий обʼєкт і камера теле
   it('пан одним пальцем: доїжджає до клітинки й обʼєкт зʼявляється', async () => {
     const { w, phone, start } = await board();
     let v = start;
-    // три свайпи по 400px праворуч із природними паузами між ними
-    for (let swipe = 0; swipe < 3; swipe++) {
-      for (let i = 0; i < 10; i++) {
+    // свайпи по 800px праворуч із природними паузами між ними
+    for (let swipe = 0; swipe < 4 && !phone.objects.has('far'); swipe++) {
+      for (let i = 0; i < 20; i++) {
         v = { ...v, x: v.x - 40 };
         commit(v);
         await frame();
@@ -394,7 +395,7 @@ describe('стратегія 3: чужий обʼєкт і камера теле
 
   it('«показати все»: одна стрибкова зміна камери', async () => {
     const { w, phone } = await board();
-    commit(fitToObjects([sticky('near', 1800, 300), sticky('far', 2100, 300)], PHONE.width, PHONE.height));
+    commit(fitToObjects([sticky('near', 900, 300), sticky('far', 2100, 300)], PHONE.width, PHONE.height));
     await pause();
     await w.settle();
     expect(phone.objects.has('far')).toBe(true);
