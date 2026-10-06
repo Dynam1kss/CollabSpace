@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { linkKind, parseLinkUrl, LINK_URL_MAX } from 'shared';
+import { parseLinkUrl, LINK_URL_MAX } from 'shared';
 import { useTranslation } from 'react-i18next';
 import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
@@ -7,7 +7,6 @@ import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { linkPatchWithSize } from './link-layout';
 import { loadLinkPreview } from './link-preview';
-import { openLink } from './link-open';
 import { createLink } from './object-defaults';
 import { nextZIndex } from './selection-actions';
 
@@ -62,18 +61,28 @@ export function LinkPopover({ boardId, viewport, canvasSize, currentUserId }: Pr
       at={clamp({ x: screen.x, y: screen.y + GAP }, canvasSize)}
       initialUrl={target.url}
       withOpen
-      // прев'ю є лише у звичайних карток: у відео мініатюра з адреси
-      onRefresh={linkKind(target) === 'web' ? () => void loadLinkPreview(boardId, target.id) : undefined}
       onCancel={() => useEditorStore.getState().stopEditingLink()}
       onSubmit={(parsed) => {
         useBoardStore
           .getState()
           .update(
             target.id,
-            linkPatchWithSize(target, { url: parsed.url, kind: parsed.kind, videoId: parsed.videoId }),
+            // адреса інша — старе прев'ю до неї не стосується; порожні поля
+            // одразу повертають картку в чергу автозбору
+            linkPatchWithSize(target, {
+              url: parsed.url,
+              kind: parsed.kind,
+              videoId: parsed.videoId,
+              previewTitle: undefined,
+              previewDescription: undefined,
+              previewSiteName: undefined,
+              previewImage: undefined,
+              previewAspect: undefined,
+              previewFetchedAt: undefined,
+              previewFailed: undefined,
+            }),
           );
         useEditorStore.getState().stopEditingLink();
-        void loadLinkPreview(boardId, target.id);
       }}
     />
   );
@@ -91,14 +100,13 @@ function clamp(point: { x: number; y: number }, canvas: { width: number; height:
 interface FormProps {
   at: { x: number; y: number };
   initialUrl: string;
-  // при правці наявної картки поруч із «зберегти» ще й «відкрити»
+  // правимо наявну картку (а не створюємо нову) — міняється лише підпис кнопки
   withOpen: boolean;
-  onRefresh?: () => void;
   onCancel: () => void;
   onSubmit: (parsed: NonNullable<ReturnType<typeof parseLinkUrl>>) => void;
 }
 
-function Form({ at, initialUrl, withOpen, onRefresh, onCancel, onSubmit }: FormProps) {
+function Form({ at, initialUrl, withOpen, onCancel, onSubmit }: FormProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState(initialUrl);
   const [invalid, setInvalid] = useState(false);
@@ -159,28 +167,9 @@ function Form({ at, initialUrl, withOpen, onRefresh, onCancel, onSubmit }: FormP
         }}
       />
       {invalid && <span className="link-invalid">{t('link.invalid')}</span>}
-      <span className="link-actions">
-        <button type="button" className="link-submit" onClick={submit}>
-          {withOpen ? t('link.save') : t('link.add')}
-        </button>
-        {withOpen && (
-          <button type="button" className="link-open" onClick={() => openLink(url)}>
-            {t('link.open')}
-          </button>
-        )}
-      </span>
-      {onRefresh && (
-        <button
-          type="button"
-          className="link-open"
-          onClick={() => {
-            onRefresh();
-            onCancel();
-          }}
-        >
-          {t('link.refresh')}
-        </button>
-      )}
+      <button type="button" className="link-submit" onClick={submit}>
+        {withOpen ? t('link.save') : t('link.add')}
+      </button>
     </div>
   );
 }

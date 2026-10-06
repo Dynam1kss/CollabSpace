@@ -33,20 +33,20 @@ function loader(pages: Record<string, string>, fails: Record<string, Error> = {}
 }
 
 // картинку нікуди не зберігаємо: цей зріз про метадані, не про файли
-const saveImage = async (_boardId: string, url: string) => ({ path: `/uploads/b/${url.split('/').pop()}` });
+const saveImage = async (url: string) => ({ path: `/uploads/link-preview/${url.split('/').pop()}` });
 
 beforeEach(() => clearRootCache());
 
 describe('прев’ю: добір бракуючого з кореня сайту', () => {
   it('на глибокій сторінці немає нічого — усе береться з кореня', async () => {
     const { load, calls } = loader({ [DEEP]: html(''), [ROOT]: rootHtml });
-    const preview = await buildPreview('b', DEEP, { loadHtml: load, saveImage });
+    const preview = await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
 
     expect(preview).toMatchObject({
       title: 'Spotify',
       description: 'Опис із кореня',
       siteName: 'Spotify',
-      image: '/uploads/b/root.png',
+      image: '/uploads/link-preview/root.png',
     });
     expect(calls).toEqual([DEEP, ROOT]);
   });
@@ -56,11 +56,11 @@ describe('прев’ю: добір бракуючого з кореня сай�
       [DEEP]: html('<meta property="og:title" content="Мої пісні">'),
       [ROOT]: rootHtml,
     });
-    const preview = await buildPreview('b', DEEP, { loadHtml: load, saveImage });
+    const preview = await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
 
     expect(preview.title).toBe('Мої пісні');
     expect(preview.description).toBe('Опис із кореня');
-    expect(preview.image).toBe('/uploads/b/root.png');
+    expect(preview.image).toBe('/uploads/link-preview/root.png');
   });
 
   it('на глибокій сторінці все своє — у корінь не ходимо', async () => {
@@ -72,11 +72,11 @@ describe('прев’ю: добір бракуючого з кореня сай�
       `),
       [ROOT]: rootHtml,
     });
-    const preview = await buildPreview('b', DEEP, { loadHtml: load, saveImage });
+    const preview = await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
 
     expect(preview.title).toBe('Повна');
     expect(preview.description).toBe('Свій опис');
-    expect(preview.image).toBe('/uploads/b/deep.png');
+    expect(preview.image).toBe('/uploads/link-preview/deep.png');
     expect(calls).toEqual([DEEP]);
   });
 
@@ -85,7 +85,7 @@ describe('прев’ю: добір бракуючого з кореня сай�
       { [DEEP]: html('<meta property="og:title" content="Лише назва">') },
       { [ROOT]: new BlockedUrlError('внутрішня адреса') },
     );
-    const preview = await buildPreview('b', DEEP, { loadHtml: load, saveImage });
+    const preview = await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
 
     expect(preview.title).toBe('Лише назва');
     expect(preview.description).toBeUndefined();
@@ -99,7 +99,7 @@ describe('прев’ю: добір бракуючого з кореня сай�
       { [DEEP]: html('') },
       { [ROOT]: new BlockedUrlError('Внутрішня адреса') },
     );
-    const preview = await buildPreview('b', DEEP, { loadHtml: load, saveImage });
+    const preview = await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
 
     expect(preview.title).toBeUndefined();
     expect(preview.description).toBeUndefined();
@@ -108,7 +108,7 @@ describe('прев’ю: добір бракуючого з кореня сай�
 
   it('адреса вже кореневa — другого запиту немає', async () => {
     const { load, calls } = loader({ [ROOT]: html('<meta property="og:title" content="Корінь">') });
-    const preview = await buildPreview('b', ROOT, { loadHtml: load, saveImage });
+    const preview = await buildPreview(ROOT, { loadHtml: load, saveImage, skipCache: true });
 
     expect(preview.title).toBe('Корінь');
     expect(calls).toEqual([ROOT]);
@@ -120,8 +120,8 @@ describe('прев’ю: добір бракуючого з кореня сай�
       'https://open.spotify.com/album/42': html(''),
       [ROOT]: rootHtml,
     });
-    await buildPreview('b', DEEP, { loadHtml: load, saveImage });
-    await buildPreview('b', 'https://open.spotify.com/album/42', { loadHtml: load, saveImage });
+    await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
+    await buildPreview('https://open.spotify.com/album/42', { loadHtml: load, saveImage, skipCache: true });
 
     expect(calls).toEqual([DEEP, ROOT, 'https://open.spotify.com/album/42']);
   });
@@ -131,8 +131,8 @@ describe('прев’ю: добір бракуючого з кореня сай�
       { [DEEP]: html(''), 'https://open.spotify.com/x': html('') },
       { [ROOT]: new BlockedUrlError('нема') },
     );
-    await buildPreview('b', DEEP, { loadHtml: load, saveImage });
-    await buildPreview('b', 'https://open.spotify.com/x', { loadHtml: load, saveImage });
+    await buildPreview(DEEP, { loadHtml: load, saveImage, skipCache: true });
+    await buildPreview('https://open.spotify.com/x', { loadHtml: load, saveImage, skipCache: true });
 
     expect(calls.filter((c) => c === ROOT)).toHaveLength(1);
   });

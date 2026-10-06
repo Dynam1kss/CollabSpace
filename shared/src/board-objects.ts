@@ -1,4 +1,4 @@
-import { parseLinkUrl } from './links';
+import { LINK_PREVIEW_RETRY_MS, parseLinkUrl } from './links';
 import type { LinkKind } from './links';
 
 export interface BoardObjectBase {
@@ -170,6 +170,21 @@ export interface LinkObject extends BoardObjectBase {
   previewImage?: string;
   // ширина, поділена на висоту — щоб картка не стрибала, поки растр летить
   previewAspect?: number;
+  // коли востаннє пробували зібрати прев'ю. Без цього невдала спроба
+  // повторювалась би на кожне відкриття дошки — і так по колу
+  previewFetchedAt?: string;
+  previewFailed?: boolean;
+}
+
+// чи треба тягнути прев'ю цій картці просто зараз. Одне правило на всіх, щоб
+// клієнт і перевірки не розходились
+export function linkNeedsPreview(object: LinkObject, now = Date.now()): boolean {
+  // у відео мініатюра береться з адреси — збирати нема чого
+  if (linkKind(object) === 'youtube') return false;
+  if (object.previewTitle || object.previewDescription || object.previewImage) return false;
+  if (!object.previewFetchedAt) return true;
+  const tried = Date.parse(object.previewFetchedAt);
+  return !Number.isFinite(tried) || now - tried > LINK_PREVIEW_RETRY_MS;
 }
 
 // джерело правди — лише url, збережені поля тут навмисно не читаються. Інакше

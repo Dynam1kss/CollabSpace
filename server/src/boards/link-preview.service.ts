@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { existsSync, statSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { EXT_BY_MIME, UPLOADS_DIR } from './images.routes';
 import { BlockedUrlError, safeFetch } from './safe-fetch';
@@ -121,7 +122,11 @@ export function imageSize(buf: Buffer): { width: number; height: number } | null
 
 // картинку зберігаємо В СЕБЕ й віддаємо свій шлях: інакше кожен глядач дошки
 // ходив би по неї на сторонній хост і світив там свою адресу
-async function storeImage(boardId: string, url: string): Promise<{ path: string; aspect?: number } | null> {
+// спільна тека, а не тека дошки: кеш прев'ю один на сервер, і та сама
+// картинка не має залежати від того, хто перший кинув посилання
+const PREVIEW_DIR = 'link-preview';
+
+async function storeImage(url: string): Promise<{ path: string; aspect?: number } | null> {
   try {
     const res = await safeFetch(url, {
       maxBytes: MAX_IMAGE_BYTES,
@@ -129,13 +134,13 @@ async function storeImage(boardId: string, url: string): Promise<{ path: string;
     });
     const ext = EXT_BY_MIME[res.contentType];
     if (!ext || res.body.length === 0) return null;
-    const dir = resolve(UPLOADS_DIR, boardId);
+    const dir = resolve(UPLOADS_DIR, PREVIEW_DIR);
     await mkdir(dir, { recursive: true });
     const name = `${randomUUID()}.${ext}`;
     await writeFile(resolve(dir, name), res.body);
     const size = imageSize(res.body);
     return {
-      path: `/uploads/${boardId}/${name}`,
+      path: `/uploads/${PREVIEW_DIR}/${name}`,
       aspect: size && size.height > 0 ? size.width / size.height : undefined,
     };
   } catch {
@@ -223,18 +228,60 @@ async function rootPreview(url: string, loadHtml: HtmlLoader): Promise<LinkPrevi
   return preview;
 }
 
-export interface PreviewDeps {
-  loadHtml?: HtmlLoader;
-  saveImage?: (boardId: string, url: string) => Promise<{ path: string; aspect?: number } | null>;
+// кеш на диску, а не в памʼяті: після перезапуску сервера дошка з десятком
+// посилань інакше знову пішла б у мережу за кожним — і з'їла б ліміт
+export const CACHE_DIR = resolve(UPLOADS_DIR, '..', 'cache', 'link-preview');
+export const PREVIEW_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function cacheFile(url: string) {
+  return resolve(CACHE_DIR, `${createHash('sha256').update(url).digest('hex')}.json`);
 }
 
-export async function buildPreview(
-  boardId: string,
-  url: string,
-  deps: PreviewDeps = {},
-): Promise<LinkPreview> {
+// синхронна перевірка свіжості: обмежувач запитів мусить вирішити, чи взагалі
+// витрачати слот, ще до того, як ми щось читатимемо
+export function isCachedFresh(url: string) {
+  try {
+    const file = cacheFile(url);
+    if (!existsSync(file)) return false;
+    return Date.now() - statSync(file).mtimeMs < PREVIEW_CACHE_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
+async function readCache(url: string): Promise<LinkPreview | null> {
+  if (!isCachedFresh(url)) return null;
+  try {
+    return JSON.parse(await readFile(cacheFile(url), 'utf8')) as LinkPreview;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(url: string, preview: LinkPreview) {
+  try {
+    await mkdir(CACHE_DIR, { recursive: true });
+    await writeFile(cacheFile(url), JSON.stringify(preview), 'utf8');
+  } catch {
+    // кеш — лише прискорення; не записався, то й по тому
+  }
+}
+
+export interface PreviewDeps {
+  loadHtml?: HtmlLoader;
+  saveImage?: (url: string) => Promise<{ path: string; aspect?: number } | null>;
+  // кеш обходимо лише в перевірках
+  skipCache?: boolean;
+}
+
+export async function buildPreview(url: string, deps: PreviewDeps = {}): Promise<LinkPreview> {
   const loadHtml = deps.loadHtml ?? loadHtmlOverNetwork;
   const saveImage = deps.saveImage ?? storeImage;
+
+  if (!deps.skipCache) {
+    const cached = await readCache(url);
+    if (cached) return cached;
+  }
 
   const page = await loadHtml(url);
   let preview = extractPreview(page.html, page.finalUrl);
@@ -244,9 +291,15 @@ export async function buildPreview(
     if (root) preview = fillGaps(preview, root);
   }
 
-  if (!preview.image) return { ...preview, image: undefined };
-  const stored = await saveImage(boardId, preview.image);
-  return { ...preview, image: stored?.path, imageAspect: stored?.aspect };
+  let result: LinkPreview;
+  if (!preview.image) {
+    result = { ...preview, image: undefined };
+  } else {
+    const stored = await saveImage(preview.image);
+    result = { ...preview, image: stored?.path, imageAspect: stored?.aspect };
+  }
+  if (!deps.skipCache) await writeCache(url, result);
+  return result;
 }
 
 export { BlockedUrlError };

@@ -294,6 +294,62 @@ describe('снепшот дошки', () => {
     expect(byId['k2']).not.toHaveProperty('title');
   });
 
+  it('прев’ю картки переживає збереження — саме його раніше зрізав zod', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const card = {
+      id: 'k1',
+      type: 'link',
+      x: 0,
+      y: 0,
+      width: 260,
+      height: 120,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      url: 'https://example.com/',
+      previewTitle: 'Example Domain',
+      previewDescription: 'Опис сторінки',
+      previewSiteName: 'Example',
+      previewImage: '/uploads/link-preview/a.png',
+      previewAspect: 1.91,
+      previewFetchedAt: '2026-10-06T10:00:00.000Z',
+      previewFailed: false,
+    };
+
+    await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [card] }).expect(204);
+    const got = (await agent.get(`/api/boards/${board.body.id}/snapshot`)).body.objects[0];
+    expect(got).toMatchObject({
+      previewTitle: 'Example Domain',
+      previewDescription: 'Опис сторінки',
+      previewSiteName: 'Example',
+      previewImage: '/uploads/link-preview/a.png',
+      previewAspect: 1.91,
+      previewFetchedAt: '2026-10-06T10:00:00.000Z',
+    });
+  });
+
+  it('чужа адреса в previewImage не приймається — глядач не має ходити на сторонні хости', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const card = {
+      id: 'k1',
+      type: 'link',
+      x: 0,
+      y: 0,
+      width: 260,
+      height: 120,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      url: 'https://example.com/',
+      previewImage: 'https://evil.test/track.png',
+    };
+    await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [card] }).expect(400);
+  });
+
   it('посилання не з http(s), надто довге чи з підробленим videoId — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });

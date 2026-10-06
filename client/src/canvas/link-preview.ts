@@ -13,6 +13,9 @@ export async function loadLinkPreview(boardId: string, objectId: string) {
   // у відео своя мініатюра з адреси, прев'ю йому ні до чого
   if (linkKind(object) === 'youtube') return;
 
+  // слід спроби ставимо в обох випадках: без нього невдала спроба
+  // повторювалась би на кожне відкриття дошки, і так по колу
+  const stamp = () => new Date().toISOString();
   try {
     const preview = await fetchLinkPreview(boardId, object.url);
     // поки летіла відповідь, картку могли видалити або змінити їй адресу
@@ -27,9 +30,14 @@ export async function loadLinkPreview(boardId: string, objectId: string) {
         previewSiteName: preview.siteName,
         previewImage: preview.image,
         previewAspect: preview.imageAspect,
+        previewFetchedAt: stamp(),
+        previewFailed: undefined,
       }),
     );
   } catch {
     // не вийшло — картка лишається такою, як є: домен і підпис
+    const fresh = useBoardStore.getState().getById(objectId) as LinkObject | undefined;
+    if (!fresh || fresh.type !== 'link' || fresh.url !== object.url) return;
+    useBoardStore.getState().update(objectId, { previewFetchedAt: stamp(), previewFailed: true });
   }
 }

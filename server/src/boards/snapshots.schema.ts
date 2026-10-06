@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { isLinkUrl, isVideoId, LINK_TITLE_MAX, LINK_URL_MAX } from 'shared';
 
+// підписи прев'ю обрізає сам сервіс; тут лише верхня межа, щоб у знімок не
+// поїхав роман
+const LINK_PREVIEW_TEXT = 400;
+
 // дзеркало BoardObject зі shared: перевіряємо форму, а не сенс (координати
 // можуть бути будь-які) — головне, щоб клієнт потім не впав на розборі
 const base = {
@@ -91,6 +95,21 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     kind: z.enum(['web', 'youtube']).optional(),
     // це значення йде в src iframe-а, тому набір символів перевіряємо окремо
     videoId: z.string().refine(isVideoId, 'Некоректний ідентифікатор відео').optional(),
+    // прев'ю сторінки. Без цих полів zod мовчки зрізав їх на кожному
+    // збереженні, і картка після перезавантаження лишалась без опису
+    previewTitle: z.string().max(LINK_PREVIEW_TEXT).optional(),
+    previewDescription: z.string().max(LINK_PREVIEW_TEXT).optional(),
+    previewSiteName: z.string().max(LINK_PREVIEW_TEXT).optional(),
+    // лише наш шлях: чужу адресу сюди класти не можна, інакше глядач піде по
+    // картинку на сторонній хост
+    previewImage: z
+      .string()
+      .max(512)
+      .refine((v) => v.startsWith('/uploads/'), 'Прев’ю має лежати в нас')
+      .optional(),
+    previewAspect: z.number().positive().optional(),
+    previewFetchedAt: z.string().max(40).optional(),
+    previewFailed: z.boolean().optional(),
   }),
   z.object({
     ...base,

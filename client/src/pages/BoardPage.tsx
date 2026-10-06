@@ -16,6 +16,7 @@ import { syncStrategy } from '../canvas/sync-strategy';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { LinkPopover } from '../canvas/LinkPopover';
+import { useLinkPreviews } from '../canvas/use-link-previews';
 import { VideoOverlay } from '../canvas/VideoOverlay';
 import { ChatPanel } from '../canvas/ChatPanel';
 import { VoicePanel } from '../voice/VoicePanel';
@@ -114,6 +115,8 @@ export function BoardPage() {
     });
 
   useShowView(viewport, canvasSize, setViewport);
+  // прев'ю посилань збирається саме, у фоні — кнопок для цього немає
+  useLinkPreviews(openBoardId, editable);
 
   // стратегія 3 передплачується на клітинки біля видимого; для інших стратегій
   // виклик нічого не робить. дебаунс — усередині синхронізації
