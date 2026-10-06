@@ -20,3 +20,6 @@ docs/ТЗ.md
 docs/briefs/
 docs/defense.md
 *.tsbuildinfo
+
+# кеш прев’ю посилань — як і uploads, це дані, а не код
+server/cache/
