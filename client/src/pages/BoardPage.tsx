@@ -15,6 +15,7 @@ import { setAoiView } from '../canvas/aoi-sync';
 import { syncStrategy } from '../canvas/sync-strategy';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
+import { LinkPopover } from '../canvas/LinkPopover';
 import { ChatPanel } from '../canvas/ChatPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { setSelfUserId } from '../voice/voice-mesh';
@@ -321,7 +322,10 @@ export function BoardPage() {
             {PINCH_DEBUG && <PinchDebug />}
             {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
             {editable && (
-              <ContextPanel viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
+              <>
+                <ContextPanel viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
+                <LinkPopover viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
+              </>
             )}
           </>
         ) : (

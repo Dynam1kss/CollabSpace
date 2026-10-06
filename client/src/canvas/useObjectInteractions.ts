@@ -8,6 +8,7 @@ import type { Point, Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import type { ToolId } from './editor-store';
 import { createConnectorFromPoints, createLineFromPoints, createShapeFromRect } from './object-defaults';
+import { CREATABLE_TOOLS } from './object-defaults';
 import type { CreatableTool } from './object-defaults';
 import {
   copySelected,
@@ -29,8 +30,11 @@ function isDrawTool(tool: ToolId): tool is 'rect' | 'ellipse' | 'connector' | 'l
   return tool === 'rect' || tool === 'ellipse' || tool === 'connector' || tool === 'line';
 }
 
+// 'link' сюди не входить: картці спершу треба адреса, тож інструмент не
+// створює обʼєкт одразу, а відкриває поповер. Перелік беремо з самого
+// CREATABLE_TOOLS, щоб він не розʼїхався з переліком у object-defaults
 function isCreatableTool(tool: ToolId): tool is CreatableTool {
-  return tool !== 'select';
+  return (CREATABLE_TOOLS as ToolId[]).includes(tool);
 }
 
 function objectBounds(obj: BoardObject) {
@@ -161,11 +165,16 @@ export function useObjectInteractions(
     (e: KonvaEventObject<MouseEvent>) => {
       const stage = e.target.getStage();
       if (!stage || e.target !== stage) return;
-      if (activeTool !== 'sticky' && activeTool !== 'text') return;
+      if (activeTool !== 'sticky' && activeTool !== 'text' && activeTool !== 'link') return;
 
       const screenPoint = stage.getPointerPosition();
       if (!screenPoint) return;
-      createWithTool(activeTool, screenToBoard(screenPoint, viewportRef.current), currentUserId);
+      const boardPoint = screenToBoard(screenPoint, viewportRef.current);
+      if (activeTool === 'link') {
+        useEditorStore.getState().openLinkDraft(boardPoint, screenPoint);
+        return;
+      }
+      createWithTool(activeTool, boardPoint, currentUserId);
     },
     [activeTool, currentUserId],
   );
@@ -179,7 +188,7 @@ export function useObjectInteractions(
     (e: KonvaEventObject<TouchEvent>) => {
       const stage = e.target.getStage();
       if (!stage || e.target !== stage) return;
-      if (!isCreatableTool(activeTool)) return;
+      if (!isCreatableTool(activeTool) && activeTool !== 'link') return;
 
       // браузер синтезує mousedown/click після touchend — без preventDefault він
       // долітає до handleStageMouseDown вже як клік по порожньому місцю (бо новий
@@ -188,7 +197,12 @@ export function useObjectInteractions(
 
       const screenPoint = stage.getPointerPosition();
       if (!screenPoint) return;
-      createWithTool(activeTool, screenToBoard(screenPoint, viewportRef.current), currentUserId);
+      const boardPoint = screenToBoard(screenPoint, viewportRef.current);
+      if (activeTool === 'link') {
+        useEditorStore.getState().openLinkDraft(boardPoint, screenPoint);
+        return;
+      }
+      createWithTool(activeTool, boardPoint, currentUserId);
     },
     [activeTool, currentUserId],
   );

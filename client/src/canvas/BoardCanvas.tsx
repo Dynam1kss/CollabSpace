@@ -24,6 +24,7 @@ import { isMovable } from './object-lock';
 import { useLockedByOthers } from './presence-store';
 import { useObjectInteractions } from './useObjectInteractions';
 import { useImageDrop } from './use-image-drop';
+import { useLinkPaste } from './use-link-paste';
 import { BoardSeats } from '../voice/BoardSeats';
 import { useMySeat } from '../voice/use-my-seat';
 import { useCanvasColors } from '../theme';
@@ -189,6 +190,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
 
   const saveSeat = useMySeat(boardId, currentUserId);
   const imageDrop = useImageDrop(boardId, currentUserId, containerRef, viewport);
+  useLinkPaste(currentUserId, containerRef, viewport);
 
   // знімок усієї дошки, а не того, що видно. Камеру людини не чіпаємо взагалі:
   // шар малюється зі своїм поточним трансформом, тому рамку дошки переводимо

@@ -13,6 +13,9 @@ export interface CanvasColors {
   exportBg: string;
   label: string;
   placeholder: string;
+  // картка посилання має власну поверхню: вона йде за темою, а не за полотном
+  cardBg: string;
+  cardBorder: string;
 }
 
 export const CANVAS_COLORS: Record<Theme, CanvasColors> = {
@@ -24,6 +27,8 @@ export const CANVAS_COLORS: Record<Theme, CanvasColors> = {
     exportBg: '#ffffff',
     label: '#4b5563',
     placeholder: '#d1d5db',
+    cardBg: '#ffffff',
+    cardBorder: '#d6dae1',
   },
   dark: {
     accent: '#6f88ff',
@@ -34,6 +39,8 @@ export const CANVAS_COLORS: Record<Theme, CanvasColors> = {
     exportBg: '#1a1e25',
     label: '#aab2c0',
     placeholder: '#3a414e',
+    cardBg: '#232832',
+    cardBorder: '#39404d',
   },
 };
 

@@ -353,6 +353,35 @@ export function LineIcon() {
   );
 }
 
+export function LinkIcon() {
+  return (
+    <Svg>
+      <path d="M8.5 11.5l3-3" />
+      <path d="M7 13l-1 1a2.8 2.8 0 01-4-4l2-2a2.8 2.8 0 014 0" />
+      <path d="M13 7l1-1a2.8 2.8 0 014 4l-2 2a2.8 2.8 0 01-4 0" />
+    </Svg>
+  );
+}
+
+// кнопка «відкрити» в контекстній панелі
+export function ExternalIcon() {
+  return (
+    <Svg>
+      <path d="M11 4h5v5" />
+      <path d="M16 4l-7 7" />
+      <path d="M14 12v4H4V6h4" />
+    </Svg>
+  );
+}
+
+export function PlayIcon() {
+  return (
+    <Svg>
+      <path d="M6 4l10 6-10 6V4z" />
+    </Svg>
+  );
+}
+
 // штрих лінії: суцільна / штрихова / крапкова
 export function DashSolidIcon() {
   return (

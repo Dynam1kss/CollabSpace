@@ -3,7 +3,15 @@ import { Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type { RefObject } from 'react';
-import type { BoardObject, BoardPoint, ImageObject, ShapeObject, StickyObject, TextObject } from 'shared';
+import type {
+  BoardObject,
+  BoardPoint,
+  ImageObject,
+  LinkObject,
+  ShapeObject,
+  StickyObject,
+  TextObject,
+} from 'shared';
 import type { Box } from 'konva/lib/shapes/Transformer';
 import type { Point } from '../coordinates';
 import { useBoardStore } from '../board-store';
@@ -32,10 +40,10 @@ import { useCanvasColors } from '../../theme';
 // обʼєкти, чия геометрія — звичайний прямокутник: саме їх тягне нова
 // математика. Текст (шрифт/перенос) і конектор (точки) лишаються на своєму
 // шляху — у них розмір не зводиться до x/y/width/height
-type RectObject = ShapeObject | StickyObject | ImageObject;
+type RectObject = ShapeObject | StickyObject | ImageObject | LinkObject;
 
 function isRectObject(obj: BoardObject): obj is RectObject {
-  return obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image';
+  return obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image' || obj.type === 'link';
 }
 
 interface TextStart {

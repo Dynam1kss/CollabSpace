@@ -2801,3 +2801,46 @@ button.profile-open {
   background: none;
   color: inherit;
 }
+
+/* поповер адреси картки-посилання: при створенні — одне поле, при правці
+   наявної картки ще й підпис. Позицію ставить компонент (left/top), як і
+   контекстній панелі */
+.link-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: 280px;
+  box-sizing: border-box;
+}
+
+.link-input {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--input-bg, var(--panel-bg));
+  color: inherit;
+}
+
+.link-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.link-invalid {
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+
+.link-submit {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}

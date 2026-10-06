@@ -3,7 +3,7 @@ import type { BoardObject } from 'shared';
 import { beginUndoGesture, endUndoGesture } from './board-store';
 import { lockOwner, usePresenceStore } from './presence-store';
 
-export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'line';
+export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'line' | 'link';
 
 // шар обʼєктів ловить події лише під інструментом вибору. Під будь-яким
 // інструментом створення обʼєкти «прозорі» — інакше клік по наявному стікеру
@@ -25,6 +25,12 @@ interface EditorState {
   activeTool: ToolId;
   selectedIds: string[];
   editingTextId: string | null;
+  // картка посилання, якій зараз правлять адресу й підпис (поповер поверх
+  // полотна). Окремо від editingTextId: там textarea в самому обʼєкті
+  editingLinkId: string | null;
+  // інструмент «посилання» чекає адресу: куди ставити картку (координати
+  // дошки) і де відкрити поповер (координати полотна)
+  linkDraft: { board: { x: number; y: number }; screen: { x: number; y: number } } | null;
   // йде тягання чи трансформація — контекстна панель на цей час ховається,
   // бо позиції в сторі відстають від вузлів до dragend/transformend
   interacting: boolean;
@@ -41,6 +47,10 @@ interface EditorState {
   clearSelection: () => void;
   startEditingText: (id: string) => void;
   stopEditingText: () => void;
+  startEditingLink: (id: string) => void;
+  stopEditingLink: () => void;
+  openLinkDraft: (board: { x: number; y: number }, screen: { x: number; y: number }) => void;
+  closeLinkDraft: () => void;
   setInteracting: (value: boolean) => void;
   setClipboard: (objects: BoardObject[]) => void;
   setTouchInput: () => void;
@@ -51,6 +61,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   activeTool: 'select',
   selectedIds: [],
   editingTextId: null,
+  editingLinkId: null,
+  linkDraft: null,
   interacting: false,
   clipboard: [],
   touchInput: false,
@@ -77,6 +89,18 @@ export const useEditorStore = create<EditorState>((set) => ({
       return { editingTextId: id };
     }),
   stopEditingText: () => set({ editingTextId: null }),
+  // те саме правило, що для тексту: у зайняту кимось картку не пускаємо,
+  // глядача не пускаємо взагалі
+  startEditingLink: (id) =>
+    set((state) => {
+      if (!state.canEdit) return state;
+      if (lockOwner(usePresenceStore.getState(), id)) return state;
+      return { editingLinkId: id };
+    }),
+  stopEditingLink: () => set({ editingLinkId: null }),
+  openLinkDraft: (board, screen) =>
+    set((state) => (state.canEdit ? { linkDraft: { board, screen } } : state)),
+  closeLinkDraft: () => set({ linkDraft: null }),
   // заразом межа кроку undo: цілий жест має відкочуватись одним ctrl+z,
   // а не покадрово — board-store пише в документ раз на кадр
   setInteracting: (value) => {

@@ -10,6 +10,7 @@ import type {
   ConnectorObject,
   ImageObject,
   LineObject,
+  LinkObject,
   ShapeObject,
   StickyObject,
   TextObject,
@@ -22,7 +23,8 @@ type BoardObjectPatch =
   | Partial<Omit<ShapeObject, 'id' | 'type'>>
   | Partial<Omit<ConnectorObject, 'id' | 'type'>>
   | Partial<Omit<LineObject, 'id' | 'type'>>
-  | Partial<Omit<ImageObject, 'id' | 'type'>>;
+  | Partial<Omit<ImageObject, 'id' | 'type'>>
+  | Partial<Omit<LinkObject, 'id' | 'type'>>;
 
 interface BoardObjectsState {
   // дзеркало Y.Map нижче, лише для читання: React підписується на нього як на
