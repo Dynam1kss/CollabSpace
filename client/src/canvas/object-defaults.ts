@@ -239,5 +239,8 @@ function createConnector(from: Point, to: Point, meta: CreationMeta): ConnectorO
     strokeColor: DEFAULT_STROKE_COLOR,
     strokeWidth: 2,
     arrowEnd: true,
+    // пишемо завжди й явно: без поля режим довелося б угадувати за кількістю
+    // точок, і щойно людина додасть середню точку, пряма стала б кривою
+    curved: false,
   };
 }

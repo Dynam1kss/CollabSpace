@@ -6,7 +6,7 @@ import { connectorCurved } from 'shared';
 import type { BoardPoint, ConnectorObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
-import { CONNECTOR_TENSION, flattenPoints, midpoints } from './connector-geometry';
+import { connectorTension, flattenPoints, midpoints } from './connector-geometry';
 import { dashPattern } from './line-geometry';
 import { withPoints } from './point-box';
 import { useDragGesture } from './useDragGesture';
@@ -125,7 +125,7 @@ export function ConnectorShape({
       const stage = e.target.getStage();
       if (!stage) return;
       const points = freshPoints();
-      const mid = midpoints(points)[midIndex];
+      const mid = midpoints(points, connectorCurved({ ...object, points }))[midIndex];
       updateObject(
         object.id,
         withPoints([...points.slice(0, midIndex + 1), mid, ...points.slice(midIndex + 1)]),
@@ -165,7 +165,7 @@ export function ConnectorShape({
     name: 'line',
     points: flattenPoints(points),
     // пряма — це та сама лінія з нульовою тензією; окремого вузла не треба
-    tension: curved ? CONNECTOR_TENSION : 0,
+    tension: connectorTension(object),
     dash: dashPattern(object),
     stroke: strokeColor,
     strokeWidth: object.strokeWidth,
@@ -201,7 +201,7 @@ export function ConnectorShape({
         <Line {...lineProps} />
       )}
       {showHandles &&
-        midpoints(points).map((p, i) => (
+        midpoints(points, curved).map((p, i) => (
           <Circle
             key={`mid-${i}`}
             x={p.x}

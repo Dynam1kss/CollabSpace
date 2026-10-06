@@ -1,26 +1,51 @@
-import Konva from 'konva';
-import type { BoardPoint } from 'shared';
+import { connectorCurved } from 'shared';
+import type { BoardPoint, ConnectorObject } from 'shared';
 
 // 0 — ламана прямими відрізками, 1 — дуже "гумова" крива; 0.4 підібрав на око
 export const CONNECTOR_TENSION = 0.4;
 
 // прихована лінія лише щоб узяти в konva її ж контрольні точки сплайна —
-// своя математика тензії рано чи пізно розійшлась би з тим, що намальовано
-const measurer = new Konva.Line({ tension: CONNECTOR_TENSION });
+// своя математика тензії рано чи пізно розійшлась би з тим, що намальовано.
+// Беремо konva з window, а не імпортом: у vitest середовище node, і `import
+// 'konva'` там падає на відсутньому модулі canvas, а прямій цей вузол і не
+// потрібен — її середні точки це просто середини відрізків
+interface Measurer {
+  points: (value: number[]) => void;
+  getTensionPoints: () => number[];
+}
+let measurer: Measurer | null = null;
+
+function tensionMeasurer(): Measurer | null {
+  const Konva = (globalThis as { Konva?: { Line: new (config: unknown) => Measurer } }).Konva;
+  if (!Konva) return null;
+  measurer ??= new Konva.Line({ tension: CONNECTOR_TENSION });
+  return measurer;
+}
+
+// тензія для режиму лінії. Одна функція на все: обведення самої лінії, ореол
+// чужого виділення й середні точки мусять рахуватись однаково, інакше на
+// чужому екрані пряма виглядає кривою (журнал 06.10)
+export function connectorTension(object: Pick<ConnectorObject, 'points' | 'curved'>) {
+  return connectorCurved(object) ? CONNECTOR_TENSION : 0;
+}
 
 // другорядні точки — на самій кривій (t=0.5 свого сегмента), а не посередині
 // хорди, інакше біля вигину висять осторонь лінії. В моделі їх нема,
 // рахуються на кожен рендер. konva веде перший і останній сегменти
 // квадратичними кривими, середні — кубічними; tp — [cin, p, cout] на кожну
 // внутрішню точку, тому сегмент k бере cout точки k і cin точки k+1
-export function midpoints(points: BoardPoint[]): BoardPoint[] {
+export function midpoints(points: BoardPoint[], curved = true): BoardPoint[] {
   const n = points.length;
   const chords: BoardPoint[] = [];
   for (let i = 0; i < n - 1; i++) chords.push(lerp(points[i], points[i + 1], 0.5));
-  if (n < 3) return chords;
+  // пряма — середини самих відрізків; сплайна тут немає, і рахувати по ньому
+  // означало б повісити ручки повз лінію
+  if (n < 3 || !curved) return chords;
 
-  measurer.points(flattenPoints(points));
-  const tp: number[] = measurer.getTensionPoints();
+  const line = tensionMeasurer();
+  if (!line) return chords;
+  line.points(flattenPoints(points));
+  const tp: number[] = line.getTensionPoints();
   // при збігу сусідніх точок konva пропускає контрольні — індекси поїдуть
   if (tp.length !== 6 * (n - 2)) return chords;
 

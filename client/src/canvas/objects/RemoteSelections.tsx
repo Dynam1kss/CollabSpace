@@ -3,7 +3,7 @@ import type { BoardObject, PresenceMember } from 'shared';
 import { usePresenceStore } from '../presence-store';
 import { colorForUser } from '../presence-colors';
 import { pivotOffset } from '../object-pivot';
-import { CONNECTOR_TENSION, flattenPoints } from './connector-geometry';
+import { connectorTension, flattenPoints } from './connector-geometry';
 
 interface Props {
   objects: Record<string, BoardObject>;
@@ -39,13 +39,14 @@ export function RemoteSelections({ objects, viewportScale }: Props) {
         const color = colorForUser(member.userId);
 
         if (object.type === 'connector') {
-          // та сама геометрія, що й у самого конектора: без tension підсвітка
-          // йшла прямими хордами повз намальовану криву. Ширша за лінію на ті
-          // самі 3px екрана з кожного боку, що й відступ рамки в решти типів,
-          // і напівпрозора — сама лінія має лишитись видною крізь ореол
+          // та сама геометрія, що й у самого конектора, — і та сама функція
+          // тензії: інакше в чужого виділення пряма підсвічувалась кривою.
+          // Ширша за лінію на ті самі 3px екрана з кожного боку, що й відступ
+          // рамки в решти типів, і напівпрозора — сама лінія має лишитись
+          // видною крізь ореол
           const halo = {
             points: flattenPoints(object.points),
-            tension: CONNECTOR_TENSION,
+            tension: connectorTension(object),
             stroke: color,
             strokeWidth: object.strokeWidth + padding * 2,
             opacity: 0.45,
