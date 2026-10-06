@@ -37,8 +37,12 @@ export function VideoOverlay() {
           src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`}
           title="YouTube"
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          // iframe не має отримати доступ ні до чого нашого
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          // allow-popups-to-escape-sandbox обовʼязковий: без нього вікно,
+          // відкрите з кадру (логотип youtube, назва відео), успадковує
+          // пісочницю, дістає «порожнє» походження, і watch-сторінка з
+          // X-Frame-Options: SAMEORIGIN його відхиляє — ERR_BLOCKED_BY_RESPONSE.
+          // Сам кадр при цьому лишається в пісочниці
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
           referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
         />
