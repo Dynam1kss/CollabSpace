@@ -1,3 +1,6 @@
+import { parseLinkUrl } from './links';
+import type { LinkKind } from './links';
+
 export interface BoardObjectBase {
   id: string;
   x: number;
@@ -131,6 +134,34 @@ export interface ImageObject extends BoardObjectBase {
   flipY?: boolean;
 }
 
+// картка-посилання. kind і videoId лежать в обʼєкті (так їх видно в знімку й
+// перевіряє zod), але читати їх треба ТІЛЬКИ через linkKind/linkVideoId нижче
+export interface LinkObject extends BoardObjectBase {
+  type: 'link';
+  url: string;
+  // свій підпис; без нього картка показує домен
+  title?: string;
+  kind?: LinkKind;
+  videoId?: string;
+}
+
+// джерело правди — лише url, збережені поля тут навмисно не читаються. Інакше
+// обʼєкт із чужою адресою й дописаним videoId малювався б карткою youtube і
+// крутив у iframe зовсім інше відео, ніж відкриває «відкрити»
+export function linkKind(object: Pick<LinkObject, 'url'>): LinkKind {
+  return parseLinkUrl(object.url)?.kind ?? 'web';
+}
+
+export function linkVideoId(object: Pick<LinkObject, 'url'>): string | undefined {
+  return parseLinkUrl(object.url)?.videoId;
+}
+
 export type BoardObject =
-  StickyObject | TextObject | ShapeObject | ConnectorObject | LineObject | ImageObject;
+  | StickyObject
+  | TextObject
+  | ShapeObject
+  | ConnectorObject
+  | LineObject
+  | ImageObject
+  | LinkObject;
 export type BoardObjectType = BoardObject['type'];

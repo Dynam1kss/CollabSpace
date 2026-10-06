@@ -1,6 +1,7 @@
 export * from './health';
 export * from './auth';
 export * from './boards';
+export * from './links';
 export * from './board-objects';
 export * from './sync';
 export * from './chat';

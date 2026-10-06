@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isLinkUrl, isVideoId, LINK_TITLE_MAX, LINK_URL_MAX } from 'shared';
 
 // дзеркало BoardObject зі shared: перевіряємо форму, а не сенс (координати
 // можуть бути будь-які) — головне, щоб клієнт потім не впав на розборі
@@ -73,6 +74,18 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     dash: z.enum(['solid', 'dashed', 'dotted']).optional(),
     arrowStart: z.boolean().optional(),
     arrowEnd: z.boolean().optional(),
+  }),
+  z.object({
+    ...base,
+    type: z.literal('link'),
+    // та сама перевірка, що в клієнта (shared/links): лише http і https.
+    // сервер за адресою НЕ ходить — ні за підписом, ні за іконкою
+    url: z.string().max(LINK_URL_MAX).refine(isLinkUrl, 'Підтримуються лише посилання http і https'),
+    title: z.string().max(LINK_TITLE_MAX).optional(),
+    // похідні від url; клієнт може їх і не надсилати
+    kind: z.enum(['web', 'youtube']).optional(),
+    // це значення йде в src iframe-а, тому набір символів перевіряємо окремо
+    videoId: z.string().refine(isVideoId, 'Некоректний ідентифікатор відео').optional(),
   }),
   z.object({
     ...base,

@@ -249,6 +249,84 @@ describe('снепшот дошки', () => {
     ).toBe(400);
   });
 
+  it('картка-посилання переживає знімок; підпис і відео необовʼязкові', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const link = {
+      id: 'k1',
+      type: 'link',
+      x: 10,
+      y: 20,
+      width: 260,
+      height: 96,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      url: 'https://example.com/a?b=1',
+      title: 'Приклад',
+      kind: 'web',
+    };
+    const video = {
+      ...link,
+      id: 'k2',
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+      kind: 'youtube',
+      videoId: 'dQw4w9WgXcQ',
+      title: undefined,
+    };
+
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [link, video] })
+      .expect(204);
+
+    const res = await agent.get(`/api/boards/${board.body.id}/snapshot`);
+    const byId = Object.fromEntries(res.body.objects.map((o: { id: string }) => [o.id, o]));
+    expect(byId['k1']).toMatchObject({
+      type: 'link',
+      url: 'https://example.com/a?b=1',
+      title: 'Приклад',
+      kind: 'web',
+    });
+    expect(byId['k2']).toMatchObject({ url: 'https://youtu.be/dQw4w9WgXcQ', videoId: 'dQw4w9WgXcQ' });
+    // без підпису поля просто немає, як і в решти необовʼязкових
+    expect(byId['k2']).not.toHaveProperty('title');
+  });
+
+  it('посилання не з http(s), надто довге чи з підробленим videoId — 400', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Дошка' });
+    const base = {
+      id: 'k1',
+      type: 'link',
+      x: 0,
+      y: 0,
+      width: 260,
+      height: 96,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      url: 'https://example.com',
+    };
+    for (const bad of [
+      { url: 'javascript:alert(1)' },
+      { url: 'data:text/html,<script>' },
+      { url: 'file:///etc/passwd' },
+      { url: 'http://' },
+      { url: 'https://example.com/' + 'a'.repeat(2048) },
+      { videoId: '"><script>' },
+      { title: 'т'.repeat(121) },
+      { kind: 'vimeo' },
+    ]) {
+      await agent
+        .put(`/api/boards/${board.body.id}/snapshot`)
+        .send({ objects: [{ ...base, ...bad }] })
+        .expect(400);
+    }
+  });
+
   it('невалідний обʼєкт — 400', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Дошка' });
