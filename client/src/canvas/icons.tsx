@@ -374,27 +374,6 @@ export function ExternalIcon() {
   );
 }
 
-// крок по z на один обʼєкт — на відміну від «на передній/задній план»
-export function ForwardIcon() {
-  return (
-    <Svg>
-      <path d="M10 14V4" />
-      <path d="M6 8l4-4 4 4" />
-      <path d="M4 17h12" />
-    </Svg>
-  );
-}
-
-export function BackwardIcon() {
-  return (
-    <Svg>
-      <path d="M10 4v10" />
-      <path d="M6 10l4 4 4-4" />
-      <path d="M4 17h12" />
-    </Svg>
-  );
-}
-
 // пряма й крива — перемикач вигляду лінії
 export function StraightIcon() {
   return (

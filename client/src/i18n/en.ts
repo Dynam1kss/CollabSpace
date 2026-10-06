@@ -299,8 +299,6 @@ export const en: Translation = {
     toBack: 'Send to back',
     toFront: 'Bring to front',
     arrange: 'Arrange',
-    forward: 'Forward',
-    backward: 'Backward',
   },
   search: {
     open: 'Search the board',

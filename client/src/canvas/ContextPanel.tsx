@@ -19,9 +19,7 @@ import {
   DashSolidIcon,
   CurveIcon,
   StraightIcon,
-  BackwardIcon,
   BringFrontIcon,
-  ForwardIcon,
   ChairIcon,
   DuplicateIcon,
   ExternalIcon,
@@ -261,28 +259,6 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     selected.forEach((o, i) => update(o.id, { zIndex: maxZ + 1 + i }));
   }
 
-  // крок уперед/назад: міняємось місцями з найближчим сусідом по z. Для
-  // групи йдемо з того краю, куди рухаємось, щоб вибрані не перестрибували
-  // одне одного
-  function stepZ(direction: 1 | -1) {
-    const update = useBoardStore.getState().update;
-    const all = useBoardStore
-      .getState()
-      .getAll()
-      .sort((a, b) => a.zIndex - b.zIndex);
-    const picked = direction === 1 ? [...selected].reverse() : selected;
-    for (const o of picked) {
-      const i = all.findIndex((x) => x.id === o.id);
-      const j = i + direction;
-      if (i < 0 || j < 0 || j >= all.length) continue;
-      const neighbour = all[j];
-      if (neighbour.zIndex === o.zIndex) continue;
-      update(o.id, { zIndex: neighbour.zIndex });
-      update(neighbour.id, { zIndex: o.zIndex });
-      [all[i], all[j]] = [all[j], all[i]];
-    }
-  }
-
   function sendToBack() {
     const update = useBoardStore.getState().update;
     const all = useBoardStore.getState().getAll();
@@ -508,28 +484,15 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
         open={openPicker === 'arrange'}
         onToggle={() => togglePicker('arrange')}
       >
-        <button type="button" title={t('ctx.toFront')} aria-label={t('ctx.toFront')} onClick={bringToFront}>
-          <BringFrontIcon />
-        </button>
-        <button
-          type="button"
-          title={t('ctx.forward')}
-          aria-label={t('ctx.forward')}
-          onClick={() => stepZ(1)}
-        >
-          <ForwardIcon />
-        </button>
-        <button
-          type="button"
-          title={t('ctx.backward')}
-          aria-label={t('ctx.backward')}
-          onClick={() => stepZ(-1)}
-        >
-          <BackwardIcon />
-        </button>
         <button type="button" title={t('ctx.toBack')} aria-label={t('ctx.toBack')} onClick={sendToBack}>
           <SendBackIcon />
         </button>
+        <button type="button" title={t('ctx.toFront')} aria-label={t('ctx.toFront')} onClick={bringToFront}>
+          <BringFrontIcon />
+        </button>
+        {/* копія — не про порядок; відділяємо, щоб її не читали як третій
+        ступінь «ще далі вперед» */}
+        <span className="ctx-sep" />
         <button
           type="button"
           title={`${t('ctx.duplicate')} (Ctrl+D)`}

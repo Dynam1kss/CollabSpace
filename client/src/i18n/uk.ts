@@ -300,8 +300,6 @@ export const uk = {
     toBack: 'На задній план',
     toFront: 'На передній план',
     arrange: 'Порядок і копії',
-    forward: 'Вперед',
-    backward: 'Назад',
   },
   search: {
     open: 'Пошук на дошці',
