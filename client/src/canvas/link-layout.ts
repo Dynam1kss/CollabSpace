@@ -11,6 +11,8 @@ export const LINK_PAD = 12;
 export const LINK_ICON = 22;
 // значок «відкрити» в правому верхньому куті картки
 export const LINK_BADGE = 18;
+// скільки має бути під палець, у пікселях екрана
+export const LINK_BADGE_TOUCH = 44;
 export const LINK_FONT = 'Arial, Helvetica, sans-serif';
 const TITLE_SIZE = 15;
 const TEXT_SIZE = 12;
@@ -126,6 +128,17 @@ export function linkLayout(object: LinkObject): LinkLayout {
 export function linkCardSize(object: LinkObject, width = object.width) {
   const scale = width / LINK_BASE_WIDTH;
   return { width: Math.round(width), height: Math.round(linkLayout(object).height * scale) };
+}
+
+// зона влучання значка «відкрити». 44px на екрані — але НЕ більша за саму
+// картку: інакше невидимий прямокутник вилазить за її межі, і рамка
+// трансформера починає рахуватись по ньому, а не по вмісту — на дрібній
+// картці це давало видимий зазор і стрибок (журнал 06.10). Притиснута до
+// правого верхнього кута, тож завжди лежить усередині
+export function linkBadgeHit(layoutHeight: number, screenScale: number) {
+  const wanted = LINK_BADGE_TOUCH / Math.max(screenScale, 0.0001);
+  const size = Math.min(Math.max(LINK_BADGE, wanted), LINK_BASE_WIDTH, layoutHeight);
+  return { size, x: LINK_BASE_WIDTH - size, y: 0 };
 }
 
 // будь-яка правка картки міняє і її висоту: вона похідна від вмісту. Щоб про

@@ -6,7 +6,15 @@ import { linkKind, linkVertical, linkVideoId } from 'shared';
 import type { LinkObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
-import { LINK_BADGE, LINK_BASE_WIDTH, LINK_FONT, LINK_ICON, LINK_PAD, linkLayout } from '../link-layout';
+import {
+  LINK_BADGE,
+  LINK_BASE_WIDTH,
+  LINK_FONT,
+  LINK_ICON,
+  LINK_PAD,
+  linkBadgeHit,
+  linkLayout,
+} from '../link-layout';
 import { openLink } from '../link-open';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
@@ -166,6 +174,7 @@ export function LinkShape({
           <OpenBadge
             overImage={!layout.withIcon}
             colors={colors}
+            cardHeight={layout.height}
             // 44px у ЕКРАННИХ пікселях: картка вже масштабована, тож ділимо
             // і на її масштаб, і на масштаб полотна
             screenScale={scale * viewportScale}
@@ -184,7 +193,6 @@ type Colors = ReturnType<typeof useCanvasColors>;
 const BADGE = LINK_BADGE;
 // контури тієї самої іконки «відкрити», що й кнопка в контекстній панелі
 const OPEN_GLYPH = ['M11 4h5v5', 'M16 4l-7 7', 'M14 12v4H4V6h4'];
-const TOUCH_TARGET = 44;
 
 // значок «відкрити» в правому верхньому куті картки. Видно ЗАВЖДИ, не лише
 // на виділеній: інакше нізвідки здогадатись, що картку можна відкрити.
@@ -192,11 +200,13 @@ const TOUCH_TARGET = 44;
 function OpenBadge({
   overImage,
   colors,
+  cardHeight,
   screenScale,
   onActivate,
 }: {
   overImage: boolean;
   colors: Colors;
+  cardHeight: number;
   screenScale: number;
   onActivate: () => void;
 }) {
@@ -208,7 +218,9 @@ function OpenBadge({
   // кадрі, і на темному. На самій картці білим не можна (у світлій темі вона
   // біла), тому там звичайний приглушений колір
   const stroke = overImage ? '#ffffff' : colors.label;
-  const hit = Math.max(BADGE, TOUCH_TARGET / Math.max(screenScale, 0.0001));
+  // прямокутник рахується в координатах КАРТКИ, а група значка зміщена —
+  // тому переводимо його в її систему
+  const hit = linkBadgeHit(cardHeight, screenScale);
 
   const cursor = (e: KonvaEventObject<MouseEvent>, value: string) => {
     const container = e.target.getStage()?.container();
@@ -241,10 +253,10 @@ function OpenBadge({
       події. Натискання крізь неї доходить до групи картки, тож тягнути
       картку, почавши зі значка, можна як і раніше */}
       <Rect
-        x={BADGE / 2 - hit / 2}
-        y={BADGE / 2 - hit / 2}
-        width={hit}
-        height={hit}
+        x={hit.x - x}
+        y={hit.y - y}
+        width={hit.size}
+        height={hit.size}
         fill="transparent"
       />
       {OPEN_GLYPH.map((d) => (
