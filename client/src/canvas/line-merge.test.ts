@@ -78,7 +78,7 @@ describe('лінія: один тип замість двох інструмен
       expect(connectorCurved(stored!)).toBe(true);
     });
 
-    it(`${strategy}: перехід на пряму лишає рівно два кінці, ctrl+z вертає точки`, async () => {
+    it(`${strategy}: перемикання режиму зберігає всі точки в обидва боки`, async () => {
       setSyncStrategy(strategy);
       resetBoardDoc();
       const points = [
@@ -89,21 +89,27 @@ describe('лінія: один тип замість двох інструмен
       useBoardStore.getState().add(connector('c', points));
       await realWait(PAUSE_MS);
 
-      // саме це робить перемикач «пряма» в панелі
-      useBoardStore.getState().update('c', {
-        curved: false,
-        ...withPoints([points[0], points[2]]),
-      });
+      // саме це робить перемикач у панелі: міняється лише режим
+      useBoardStore.getState().update('c', { curved: false });
       const straight = get<ConnectorObject>('c')!;
-      expect(straight.points).toHaveLength(2);
-      expect(straight.points[0]).toEqual({ x: 0, y: 0 });
-      expect(straight.points[1]).toEqual({ x: 120, y: 0 });
+      expect(straight.points).toHaveLength(3);
+      expect(straight.points[1]).toEqual({ x: 50, y: 60 });
       expect(connectorCurved(straight)).toBe(false);
 
+      // пауза довша за вікно групування undo — інакше обидва перемикання
+      // злились би в один крок, і перевірка нижче нічого б не доводила
+      await realWait(PAUSE_MS);
+      useBoardStore.getState().update('c', { curved: true });
+      const back = get<ConnectorObject>('c')!;
+      expect(back.points).toHaveLength(3);
+      expect(connectorCurved(back)).toBe(true);
+
+      // один перемикач — один крок undo
       undoBoard();
+      expect(connectorCurved(get<ConnectorObject>('c')!)).toBe(false);
       expect(get<ConnectorObject>('c')!.points).toHaveLength(3);
       redoBoard();
-      expect(get<ConnectorObject>('c')!.points).toHaveLength(2);
+      expect(connectorCurved(get<ConnectorObject>('c')!)).toBe(true);
     });
 
     it(`${strategy}: стара пряма 'line' досі читається й правиться`, () => {

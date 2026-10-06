@@ -40,7 +40,6 @@ import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
-import { withPoints } from './objects/point-box';
 import { linkPatchWithSize } from './link-layout';
 import { useTranslation } from 'react-i18next';
 
@@ -233,15 +232,12 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     for (const o of selected) if (o.type === 'line' || o.type === 'connector') update(o.id, { dash });
   }
 
-  // пряма — це ті самі два кінці без проміжних точок; перемикання туди їх і
-  // відкидає, кінці лишаються на місці
+  // перемикач міняє ЛИШЕ режим: усі точки лишаються на місці в обидва боки,
+  // тож форма ламаної зберігається і туди, і назад. Раніше перехід на пряму
+  // відкидав проміжні точки — повернути їх було нічим
   function setCurved(curved: boolean) {
     const update = useBoardStore.getState().update;
-    for (const o of selected) {
-      if (o.type !== 'connector') continue;
-      if (curved) update(o.id, { curved: true });
-      else update(o.id, { curved: false, ...withPoints([o.points[0], o.points[o.points.length - 1]]) });
-    }
+    for (const o of selected) if (o.type === 'connector') update(o.id, { curved });
   }
 
   // вістря перемикаються незалежно: лінія буває і без них, і з обома
