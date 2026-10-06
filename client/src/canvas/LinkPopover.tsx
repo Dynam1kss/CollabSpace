@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { parseLinkUrl, LINK_TITLE_MAX, LINK_URL_MAX } from 'shared';
+import { parseLinkUrl, LINK_URL_MAX } from 'shared';
 import { useTranslation } from 'react-i18next';
 import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
+import { linkPatchWithSize } from './link-layout';
 import { createLink } from './object-defaults';
 import { nextZIndex } from './selection-actions';
 
@@ -32,8 +33,7 @@ export function LinkPopover({ viewport, canvasSize, currentUserId }: Props) {
         key="draft"
         at={clamp(draft.screen, canvasSize)}
         initialUrl=""
-        initialTitle=""
-        withTitle={false}
+        withOpen={false}
         onCancel={() => useEditorStore.getState().closeLinkDraft()}
         onSubmit={(parsed) => {
           const object = createLink(draft.board, parsed, {
@@ -57,16 +57,15 @@ export function LinkPopover({ viewport, canvasSize, currentUserId }: Props) {
       key={target.id}
       at={clamp({ x: screen.x, y: screen.y + GAP }, canvasSize)}
       initialUrl={target.url}
-      initialTitle={target.title ?? ''}
-      withTitle
+      withOpen
       onCancel={() => useEditorStore.getState().stopEditingLink()}
-      onSubmit={(parsed, title) => {
-        useBoardStore.getState().update(target.id, {
-          url: parsed.url,
-          kind: parsed.kind,
-          videoId: parsed.videoId,
-          title: title.trim() === '' ? undefined : title.trim(),
-        });
+      onSubmit={(parsed) => {
+        useBoardStore
+          .getState()
+          .update(
+            target.id,
+            linkPatchWithSize(target, { url: parsed.url, kind: parsed.kind, videoId: parsed.videoId }),
+          );
         useEditorStore.getState().stopEditingLink();
       }}
     />
@@ -85,16 +84,15 @@ function clamp(point: { x: number; y: number }, canvas: { width: number; height:
 interface FormProps {
   at: { x: number; y: number };
   initialUrl: string;
-  initialTitle: string;
-  withTitle: boolean;
+  // при правці наявної картки поруч із «зберегти» ще й «відкрити»
+  withOpen: boolean;
   onCancel: () => void;
-  onSubmit: (parsed: NonNullable<ReturnType<typeof parseLinkUrl>>, title: string) => void;
+  onSubmit: (parsed: NonNullable<ReturnType<typeof parseLinkUrl>>) => void;
 }
 
-function Form({ at, initialUrl, initialTitle, withTitle, onCancel, onSubmit }: FormProps) {
+function Form({ at, initialUrl, withOpen, onCancel, onSubmit }: FormProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState(initialUrl);
-  const [title, setTitle] = useState(initialTitle);
   const [invalid, setInvalid] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -130,7 +128,7 @@ function Form({ at, initialUrl, initialTitle, withTitle, onCancel, onSubmit }: F
       setInvalid(true);
       return;
     }
-    onSubmit(parsed, title);
+    onSubmit(parsed);
   }
 
   return (
@@ -152,23 +150,9 @@ function Form({ at, initialUrl, initialTitle, withTitle, onCancel, onSubmit }: F
           if (e.key === 'Enter') submit();
         }}
       />
-      {withTitle && (
-        <input
-          type="text"
-          className="link-input"
-          placeholder={t('link.title')}
-          aria-label={t('link.title')}
-          maxLength={LINK_TITLE_MAX}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit();
-          }}
-        />
-      )}
       {invalid && <span className="link-invalid">{t('link.invalid')}</span>}
       <button type="button" className="link-submit" onClick={submit}>
-        {withTitle ? t('link.save') : t('link.add')}
+        {withOpen ? t('link.save') : t('link.add')}
       </button>
     </div>
   );

@@ -15,7 +15,7 @@ import type {
 import type { Point } from './coordinates';
 import { withEnds, withPoints } from './objects/point-box';
 import { fitTextBox } from './text-layout';
-import { LINK_CHROME_HEIGHT } from './objects/LinkShape';
+import { LINK_BASE_WIDTH, linkCardSize } from './link-layout';
 import { DEFAULT_INK } from '../theme';
 import { i18n } from '../i18n';
 
@@ -41,10 +41,6 @@ const STICKY_SIZE = { width: 160, height: 120 };
 // довша сторона щойно вставленої картинки — щоб фото з телефону не накрило всю дошку
 const IMAGE_MAX_SIDE = 320;
 const SHAPE_SIZE = { width: 120, height: 90 };
-// картка посилання: web — рядок із підписом і доменом; відео — квадратна
-// мініатюра 1:1 плюс та сама «обгортка» з підписом під нею
-const LINK_SIZE = { width: 260, height: 84 };
-const LINK_VIDEO_WIDTH = 240;
 const CONNECTOR_LENGTH = 140;
 const MIN_DRAWN_SIZE = 8; // менше цього — вважаємо це кліком, не протягуванням
 
@@ -184,22 +180,21 @@ export function createImage(
 }
 
 // адресу сюди передають уже розібраною (shared/parseLinkUrl) — створювати
-// картку з рядка, якого ми не перевірили, не можна
+// картку з рядка, якого ми не перевірили, не можна. Висоту не вигадуємо:
+// рахує та сама розкладка, що й малює
 export function createLink(point: Point, parsed: ParsedLink, meta: CreationMeta): LinkObject {
-  const size =
-    parsed.kind === 'youtube'
-      ? { width: LINK_VIDEO_WIDTH, height: LINK_VIDEO_WIDTH + LINK_CHROME_HEIGHT }
-      : LINK_SIZE;
-  return {
+  const object: LinkObject = {
     ...baseFields(meta),
     type: 'link',
     x: point.x,
     y: point.y,
-    ...size,
+    width: LINK_BASE_WIDTH,
+    height: 0,
     url: parsed.url,
     kind: parsed.kind,
     ...(parsed.videoId ? { videoId: parsed.videoId } : {}),
   };
+  return { ...object, ...linkCardSize(object) };
 }
 
 function createText(x: number, y: number, meta: CreationMeta): TextObject {

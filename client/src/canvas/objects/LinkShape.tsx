@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import { Group, Image as KonvaImage, Line, Path, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import { linkDomain, linkKind, linkVideoId } from 'shared';
+import { linkKind, linkVertical, linkVideoId } from 'shared';
 import type { LinkObject } from 'shared';
 import { useBoardStore } from '../board-store';
+import { useEditorStore } from '../editor-store';
+import { LINK_BASE_WIDTH, LINK_FONT, LINK_ICON, LINK_PAD, linkLayout } from '../link-layout';
 import { openLink } from '../link-open';
-import { TEXT_FONT_FAMILY } from '../text-layout';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
-import { DEFAULT_INK, inkFor, useCanvasColors } from '../../theme';
-import { useTheme } from '../../theme';
+import { DEFAULT_INK, inkFor, useCanvasColors, useTheme } from '../../theme';
 import { i18n } from '../../i18n';
 
 // material «link», 24×24 — той самий контур, що в іконці панелі, але konva
@@ -18,14 +18,17 @@ import { i18n } from '../../i18n';
 const LINK_GLYPH =
   'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z';
 
-const PAD = 12;
 const RADIUS = 10;
-// підпис під мініатюрою відео: та сама висота, що й у всієї «обгортки» картки
-export const LINK_CHROME_HEIGHT = 48;
 
-function thumbUrl(videoId: string) {
-  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+// 16:9 беремо mqdefault — він рівно 320×180, без чорних смуг, різати нічого.
+// shorts віддаються лише в hqdefault (480×360), і вертикальний кадр стоїть у
+// ньому по центру між смугами — звідси обрізання нижче
+function thumbUrl(videoId: string, vertical: boolean) {
+  return `https://img.youtube.com/vi/${videoId}/${vertical ? 'hqdefault' : 'mqdefault'}.jpg`;
 }
+
+// вертикальний кадр усередині 480×360: висота вся, ширина — 360×9/16
+const SHORTS_CROP = { x: (480 - (360 * 9) / 16) / 2, y: 0, width: (360 * 9) / 16, height: 360 };
 
 interface Props {
   object: LinkObject;
@@ -44,8 +47,10 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
 
   const kind = linkKind(object);
   const videoId = linkVideoId(object);
-  const domain = linkDomain(object.url);
+  const layout = linkLayout(object);
   const ink = inkFor(DEFAULT_INK, theme);
+  // вся картка — одна розкладка в базовій ширині, на дошці масштабована цілком
+  const scale = object.width / LINK_BASE_WIDTH;
 
   const commitPosition = (e: KonvaEventObject<DragEvent>) => {
     updateSoon(object.id, { x: e.target.x(), y: e.target.y() });
@@ -57,9 +62,8 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
     flushUpdates();
   };
 
-  // повну адресу показуємо нативною підказкою контейнера: у konvaтексту
-  // її ніде не розмістити, а title на елементі — не innerHTML і нічого не
-  // виконує, хай би що було в адресі
+  // повну адресу показуємо нативною підказкою контейнера: у konva-тексту її
+  // ніде не розмістити, а title на елементі нічого не виконує
   const showUrl = (e: KonvaEventObject<MouseEvent>) => {
     const container = e.target.getStage()?.container();
     if (container) container.title = object.url;
@@ -69,9 +73,11 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
     if (container) container.title = '';
   };
 
-  // подвійний клік відкриває адресу — так само, як кнопка в панелі. Правка
-  // адреси й підпису живе в контекстній панелі (журнал 06.10)
-  const handleOpen = () => openLink(object.url);
+  // відео дивимось у себе, решту відкриваємо у вкладці
+  const handleActivate = () => {
+    if (kind === 'youtube' && videoId) useEditorStore.getState().playVideo(videoId);
+    else openLink(object.url);
+  };
 
   return (
     <Group
@@ -86,153 +92,142 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
       onDragStart={onDragStart}
       onDragMove={commitPosition}
       onDragEnd={handleDragEnd}
-      onDblClick={handleOpen}
-      onDblTap={handleOpen}
+      onDblClick={handleActivate}
+      onDblTap={handleActivate}
       onMouseEnter={showUrl}
       onMouseLeave={hideUrl}
     >
-      <Rect
-        name="box"
-        width={object.width}
-        height={object.height}
-        fill={colors.cardBg}
-        cornerRadius={RADIUS}
-        stroke={isSelected ? colors.accent : colors.cardBorder}
-        strokeWidth={isSelected ? 1.5 : 1}
-        strokeScaleEnabled={false}
-      />
-      {kind === 'youtube' && videoId ? (
-        <YoutubeBody object={object} videoId={videoId} domain={domain} ink={ink} colors={colors} />
-      ) : (
-        <WebBody object={object} domain={domain} ink={ink} colors={colors} />
-      )}
+      <Group name="card" scaleX={scale} scaleY={scale}>
+        <Rect
+          name="box"
+          width={LINK_BASE_WIDTH}
+          height={layout.height}
+          fill={colors.cardBg}
+          cornerRadius={RADIUS}
+          stroke={isSelected ? colors.accent : colors.cardBorder}
+          strokeWidth={isSelected ? 1.5 : 1}
+          strokeScaleEnabled={false}
+        />
+        <Group listening={false}>
+          {layout.withIcon ? (
+            <Path
+              data={LINK_GLYPH}
+              fill={colors.label}
+              x={LINK_PAD}
+              y={LINK_PAD}
+              scaleX={LINK_ICON / 24}
+              scaleY={LINK_ICON / 24}
+            />
+          ) : (
+            <CardImage object={object} layout={layout} colors={colors} />
+          )}
+          <Text
+            text={layout.title}
+            x={layout.textX}
+            y={layout.titleY}
+            width={layout.textWidth}
+            fontSize={layout.titleSize}
+            fontStyle="bold"
+            fontFamily={LINK_FONT}
+            lineHeight={1.2}
+            fill={ink}
+            wrap="word"
+          />
+          {layout.description !== '' && (
+            <Text
+              text={layout.description}
+              x={layout.textX}
+              y={layout.descY}
+              width={layout.textWidth}
+              fontSize={layout.textSize}
+              fontFamily={LINK_FONT}
+              lineHeight={1.2}
+              fill={colors.label}
+              wrap="word"
+            />
+          )}
+          <Text
+            text={layout.domain}
+            x={layout.textX}
+            y={layout.domainY}
+            width={layout.textWidth}
+            fontSize={layout.textSize}
+            fontFamily={LINK_FONT}
+            lineHeight={1.2}
+            fill={colors.label}
+            wrap="word"
+          />
+        </Group>
+      </Group>
     </Group>
   );
 }
 
 type Colors = ReturnType<typeof useCanvasColors>;
 
-function WebBody({
+function CardImage({
   object,
-  domain,
-  ink,
+  layout,
   colors,
 }: {
   object: LinkObject;
-  domain: string;
-  ink: string;
+  layout: ReturnType<typeof linkLayout>;
   colors: Colors;
 }) {
-  const glyph = 22;
-  const textX = PAD + glyph + 10;
-  const textWidth = Math.max(0, object.width - textX - PAD);
-  return (
-    <Group listening={false}>
-      <Path
-        data={LINK_GLYPH}
-        fill={colors.label}
-        x={PAD}
-        y={PAD}
-        // шлях намальований у 24×24 — зводимо до потрібного розміру
-        scaleX={glyph / 24}
-        scaleY={glyph / 24}
-      />
-      <Text
-        text={object.title?.trim() || domain}
-        x={textX}
-        y={PAD}
-        width={textWidth}
-        fontSize={15}
-        fontStyle="bold"
-        fontFamily={TEXT_FONT_FAMILY}
-        fill={ink}
-        wrap="none"
-        ellipsis
-      />
-      <Text
-        text={domain}
-        x={textX}
-        y={PAD + 22}
-        width={textWidth}
-        fontSize={12}
-        fontFamily={TEXT_FONT_FAMILY}
-        fill={colors.label}
-        wrap="none"
-        ellipsis
-      />
-    </Group>
-  );
-}
+  const kind = linkKind(object);
+  const videoId = linkVideoId(object);
+  const vertical = linkVertical(object);
+  const src = kind === 'youtube' && videoId ? thumbUrl(videoId, vertical) : (object.previewImage ?? null);
 
-function YoutubeBody({
-  object,
-  videoId,
-  domain,
-  ink,
-  colors,
-}: {
-  object: LinkObject;
-  videoId: string;
-  domain: string;
-  ink: string;
-  colors: Colors;
-}) {
-  // стан завантаження тримаємо разом з id відео, а не окремими прапорцями:
-  // інакше при зміні адреси треба було б скидати їх у тілі ефекту, і картка
-  // на мить показувала б мініатюру попереднього відео
-  const [loaded, setLoaded] = useState<{ id: string; image: HTMLImageElement | null } | null>(null);
+  // стан завантаження тримаємо разом з адресою: інакше при її зміні довелось
+  // би скидати прапорці в тілі ефекту, і картка на мить показувала б старе
+  const [loaded, setLoaded] = useState<{ src: string; image: HTMLImageElement | null } | null>(null);
 
   useEffect(() => {
+    if (!src) return;
     const img = new window.Image();
-    // мініатюра віддається з Access-Control-Allow-Origin: *, тож анонімний
-    // режим не ламає завантаження — зате полотно лишається «чистим» і
-    // експорт у png/pdf не падає на tainted canvas
+    // мініатюра youtube віддається з Access-Control-Allow-Origin: *, тож
+    // анонімний режим не ламає завантаження, зате полотно лишається «чистим»
+    // і експорт у png/pdf не падає на tainted canvas
     img.crossOrigin = 'anonymous';
-    img.onload = () => setLoaded({ id: videoId, image: img });
-    img.onerror = () => setLoaded({ id: videoId, image: null });
-    img.src = thumbUrl(videoId);
+    img.onload = () => setLoaded({ src, image: img });
+    img.onerror = () => setLoaded({ src, image: null });
+    img.src = src;
     return () => {
       img.onload = null;
       img.onerror = null;
     };
-  }, [videoId]);
+  }, [src]);
 
-  const current = loaded?.id === videoId ? loaded : null;
+  const current = loaded?.src === src ? loaded : null;
   const image = current?.image ?? null;
   const failed = current !== null && current.image === null;
-
-  const thumbHeight = Math.max(0, object.height - LINK_CHROME_HEIGHT);
-  const thumbWidth = object.width;
-  const label = object.title?.trim() || 'YouTube';
-  // hqdefault — 480×360, і всередині нього 16:9 кадр із чорними смугами по
-  // 45px зверху й знизу. Тому квадрат беремо не з усього файлу, а з самого
-  // кадру: 270×270 по центру — інакше третина картки була б чорною
-  const crop = { x: 105, y: 45, width: 270, height: 270 };
-  const play = Math.min(56, thumbHeight * 0.3);
+  const width = LINK_BASE_WIDTH;
+  const height = layout.imageHeight;
+  const crop = kind === 'youtube' && vertical ? SHORTS_CROP : undefined;
+  const play = Math.min(56, height * 0.3);
 
   return (
-    <Group listening={false}>
-      <Group clipX={0} clipY={0} clipWidth={thumbWidth} clipHeight={thumbHeight}>
-        <Rect width={thumbWidth} height={thumbHeight} fill={colors.placeholder} cornerRadius={[RADIUS, RADIUS, 0, 0]} />
-        {image && (
-          <KonvaImage image={image} width={thumbWidth} height={thumbHeight} crop={crop} />
-        )}
+    <Group>
+      <Group clipX={0} clipY={0} clipWidth={width} clipHeight={height}>
+        <Rect width={width} height={height} fill={colors.placeholder} cornerRadius={[RADIUS, RADIUS, 0, 0]} />
+        {image && <KonvaImage image={image} width={width} height={height} crop={crop} />}
         {failed && (
           <Path
             data={LINK_GLYPH}
             fill={colors.label}
-            x={thumbWidth / 2 - 16}
-            y={thumbHeight / 2 - 16}
+            x={width / 2 - 16}
+            y={height / 2 - 16}
             scaleX={32 / 24}
             scaleY={32 / 24}
           />
         )}
       </Group>
-      {image && (
+      {kind === 'youtube' && image !== null && (
         <>
           <Rect
-            x={thumbWidth / 2 - play * 0.9}
-            y={thumbHeight / 2 - play * 0.62}
+            x={width / 2 - play * 0.9}
+            y={height / 2 - play * 0.62}
             width={play * 1.8}
             height={play * 1.24}
             fill="rgba(0, 0, 0, 0.55)"
@@ -240,41 +235,30 @@ function YoutubeBody({
           />
           <Line
             points={[
-              thumbWidth / 2 - play * 0.22,
-              thumbHeight / 2 - play * 0.34,
-              thumbWidth / 2 + play * 0.4,
-              thumbHeight / 2,
-              thumbWidth / 2 - play * 0.22,
-              thumbHeight / 2 + play * 0.34,
+              width / 2 - play * 0.22,
+              height / 2 - play * 0.34,
+              width / 2 + play * 0.4,
+              height / 2,
+              width / 2 - play * 0.22,
+              height / 2 + play * 0.34,
             ]}
             closed
             fill="#ffffff"
           />
         </>
       )}
-      <Text
-        text={label}
-        x={PAD}
-        y={thumbHeight + 8}
-        width={Math.max(0, object.width - PAD * 2)}
-        fontSize={14}
-        fontStyle="bold"
-        fontFamily={TEXT_FONT_FAMILY}
-        fill={ink}
-        wrap="none"
-        ellipsis
-      />
-      <Text
-        text={failed ? i18n.t('link.thumbFailed') : domain}
-        x={PAD}
-        y={thumbHeight + 26}
-        width={Math.max(0, object.width - PAD * 2)}
-        fontSize={11}
-        fontFamily={TEXT_FONT_FAMILY}
-        fill={colors.label}
-        wrap="none"
-        ellipsis
-      />
+      {failed && kind !== 'youtube' && (
+        <Text
+          text={i18n.t('link.thumbFailed')}
+          x={LINK_PAD}
+          y={height / 2 + 22}
+          width={width - LINK_PAD * 2}
+          fontSize={11}
+          fontFamily={LINK_FONT}
+          fill={colors.label}
+          align="center"
+        />
+      )}
     </Group>
   );
 }

@@ -139,10 +139,22 @@ export interface ImageObject extends BoardObjectBase {
 export interface LinkObject extends BoardObjectBase {
   type: 'link';
   url: string;
-  // свій підпис; без нього картка показує домен
+  // свій підпис; без нього картка показує витягнутий зі сторінки, а без
+  // нього — домен
   title?: string;
   kind?: LinkKind;
   videoId?: string;
+  // прев'ю сторінки, зібране сервером один раз при створенні (див.
+  // /api/link-preview). Усе необовʼязкове: картка працює й без нього, а старі
+  // знімки цих полів просто не мають
+  previewTitle?: string;
+  previewDescription?: string;
+  previewSiteName?: string;
+  // НАШ шлях /uploads/..., не чужа адреса: глядач не має ходити на сторонні
+  // хости, щоб побачити картку
+  previewImage?: string;
+  // ширина, поділена на висоту — щоб картка не стрибала, поки растр летить
+  previewAspect?: number;
 }
 
 // джерело правди — лише url, збережені поля тут навмисно не читаються. Інакше
@@ -154,6 +166,11 @@ export function linkKind(object: Pick<LinkObject, 'url'>): LinkKind {
 
 export function linkVideoId(object: Pick<LinkObject, 'url'>): string | undefined {
   return parseLinkUrl(object.url)?.videoId;
+}
+
+// shorts знімають вертикально — картка під них теж вертикальна
+export function linkVertical(object: Pick<LinkObject, 'url'>): boolean {
+  return parseLinkUrl(object.url)?.vertical === true;
 }
 
 export type BoardObject =

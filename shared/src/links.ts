@@ -19,6 +19,9 @@ export interface ParsedLink {
   url: string;
   kind: LinkKind;
   videoId?: string;
+  // shorts — вертикальне відео. Різновид видно з самої адреси, бо нормалізація
+  // шлях не чіпає, тож окремого поля в обʼєкті не треба
+  vertical?: boolean;
 }
 
 // www. і m. на пізнаванні домену не впливають
@@ -63,7 +66,10 @@ export function parseLinkUrl(raw: string): ParsedLink | null {
   if (url.length > LINK_URL_MAX) return null;
 
   const videoId = videoFrom(u);
-  if (videoId && VIDEO_ID.test(videoId)) return { url, kind: 'youtube', videoId };
+  if (videoId && VIDEO_ID.test(videoId)) {
+    const vertical = u.pathname.split('/').filter(Boolean)[0] === 'shorts';
+    return { url, kind: 'youtube', videoId, ...(vertical ? { vertical: true } : {}) };
+  }
   return { url, kind: 'web' };
 }
 

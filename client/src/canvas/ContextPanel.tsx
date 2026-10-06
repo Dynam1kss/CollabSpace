@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { lineDash, linkDomain, linkKind, linkVideoId, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
+import type { LinkObject } from 'shared';
 import type { LineDash, TextAlign } from 'shared';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
@@ -34,6 +35,7 @@ import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
+import { linkPatchWithSize } from './link-layout';
 import { openLink } from './link-open';
 import { useTranslation } from 'react-i18next';
 
@@ -282,19 +284,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
         <>
           <span className="ctx-link" title={linkObject.url}>
             <LinkIcon />
-            <input
-              type="text"
-              className="ctx-link-title"
-              placeholder={linkDomain(linkObject.url)}
-              aria-label={t('link.title')}
-              maxLength={LINK_TITLE_MAX}
-              value={linkObject.title ?? ''}
-              onChange={(e) =>
-                useBoardStore
-                  .getState()
-                  .update(linkObject.id, { title: e.target.value === '' ? undefined : e.target.value })
-              }
-            />
+            <LinkTitleField object={linkObject} placeholder={linkDomain(linkObject.url)} />
             <span className="ctx-link-url">{linkObject.url}</span>
           </span>
           <button
@@ -304,6 +294,14 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
             onClick={() => useEditorStore.getState().startEditingLink(linkObject.id)}
           >
             <TextIcon />
+          </button>
+          <button
+            type="button"
+            title={t('link.open')}
+            aria-label={t('link.open')}
+            onClick={() => openLink(linkObject.url)}
+          >
+            <ExternalIcon />
           </button>
           {linkKind(linkObject) === 'youtube' && linkVideoId(linkObject) && (
             <button
@@ -315,14 +313,6 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
               <PlayIcon />
             </button>
           )}
-          <button
-            type="button"
-            title={t('link.open')}
-            aria-label={t('link.open')}
-            onClick={() => openLink(linkObject.url)}
-          >
-            <ExternalIcon />
-          </button>
         </>
       )}
 
@@ -493,6 +483,37 @@ function clamp(value: number, min: number, max: number) {
 
 // рамка виділення на екрані — обʼєднання кутів усіх обʼєктів з урахуванням
 // повороту (еліпс крутиться довкола центру, решта — довкола лівого верхнього кута)
+// підпис картки: textarea, що росте за текстом. Висота картки — похідна від
+// підпису, тож пишемо патч через linkPatchWithSize, інакше рамка розійшлася б
+// із текстом
+function LinkTitleField({ object, placeholder }: { object: LinkObject; placeholder: string }) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [object.title]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className="ctx-link-title"
+      placeholder={placeholder}
+      aria-label={t('link.title')}
+      maxLength={LINK_TITLE_MAX}
+      value={object.title ?? ''}
+      onChange={(e) => {
+        const title = e.target.value === '' ? undefined : e.target.value;
+        useBoardStore.getState().update(object.id, linkPatchWithSize(object, { title }));
+      }}
+    />
+  );
+}
+
 function selectionScreenRect(objects: BoardObject[], viewport: Viewport) {
   let minX = Infinity;
   let minY = Infinity;

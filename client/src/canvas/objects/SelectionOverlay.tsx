@@ -35,6 +35,7 @@ import {
   toModelRect,
 } from './transform-math';
 import type { Rect, ResizeGrip, ResizeResult } from './transform-math';
+import { LINK_BASE_WIDTH, linkCardSize } from '../link-layout';
 import { useCanvasColors } from '../../theme';
 
 // обʼєкти, чия геометрія — звичайний прямокутник: саме їх тягне нова
@@ -266,8 +267,11 @@ export function SelectionOverlay({
     (selectedObjects[0].type === 'connector' || selectedObjects[0].type === 'line');
   // картинку саму по собі тягнемо лише пропорційно, інакше вона сплющується
   const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
+  // картка посилання — як картинка: ширину задає людина, висота похідна від
+  // вмісту, тож тягнути за бік безглуздо
+  const soleLink = selectedObjects.length === 1 && selectedObjects[0].type === 'link';
   // пропорція заблокована для тексту й картинки завжди, для решти — з shift
-  const keepRatio = soleText || soleImage ? true : shiftHeld;
+  const keepRatio = soleText || soleImage || soleLink ? true : shiftHeld;
   const isSoleText = !!soleText;
   // нова функція щорендера означала б зміну атрибута трансформера і зайвий
   // update() на кожен кадр жесту
@@ -494,6 +498,15 @@ export function SelectionOverlay({
       node.setAttrs({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
       return;
     }
+    if (obj.type === 'link') {
+      // висоту картки диктує вміст, а не ручка: беремо ширину й масштабуємо
+      // всю розкладку — так само, як це робить сам LinkShape
+      const group = node as Konva.Group;
+      const scale = rect.width / LINK_BASE_WIDTH;
+      group.setAttrs({ x: rect.x, y: rect.y });
+      group.findOne<Konva.Group>('.card')?.setAttrs({ scaleX: scale, scaleY: scale });
+      return;
+    }
     const group = node as Konva.Group;
     group.setAttrs({ x: rect.x, y: rect.y });
     group.findOne<Konva.Rect>('.box')?.setAttrs({ width: rect.width, height: rect.height });
@@ -508,6 +521,9 @@ export function SelectionOverlay({
     const common = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
     if (obj.type === 'shape') {
       return { ...common, strokeWidth: scaledStrokeWidth(strokeStartRef.current[obj.id] ?? obj, rect) };
+    }
+    if (obj.type === 'link') {
+      return { x: rect.x, y: rect.y, ...linkCardSize(obj, rect.width) };
     }
     if (obj.type === 'image') {
       // дзеркалення цього жесту накладаємо на те, що було до нього: сам факт
@@ -640,7 +656,7 @@ export function SelectionOverlay({
       // (у виділеної картинки обведення 3px — це +6 до кожної сторони)
       ignoreStroke
       boundBoxFunc={limitBox}
-      enabledAnchors={soleText ? TEXT_ANCHORS : soleImage ? CORNER_ANCHORS : ALL_ANCHORS}
+      enabledAnchors={soleText ? TEXT_ANCHORS : soleImage || soleLink ? CORNER_ANCHORS : ALL_ANCHORS}
       anchorStyleFunc={anchorStyleFunc}
       keepRatio={keepRatio}
       rotateEnabled
