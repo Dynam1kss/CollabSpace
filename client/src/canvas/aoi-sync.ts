@@ -96,7 +96,7 @@ export class AoiSync {
       this.lastSubscribeAt = now;
       this.reconcile(true);
     }
-    // те, що не влізло в такт, доберe цей же дебаунс — він і відпускає зайве
+    // те, що не влізло в такт, добере цей же дебаунс — він і відпускає зайве
     this.viewTimer = setTimeout(() => this.reconcile(), VIEW_DEBOUNCE_MS);
   }
 
