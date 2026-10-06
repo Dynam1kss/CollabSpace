@@ -303,6 +303,9 @@ export const fr: Translation = {
     duplicate: 'Dupliquer',
     toBack: "À l'arrière-plan",
     toFront: 'Au premier plan',
+    arrange: 'Disposition',
+    forward: 'Avancer',
+    backward: 'Reculer',
   },
   search: {
     open: 'Rechercher',

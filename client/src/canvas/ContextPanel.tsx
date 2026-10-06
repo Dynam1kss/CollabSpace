@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { connectorCurved, lineDash, linkDomain, linkKind, linkVideoId, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
 import type { LinkObject } from 'shared';
 import type { LineDash, TextAlign } from 'shared';
@@ -18,7 +19,9 @@ import {
   DashSolidIcon,
   CurveIcon,
   StraightIcon,
+  BackwardIcon,
   BringFrontIcon,
+  ForwardIcon,
   ChairIcon,
   DuplicateIcon,
   ExternalIcon,
@@ -48,7 +51,19 @@ const EDGE_MARGIN = 8;
 // палітра відкривається від обʼєкта, тож над панеллю має лишатись місце й на неї
 const POPOVER_ROOM = 40;
 
-type PickerKind = 'fill' | 'text' | 'stroke';
+const DASH_ICONS: Record<LineDash, ReactNode> = {
+  solid: <DashSolidIcon />,
+  dashed: <DashDashedIcon />,
+  dotted: <DashDottedIcon />,
+};
+
+const ALIGN_ICONS: Record<TextAlign, ReactNode> = {
+  left: <AlignLeftIcon />,
+  center: <AlignCenterIcon />,
+  right: <AlignRightIcon />,
+};
+
+type PickerKind = 'fill' | 'text' | 'stroke' | 'arrange' | 'align' | 'dash' | 'arrows';
 
 interface Props {
   viewport: Viewport;
@@ -112,8 +127,19 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     function handlePointerDown(e: PointerEvent) {
       if (!ref.current?.contains(e.target as Node)) setPicker(null);
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      // панель з'їдає Escape лише коли в ній щось відкрито — інакше він
+      // має дійти далі, до зняття виділення
+      e.stopPropagation();
+      setPicker(null);
+    }
     document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKey, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKey, true);
+    };
   }, [openPicker]);
 
   if (!anchor) return null;
@@ -239,6 +265,28 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
     selected.forEach((o, i) => update(o.id, { zIndex: maxZ + 1 + i }));
   }
 
+  // крок уперед/назад: міняємось місцями з найближчим сусідом по z. Для
+  // групи йдемо з того краю, куди рухаємось, щоб вибрані не перестрибували
+  // одне одного
+  function stepZ(direction: 1 | -1) {
+    const update = useBoardStore.getState().update;
+    const all = useBoardStore
+      .getState()
+      .getAll()
+      .sort((a, b) => a.zIndex - b.zIndex);
+    const picked = direction === 1 ? [...selected].reverse() : selected;
+    for (const o of picked) {
+      const i = all.findIndex((x) => x.id === o.id);
+      const j = i + direction;
+      if (i < 0 || j < 0 || j >= all.length) continue;
+      const neighbour = all[j];
+      if (neighbour.zIndex === o.zIndex) continue;
+      update(o.id, { zIndex: neighbour.zIndex });
+      update(neighbour.id, { zIndex: o.zIndex });
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+  }
+
   function sendToBack() {
     const update = useBoardStore.getState().update;
     const all = useBoardStore.getState().getAll();
@@ -326,14 +374,13 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
 
       {lineObject && (
         <>
-          <span className="ctx-group" role="group" aria-label={t('ctx.dash')}>
-            {(
-              [
-                ['solid', <DashSolidIcon key="s" />],
-                ['dashed', <DashDashedIcon key="d" />],
-                ['dotted', <DashDottedIcon key="o" />],
-              ] as const
-            ).map(([value, icon]) => (
+          <PanelMenu
+            label={t('ctx.dash')}
+            icon={DASH_ICONS[lineDash(lineObject)]}
+            open={openPicker === 'dash'}
+            onToggle={() => togglePicker('dash')}
+          >
+            {(['solid', 'dashed', 'dotted'] as const).map((value) => (
               <button
                 key={value}
                 type="button"
@@ -341,13 +388,22 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
                 title={t(`ctx.dash_${value}`)}
                 aria-label={t(`ctx.dash_${value}`)}
                 aria-pressed={lineDash(lineObject) === value}
-                onClick={() => setDash(value)}
+                onClick={() => {
+                  setDash(value);
+                  setPicker(null);
+                }}
               >
-                {icon}
+                {DASH_ICONS[value]}
               </button>
             ))}
-          </span>
-          <span className="ctx-group" role="group" aria-label={t('ctx.arrows')}>
+          </PanelMenu>
+          <PanelMenu
+            label={t('ctx.arrows')}
+            icon={<ArrowEndIcon />}
+            active={!!lineObject.arrowStart || !!lineObject.arrowEnd}
+            open={openPicker === 'arrows'}
+            onToggle={() => togglePicker('arrows')}
+          >
             {(
               [
                 ['arrowStart', <ArrowStartIcon key="s" />],
@@ -366,7 +422,7 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
                 {icon}
               </button>
             ))}
-          </span>
+          </PanelMenu>
           {curveObject && curveObject.type === 'connector' && (
             <span className="ctx-group" role="group" aria-label={t('ctx.curve')}>
               {(
@@ -393,14 +449,13 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       )}
 
       {fontObject && (
-        <span className="ctx-group" role="group" aria-label={t('ctx.align')}>
-          {(
-            [
-              ['left', <AlignLeftIcon key="l" />],
-              ['center', <AlignCenterIcon key="c" />],
-              ['right', <AlignRightIcon key="r" />],
-            ] as const
-          ).map(([value, icon]) => (
+        <PanelMenu
+          label={t('ctx.align')}
+          icon={ALIGN_ICONS[alignValue]}
+          open={openPicker === 'align'}
+          onToggle={() => togglePicker('align')}
+        >
+          {(['left', 'center', 'right'] as const).map((value) => (
             <button
               key={value}
               type="button"
@@ -408,12 +463,15 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
               title={t(`ctx.align_${value}`)}
               aria-label={t(`ctx.align_${value}`)}
               aria-pressed={alignValue === value}
-              onClick={() => setAlign(value)}
+              onClick={() => {
+                setAlign(value);
+                setPicker(null);
+              }}
             >
-              {icon}
+              {ALIGN_ICONS[value]}
             </button>
           ))}
-        </span>
+        </PanelMenu>
       )}
 
       {canManageSeats && (
@@ -445,21 +503,46 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       >
         {lockedOn ? <LockIcon /> : <UnlockIcon />}
       </button>
-      {/* на телефоні це ЄДИНИЙ спосіб продублювати — ctrl+d там нема звідки взяти */}
-      <button
-        type="button"
-        title={`${t('ctx.duplicate')} (Ctrl+D)`}
-        aria-label={t('ctx.duplicate')}
-        onClick={() => duplicateSelected(currentUserId)}
+      {/* порядок і копії — під однією кнопкою: окремо вони займали чверть
+      панелі, а потрібні рідко. На телефоні дублювання тут ЄДИНИЙ спосіб —
+      ctrl+d там нема звідки взяти */}
+      <PanelMenu
+        label={t('ctx.arrange')}
+        icon={<BringFrontIcon />}
+        open={openPicker === 'arrange'}
+        onToggle={() => togglePicker('arrange')}
       >
-        <DuplicateIcon />
-      </button>
-      <button type="button" title={t('ctx.toBack')} aria-label={t('ctx.toBack')} onClick={sendToBack}>
-        <SendBackIcon />
-      </button>
-      <button type="button" title={t('ctx.toFront')} aria-label={t('ctx.toFront')} onClick={bringToFront}>
-        <BringFrontIcon />
-      </button>
+        <button type="button" title={t('ctx.toFront')} aria-label={t('ctx.toFront')} onClick={bringToFront}>
+          <BringFrontIcon />
+        </button>
+        <button
+          type="button"
+          title={t('ctx.forward')}
+          aria-label={t('ctx.forward')}
+          onClick={() => stepZ(1)}
+        >
+          <ForwardIcon />
+        </button>
+        <button
+          type="button"
+          title={t('ctx.backward')}
+          aria-label={t('ctx.backward')}
+          onClick={() => stepZ(-1)}
+        >
+          <BackwardIcon />
+        </button>
+        <button type="button" title={t('ctx.toBack')} aria-label={t('ctx.toBack')} onClick={sendToBack}>
+          <SendBackIcon />
+        </button>
+        <button
+          type="button"
+          title={`${t('ctx.duplicate')} (Ctrl+D)`}
+          aria-label={t('ctx.duplicate')}
+          onClick={() => duplicateSelected(currentUserId)}
+        >
+          <DuplicateIcon />
+        </button>
+      </PanelMenu>
       <span className="ctx-sep" />
       <button
         type="button"
@@ -470,6 +553,46 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
       >
         <TrashIcon />
       </button>
+    </div>
+  );
+}
+
+// кнопка-група: показує поточний стан, по кліку відкриває маленький поповер
+// із варіантами. Поповер абсолютний усередині кнопки, а панель нічого не
+// обрізає (у неї немає overflow), тож він лягає поверх усього
+function PanelMenu({
+  label,
+  icon,
+  active,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  icon: ReactNode;
+  active?: boolean;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="ctx-menu">
+      <button
+        type="button"
+        className={active || open ? 'ctx-toggle active' : 'ctx-toggle'}
+        title={label}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        {icon}
+      </button>
+      {open && (
+        <div className="ctx-popover" role="menu">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

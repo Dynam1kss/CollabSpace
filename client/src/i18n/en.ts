@@ -298,6 +298,9 @@ export const en: Translation = {
     duplicate: 'Duplicate',
     toBack: 'Send to back',
     toFront: 'Bring to front',
+    arrange: 'Arrange',
+    forward: 'Forward',
+    backward: 'Backward',
   },
   search: {
     open: 'Search the board',

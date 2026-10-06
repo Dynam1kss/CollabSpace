@@ -298,6 +298,9 @@ export const de: Translation = {
     duplicate: 'Duplizieren',
     toBack: 'In den Hintergrund',
     toFront: 'In den Vordergrund',
+    arrange: 'Anordnen',
+    forward: 'Nach vorne',
+    backward: 'Nach hinten',
   },
   search: {
     open: 'Board durchsuchen',

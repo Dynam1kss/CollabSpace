@@ -2935,3 +2935,16 @@ button.profile-open {
   overflow-y: auto;
   line-height: 1.3;
 }
+
+/* кнопка-група в контекстній панелі: сам поповер уже має свої стилі
+   (.ctx-popover), тут лише обгортка, від якої він позиціюється */
+.ctx-menu {
+  position: relative;
+  display: flex;
+}
+
+/* у поповері групи кнопки стоять у ряд із такими самими розмірами, як у панелі */
+.board-page .ctx-popover button {
+  width: 32px;
+  height: 32px;
+}
