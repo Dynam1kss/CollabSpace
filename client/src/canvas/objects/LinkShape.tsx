@@ -5,7 +5,7 @@ import type { KonvaEventObject } from 'konva/lib/Node';
 import { linkDomain, linkKind, linkVideoId } from 'shared';
 import type { LinkObject } from 'shared';
 import { useBoardStore } from '../board-store';
-import { useEditorStore } from '../editor-store';
+import { openLink } from '../link-open';
 import { TEXT_FONT_FAMILY } from '../text-layout';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
@@ -39,7 +39,6 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
   const theme = useTheme();
   const updateSoon = useBoardStore((s) => s.updateSoon);
   const flushUpdates = useBoardStore((s) => s.flushUpdates);
-  const startEditingLink = useEditorStore((s) => s.startEditingLink);
   const handlePointerDown = useSelectOnPointerDown(object.id);
   const { onDragStart, onDragEnd } = useDragGesture();
 
@@ -70,7 +69,9 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
     if (container) container.title = '';
   };
 
-  const handleEdit = () => startEditingLink(object.id);
+  // подвійний клік відкриває адресу — так само, як кнопка в панелі. Правка
+  // адреси й підпису живе в контекстній панелі (журнал 06.10)
+  const handleOpen = () => openLink(object.url);
 
   return (
     <Group
@@ -85,8 +86,8 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
       onDragStart={onDragStart}
       onDragMove={commitPosition}
       onDragEnd={handleDragEnd}
-      onDblClick={handleEdit}
-      onDblTap={handleEdit}
+      onDblClick={handleOpen}
+      onDblTap={handleOpen}
       onMouseEnter={showUrl}
       onMouseLeave={hideUrl}
     >

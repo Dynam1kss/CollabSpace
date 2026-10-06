@@ -16,6 +16,7 @@ import { syncStrategy } from '../canvas/sync-strategy';
 import { fitToObjects } from '../canvas/fit-to-objects';
 import { ContextPanel } from '../canvas/ContextPanel';
 import { LinkPopover } from '../canvas/LinkPopover';
+import { VideoOverlay } from '../canvas/VideoOverlay';
 import { ChatPanel } from '../canvas/ChatPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { setSelfUserId } from '../voice/voice-mesh';
@@ -320,6 +321,9 @@ export function BoardPage() {
               currentUserId={currentUserId}
             />
             {PINCH_DEBUG && <PinchDebug />}
+            {/* дивитись відео може й глядач — це не правка вмісту, тож
+            накладка поза перевіркою editable */}
+            <VideoOverlay />
             {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
             {editable && (
               <>

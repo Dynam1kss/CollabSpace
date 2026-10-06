@@ -31,6 +31,8 @@ interface EditorState {
   // інструмент «посилання» чекає адресу: куди ставити картку (координати
   // дошки) і де відкрити поповер (координати полотна)
   linkDraft: { board: { x: number; y: number }; screen: { x: number; y: number } } | null;
+  // відео, відкрите накладкою поверх полотна (DOM-iframe, не konva)
+  playingVideoId: string | null;
   // йде тягання чи трансформація — контекстна панель на цей час ховається,
   // бо позиції в сторі відстають від вузлів до dragend/transformend
   interacting: boolean;
@@ -51,6 +53,8 @@ interface EditorState {
   stopEditingLink: () => void;
   openLinkDraft: (board: { x: number; y: number }, screen: { x: number; y: number }) => void;
   closeLinkDraft: () => void;
+  playVideo: (videoId: string) => void;
+  stopVideo: () => void;
   setInteracting: (value: boolean) => void;
   setClipboard: (objects: BoardObject[]) => void;
   setTouchInput: () => void;
@@ -63,6 +67,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   editingTextId: null,
   editingLinkId: null,
   linkDraft: null,
+  playingVideoId: null,
   interacting: false,
   clipboard: [],
   touchInput: false,
@@ -101,6 +106,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   openLinkDraft: (board, screen) =>
     set((state) => (state.canEdit ? { linkDraft: { board, screen } } : state)),
   closeLinkDraft: () => set({ linkDraft: null }),
+  // глядачу дивитись можна: це не зміна вмісту
+  playVideo: (videoId) => set({ playingVideoId: videoId }),
+  stopVideo: () => set({ playingVideoId: null }),
   // заразом межа кроку undo: цілий жест має відкочуватись одним ctrl+z,
   // а не покадрово — board-store пише в документ раз на кадр
   setInteracting: (value) => {

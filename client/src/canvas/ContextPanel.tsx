@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { lineDash, stickyFontSize, textAlign } from 'shared';
+import { lineDash, linkDomain, linkKind, linkVideoId, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
 import type { LineDash, TextAlign } from 'shared';
 import type { BoardObject } from 'shared';
 import { useBoardStore } from './board-store';
@@ -18,7 +18,10 @@ import {
   BringFrontIcon,
   ChairIcon,
   DuplicateIcon,
+  ExternalIcon,
+  LinkIcon,
   LockIcon,
+  PlayIcon,
   SendBackIcon,
   StrokeWidthIcon,
   TextIcon,
@@ -31,6 +34,7 @@ import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
+import { openLink } from './link-open';
 import { useTranslation } from 'react-i18next';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
@@ -117,6 +121,10 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
   );
   // штрих і вістря — тільки в прямої
   const lineObject = selected.find((o) => o.type === 'line');
+  // адресу й підпис правимо лише коли вибрана рівно одна картка: на групі
+  // поле введення означало б «застосувати до всіх», а це безглуздо
+  const linkObject =
+    selected.length === 1 && selected[0].type === 'link' ? selected[0] : null;
   // розмір шрифту є і в тексту, і в стікера — поле одне на обидва.
   // вирівнювання так само: у стікера коробка стала, тож там воно навіть
   // помітніше, ніж у блоку, що хугає свій текст
@@ -268,6 +276,54 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           max={FONT_SIZE_MAX}
           onCommit={setFontSize}
         />
+      )}
+
+      {linkObject && (
+        <>
+          <span className="ctx-link" title={linkObject.url}>
+            <LinkIcon />
+            <input
+              type="text"
+              className="ctx-link-title"
+              placeholder={linkDomain(linkObject.url)}
+              aria-label={t('link.title')}
+              maxLength={LINK_TITLE_MAX}
+              value={linkObject.title ?? ''}
+              onChange={(e) =>
+                useBoardStore
+                  .getState()
+                  .update(linkObject.id, { title: e.target.value === '' ? undefined : e.target.value })
+              }
+            />
+            <span className="ctx-link-url">{linkObject.url}</span>
+          </span>
+          <button
+            type="button"
+            title={t('link.url')}
+            aria-label={t('link.url')}
+            onClick={() => useEditorStore.getState().startEditingLink(linkObject.id)}
+          >
+            <TextIcon />
+          </button>
+          {linkKind(linkObject) === 'youtube' && linkVideoId(linkObject) && (
+            <button
+              type="button"
+              title={t('link.play')}
+              aria-label={t('link.play')}
+              onClick={() => useEditorStore.getState().playVideo(linkVideoId(linkObject)!)}
+            >
+              <PlayIcon />
+            </button>
+          )}
+          <button
+            type="button"
+            title={t('link.open')}
+            aria-label={t('link.open')}
+            onClick={() => openLink(linkObject.url)}
+          >
+            <ExternalIcon />
+          </button>
+        </>
       )}
 
       {lineObject && lineObject.type === 'line' && (
