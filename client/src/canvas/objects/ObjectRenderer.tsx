@@ -19,6 +19,8 @@ interface Props {
   viewportScale: number;
   // дефолтне чорнило лежить поверх непрозорого — не підмінювати на світле
   inkOverFill: boolean;
+  // йде знімок у png/pdf: службові позначки на ньому зайві
+  exporting: boolean;
   registerRef: (node: Konva.Node | null) => void;
 }
 
@@ -34,6 +36,7 @@ export const ObjectRenderer = memo(function ObjectRenderer({
   draggable,
   viewportScale,
   inkOverFill,
+  exporting,
   registerRef,
 }: Props) {
   switch (object.type) {
@@ -96,7 +99,14 @@ export const ObjectRenderer = memo(function ObjectRenderer({
       );
     case 'link':
       return (
-        <LinkShape object={object} isSelected={isSelected} draggable={draggable} registerRef={registerRef} />
+        <LinkShape
+          object={object}
+          isSelected={isSelected}
+          draggable={draggable}
+          viewportScale={viewportScale}
+          exporting={exporting}
+          registerRef={registerRef}
+        />
       );
   }
 });

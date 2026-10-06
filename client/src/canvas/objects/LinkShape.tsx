@@ -6,7 +6,7 @@ import { linkKind, linkVertical, linkVideoId } from 'shared';
 import type { LinkObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
-import { LINK_BASE_WIDTH, LINK_FONT, LINK_ICON, LINK_PAD, linkLayout } from '../link-layout';
+import { LINK_BADGE, LINK_BASE_WIDTH, LINK_FONT, LINK_ICON, LINK_PAD, linkLayout } from '../link-layout';
 import { openLink } from '../link-open';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
@@ -34,10 +34,19 @@ interface Props {
   object: LinkObject;
   isSelected: boolean;
   draggable: boolean;
+  viewportScale: number;
+  exporting: boolean;
   registerRef: (node: Konva.Node | null) => void;
 }
 
-export function LinkShape({ object, isSelected, draggable, registerRef }: Props) {
+export function LinkShape({
+  object,
+  isSelected,
+  draggable,
+  viewportScale,
+  exporting,
+  registerRef,
+}: Props) {
   const colors = useCanvasColors();
   const theme = useTheme();
   const updateSoon = useBoardStore((s) => s.updateSoon);
@@ -151,12 +160,112 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
             wrap="word"
           />
         </Group>
+        {/* останнім у групі: інакше мініатюра лягає поверх значка.
+        На знімку дошки службова позначка зайва */}
+        {!exporting && (
+          <OpenBadge
+            overImage={!layout.withIcon}
+            colors={colors}
+            // 44px у ЕКРАННИХ пікселях: картка вже масштабована, тож ділимо
+            // і на її масштаб, і на масштаб полотна
+            screenScale={scale * viewportScale}
+            onActivate={handleActivate}
+          />
+        )}
       </Group>
     </Group>
   );
 }
 
 type Colors = ReturnType<typeof useCanvasColors>;
+
+// розмір значка в координатах картки — спільний з розкладкою, бо вона лишає
+// під нього місце в рядку підпису
+const BADGE = LINK_BADGE;
+// контури тієї самої іконки «відкрити», що й кнопка в контекстній панелі
+const OPEN_GLYPH = ['M11 4h5v5', 'M16 4l-7 7', 'M14 12v4H4V6h4'];
+const TOUCH_TARGET = 44;
+
+// значок «відкрити» в правому верхньому куті картки. Видно ЗАВЖДИ, не лише
+// на виділеній: інакше нізвідки здогадатись, що картку можна відкрити.
+// Живе всередині картки, тому масштабується разом із нею
+function OpenBadge({
+  overImage,
+  colors,
+  screenScale,
+  onActivate,
+}: {
+  overImage: boolean;
+  colors: Colors;
+  screenScale: number;
+  onActivate: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const x = LINK_BASE_WIDTH - LINK_PAD - BADGE;
+  const y = LINK_PAD;
+
+  // поверх картинки — білим із темним ореолом: так читається і на світлому
+  // кадрі, і на темному. На самій картці білим не можна (у світлій темі вона
+  // біла), тому там звичайний приглушений колір
+  const stroke = overImage ? '#ffffff' : colors.label;
+  const hit = Math.max(BADGE, TOUCH_TARGET / Math.max(screenScale, 0.0001));
+
+  const cursor = (e: KonvaEventObject<MouseEvent>, value: string) => {
+    const container = e.target.getStage()?.container();
+    if (container) container.style.cursor = value;
+  };
+
+  return (
+    <Group
+      x={x}
+      y={y}
+      opacity={hovered ? 1 : 0.75}
+      onMouseEnter={(e) => {
+        setHovered(true);
+        cursor(e, 'pointer');
+      }}
+      onMouseLeave={(e) => {
+        setHovered(false);
+        cursor(e, '');
+      }}
+      onClick={(e) => {
+        e.cancelBubble = true;
+        onActivate();
+      }}
+      onTap={(e) => {
+        e.cancelBubble = true;
+        onActivate();
+      }}
+    >
+      {/* зона влучання — не менша за 44px на екрані; невидима, але ловить
+      події. Натискання крізь неї доходить до групи картки, тож тягнути
+      картку, почавши зі значка, можна як і раніше */}
+      <Rect
+        x={BADGE / 2 - hit / 2}
+        y={BADGE / 2 - hit / 2}
+        width={hit}
+        height={hit}
+        fill="transparent"
+      />
+      {OPEN_GLYPH.map((d) => (
+        <Path
+          key={d}
+          data={d}
+          stroke={stroke}
+          strokeWidth={1.6}
+          lineCap="round"
+          lineJoin="round"
+          listening={false}
+          scaleX={BADGE / 20}
+          scaleY={BADGE / 20}
+          shadowColor="#000000"
+          shadowBlur={3}
+          shadowOpacity={overImage ? 0.85 : 0.35}
+        />
+      ))}
+    </Group>
+  );
+}
 
 // картка без картинки (прев'ю не вийшло або сайт його не дає): замість
 // безликого ланцюжка — перша літера домену. Так картки різних сайтів

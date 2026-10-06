@@ -9,6 +9,8 @@ export const LINK_BASE_WIDTH = 260;
 
 export const LINK_PAD = 12;
 export const LINK_ICON = 22;
+// значок «відкрити» в правому верхньому куті картки
+export const LINK_BADGE = 18;
 export const LINK_FONT = 'Arial, Helvetica, sans-serif';
 const TITLE_SIZE = 15;
 const TEXT_SIZE = 12;
@@ -88,7 +90,10 @@ export function linkLayout(object: LinkObject): LinkLayout {
   const withIcon = aspect === null;
 
   const textX = withIcon ? LINK_PAD + LINK_ICON + 10 : LINK_PAD;
-  const textWidth = LINK_BASE_WIDTH - textX - LINK_PAD;
+  // у картки без картинки значок «відкрити» стоїть у тому ж рядку, що й
+  // підпис, — лишаємо йому місце, інакше довга назва заповзає під нього
+  const reserved = withIcon ? LINK_BADGE + 6 : 0;
+  const textWidth = LINK_BASE_WIDTH - textX - LINK_PAD - reserved;
 
   const titleY = imageHeight + LINK_PAD;
   const titleHeight = measure(title, TITLE_SIZE, textWidth, true);

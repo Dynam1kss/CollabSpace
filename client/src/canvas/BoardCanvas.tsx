@@ -292,6 +292,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
                 draggable={draggableObjects && isMovable(object, lockedByOthers)}
                 viewportScale={viewport.scale}
                 inkOverFill={inkOverFillIds.has(object.id)}
+                exporting={exporting}
                 registerRef={getRegisterRef(object.id)}
               />
             ))}
