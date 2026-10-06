@@ -405,6 +405,39 @@ describe('снепшот частинами (стратегія 3)', () => {
     expect(got.find((o) => o.id === 'a')!.x).toBe(300);
   });
 
+  it('картка посилання переїжджає між клітинками: у базі лишається рівно одна', async () => {
+    const { agent } = await registerUser();
+    const board = await agent.post('/api/boards').send({ title: 'Велика' });
+    const id = board.body.id as string;
+    const card = (x: number, y: number) => ({
+      id: 'k1',
+      type: 'link',
+      x,
+      y,
+      width: 260,
+      height: 84,
+      rotation: 0,
+      zIndex: 0,
+      createdBy: 'u1',
+      createdAt: '2026-10-06T00:00:00.000Z',
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+      kind: 'youtube',
+      videoId: 'dQw4w9WgXcQ',
+    });
+
+    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [card(10, 10)], cells: ['0:0'] }).expect(204);
+
+    // той самий жест, що й на клієнті: запис у нову клітинку й спорожнення старої
+    await agent
+      .put(`/api/boards/${id}/snapshot`)
+      .send({ objects: [card(2010, 10)], cells: ['0:0', '1:0'] })
+      .expect(204);
+
+    const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as { id: string; x: number }[];
+    expect(got).toHaveLength(1);
+    expect(got[0]).toMatchObject({ id: 'k1', x: 2010, url: 'https://youtu.be/dQw4w9WgXcQ', videoId: 'dQw4w9WgXcQ' });
+  });
+
   it('видалення в своїй клітинці лягає, чужі клітинки цілі', async () => {
     const { agent } = await registerUser();
     const board = await agent.post('/api/boards').send({ title: 'Велика' });
