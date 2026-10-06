@@ -263,6 +263,7 @@ export const de: Translation = {
     placeholder: 'URL einfügen',
     add: 'Link hinzufügen',
     title: 'Titel',
+    address: 'Adresse',
     url: 'Adresse',
     open: 'Öffnen',
     play: 'Hier ansehen',

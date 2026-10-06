@@ -6,6 +6,7 @@ import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { linkPatchWithSize } from './link-layout';
+import { openLink } from './link-open';
 import { createLink } from './object-defaults';
 import { nextZIndex } from './selection-actions';
 
@@ -151,9 +152,16 @@ function Form({ at, initialUrl, withOpen, onCancel, onSubmit }: FormProps) {
         }}
       />
       {invalid && <span className="link-invalid">{t('link.invalid')}</span>}
-      <button type="button" className="link-submit" onClick={submit}>
-        {withOpen ? t('link.save') : t('link.add')}
-      </button>
+      <span className="link-actions">
+        <button type="button" className="link-submit" onClick={submit}>
+          {withOpen ? t('link.save') : t('link.add')}
+        </button>
+        {withOpen && (
+          <button type="button" className="link-open" onClick={() => openLink(url)}>
+            {t('link.open')}
+          </button>
+        )}
+      </span>
     </div>
   );
 }

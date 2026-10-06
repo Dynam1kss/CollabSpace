@@ -264,6 +264,7 @@ export const uk = {
     placeholder: 'Вставте адресу',
     add: 'Додати посилання',
     title: 'Підпис',
+    address: 'Адреса',
     url: 'Адреса',
     open: 'Відкрити',
     play: 'Дивитись тут',

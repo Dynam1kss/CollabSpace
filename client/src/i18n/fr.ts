@@ -268,6 +268,7 @@ export const fr: Translation = {
     placeholder: 'Coller une URL',
     add: 'Ajouter un lien',
     title: 'Titre',
+    address: 'Adresse',
     url: 'Adresse',
     open: 'Ouvrir',
     play: 'Lire ici',

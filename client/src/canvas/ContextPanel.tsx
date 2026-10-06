@@ -36,7 +36,6 @@ import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
 import { linkPatchWithSize } from './link-layout';
-import { openLink } from './link-open';
 import { useTranslation } from 'react-i18next';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
@@ -285,21 +284,12 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           <span className="ctx-link" title={linkObject.url}>
             <LinkIcon />
             <LinkTitleField object={linkObject} placeholder={linkDomain(linkObject.url)} />
-            <span className="ctx-link-url">{linkObject.url}</span>
           </span>
           <button
             type="button"
-            title={t('link.url')}
-            aria-label={t('link.url')}
+            title={t('link.address')}
+            aria-label={t('link.address')}
             onClick={() => useEditorStore.getState().startEditingLink(linkObject.id)}
-          >
-            <TextIcon />
-          </button>
-          <button
-            type="button"
-            title={t('link.open')}
-            aria-label={t('link.open')}
-            onClick={() => openLink(linkObject.url)}
           >
             <ExternalIcon />
           </button>
