@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { parseLinkUrl, LINK_URL_MAX } from 'shared';
+import { linkKind, parseLinkUrl, LINK_URL_MAX } from 'shared';
 import { useTranslation } from 'react-i18next';
 import { useBoardStore } from './board-store';
 import { boardToScreen } from './coordinates';
@@ -62,6 +62,8 @@ export function LinkPopover({ boardId, viewport, canvasSize, currentUserId }: Pr
       at={clamp({ x: screen.x, y: screen.y + GAP }, canvasSize)}
       initialUrl={target.url}
       withOpen
+      // прев'ю є лише у звичайних карток: у відео мініатюра з адреси
+      onRefresh={linkKind(target) === 'web' ? () => void loadLinkPreview(boardId, target.id) : undefined}
       onCancel={() => useEditorStore.getState().stopEditingLink()}
       onSubmit={(parsed) => {
         useBoardStore
@@ -91,11 +93,12 @@ interface FormProps {
   initialUrl: string;
   // при правці наявної картки поруч із «зберегти» ще й «відкрити»
   withOpen: boolean;
+  onRefresh?: () => void;
   onCancel: () => void;
   onSubmit: (parsed: NonNullable<ReturnType<typeof parseLinkUrl>>) => void;
 }
 
-function Form({ at, initialUrl, withOpen, onCancel, onSubmit }: FormProps) {
+function Form({ at, initialUrl, withOpen, onRefresh, onCancel, onSubmit }: FormProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState(initialUrl);
   const [invalid, setInvalid] = useState(false);
@@ -166,6 +169,18 @@ function Form({ at, initialUrl, withOpen, onCancel, onSubmit }: FormProps) {
           </button>
         )}
       </span>
+      {onRefresh && (
+        <button
+          type="button"
+          className="link-open"
+          onClick={() => {
+            onRefresh();
+            onCancel();
+          }}
+        >
+          {t('link.refresh')}
+        </button>
+      )}
     </div>
   );
 }

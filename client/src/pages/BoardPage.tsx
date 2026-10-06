@@ -327,7 +327,7 @@ export function BoardPage() {
             {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
             {editable && (
               <>
-                <ContextPanel boardId={board.id} viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
+                <ContextPanel viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
                 <LinkPopover boardId={board.id} viewport={viewport} canvasSize={canvasSize} currentUserId={currentUserId} />
               </>
             )}
