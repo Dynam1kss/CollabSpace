@@ -10,6 +10,7 @@ import { profileRouter } from './auth/profile.routes';
 import { roomStats, setSyncStrategyOfRooms } from './boards/board-rooms';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
+import { filesRouter } from './boards/files.routes';
 import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
 import { invitesRouter } from './boards/invites.routes';
 import { linkPreviewRouter } from './boards/link-preview.routes';
@@ -35,6 +36,7 @@ app.get('/api/health', (_req, res) => {
     status: 'ok',
     uptimeSeconds: process.uptime(),
     version,
+    limits: { fileMaxBytes: env.fileMaxBytes, boardFilesMaxBytes: env.boardFilesMaxBytes },
   };
   res.json(body);
 });
@@ -94,6 +96,7 @@ app.use('/api/boards/:id/chat', chatRouter);
 app.use('/api/boards/:id/seat', seatsRouter);
 app.use('/api/boards/:id/versions', versionsRouter);
 app.use('/api/boards/:id/images', imagesRouter);
+app.use('/api/boards/:id/files', filesRouter);
 // завантажені картинки — статикою, без перевірки прав: імена — uuid, не вгадати
 app.use('/uploads', express.static(UPLOADS_DIR));
 

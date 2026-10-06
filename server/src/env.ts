@@ -63,8 +63,17 @@ const benchMetrics = process.env.BENCH_METRICS === '1';
 // застосунок працює насправді
 const syncStrategy = isSyncStrategy(process.env.SYNC_STRATEGY) ? process.env.SYNC_STRATEGY : 'aoi';
 
+// межі для файлів дошки. Одне джерело правди: ці ж числа їдуть у клієнта
+// через /api/health, і він перевіряє розмір ДО завантаження. Змінити межу —
+// це правка .env і перезапуск, більше нічого
+const MB = 1024 * 1024;
+const fileMaxBytes = Number(process.env.FILE_MAX_BYTES) || 50 * MB;
+const boardFilesMaxBytes = Number(process.env.BOARD_FILES_MAX_BYTES) || 500 * MB;
+
 export const env = {
   port: Number(process.env.PORT) || 3000,
+  fileMaxBytes,
+  boardFilesMaxBytes,
   benchMetrics,
   syncStrategy,
   trustProxy,

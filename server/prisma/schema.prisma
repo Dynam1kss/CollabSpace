@@ -47,6 +47,7 @@ model User {
   seats         BoardSeat[]
   resetTokens   PasswordReset[]
   verifications EmailVerification[]
+  uploadedFiles BoardFile[]
 }
 
 // відновлення пароля поштою. Тримаємо не сам токен, а його sha256: з бази,
@@ -97,6 +98,7 @@ model Board {
   chat     ChatMessage[]
   seats    BoardSeat[]
   versions BoardVersion[]
+  files    BoardFile[]
 }
 
 model BoardMember {
@@ -152,6 +154,26 @@ model BoardSeat {
 // старий цілий знімок дошки. Лишився тільки для дошок, які ще жодного разу не
 // зберігали після переходу на клітинки: перший же запис розкладає його по
 // BoardSnapshotCell і прибирає цей рядок
+// файл, прикріплений до дошки. На диску він лежить під випадковим імʼям
+// (storageName), а те, як його назвала людина, — лише запис тут: у назві від
+// користувача може бути що завгодно, і підставляти її у шлях не можна.
+// Квота дошки — сума size цих рядків
+model BoardFile {
+  id          String   @id @default(cuid())
+  boardId     String
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  uploaderId  String
+  uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  name        String
+  // визначений за сигнатурою самого файла, а не за тим, що сказав клієнт
+  mime        String
+  size        Int
+  storageName String
+  createdAt   DateTime @default(now())
+
+  @@index([boardId])
+}
+
 model BoardSnapshot {
   id        String   @id @default(cuid())
   boardId   String   @unique

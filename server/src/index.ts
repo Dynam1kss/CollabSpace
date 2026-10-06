@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { app } from './app';
+import { startOrphanSweep } from './boards/files.sweep';
 import { tryUpgradeBoardRoom } from './boards/board-rooms';
 import { env } from './env';
 
@@ -130,6 +131,9 @@ httpServer.on('upgrade', (req, socket, head) => {
     socket.destroy();
   }
 });
+
+// прибирач файлів-сиріт: файли, на які вже добу ніхто не посилається
+startOrphanSweep();
 
 // 0.0.0.0, а не тільки localhost — щоб спайк був доступний з інших пристроїв у мережі
 httpServer.listen(env.port, '0.0.0.0', () => {
