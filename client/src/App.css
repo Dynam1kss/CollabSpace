@@ -1240,8 +1240,13 @@ touch-action без pinch-zoom, ctrl+wheel глушить usePreventBrowserZoom 
 .ctx-popover {
   position: absolute;
   bottom: calc(100% + 4px);
-  left: 0;
-  z-index: 2;
+  /* по центру своєї кнопки й рівно по ширині вмісту: з left: 0 і сталою
+     шириною меню з трьох іконок розтягувалось на 200px і вилазило за екран */
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  z-index: 3;
   display: flex;
   gap: 4px;
   padding: 6px;
@@ -1999,6 +2004,9 @@ elementFromPoint повертав би її саму замість колонк
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
+    /* коли інструменти влазять із запасом, зайве місце ділиться порівну, а не
+       лишається порожньою плямою праворуч */
+    justify-content: center;
   }
 
   .tool-tools::-webkit-scrollbar {
@@ -2030,11 +2038,19 @@ elementFromPoint повертав би її саму замість колонк
 
   /* контекстна панель — нижня шторка над панеллю інструментів, а не плашка
   біля обʼєкта: біля обʼєкта вона на такому екрані або за краєм, або на ньому */
+  /* по ширині вмісту й по центру: з left/right: 8px шторка розтягувалась на
+     весь екран, і з боків лишались порожні поля. Не скролиться, а переноситься
+     рядками — усередині неї абсолютні поповери, і будь-який overflow їх би обрізав */
   .board-page .ctx-panel.ctx-sheet {
-    left: 8px;
-    right: 8px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
     bottom: 72px;
-    max-width: none;
+    width: max-content;
+    max-width: calc(100% - 16px);
+    /* без цього межа стосується лише вмісту, а рамка з відступами додають
+       ще 14px — шторка знову виходила на весь екран */
+    box-sizing: border-box;
     justify-content: center;
     padding: 6px;
   }
@@ -2231,8 +2247,10 @@ elementFromPoint повертав би її саму замість колонк
     height: 44px;
   }
 
-  /* вісім зразків по 44px у рядок не влазять у телефон — у два ряди */
-  .ctx-popover {
+  /* вісім зразків по 44px у рядок не влазять у телефон — у два ряди.
+     ТІЛЬКИ палітра: раніше це правило ловило всі поповери підряд, і меню з
+     трьох іконок теж ставало 200px — іконки ліворуч, порожнеча праворуч */
+  .ctx-color .ctx-popover {
     flex-wrap: wrap;
     width: 200px;
   }
