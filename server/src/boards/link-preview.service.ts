@@ -144,12 +144,108 @@ async function storeImage(boardId: string, url: string): Promise<{ path: string;
   }
 }
 
-export async function buildPreview(boardId: string, url: string): Promise<LinkPreview> {
-  const page = await safeFetch(url, { maxBytes: MAX_HTML_BYTES, allowedTypes: ['text/html'] });
-  const preview = extractPreview(page.body.toString('utf8'), page.finalUrl);
-  if (!preview.image) return { ...preview, image: undefined };
+// скільки тримаємо розібраний корінь сайту: він міняється рідко, а в одну
+// дошку часто кидають кілька посилань на той самий сайт підряд
+const ROOT_TTL_MS = 5 * 60 * 1000;
+const ROOT_CACHE_MAX = 50;
+const rootCache = new Map<string, { at: number; preview: LinkPreview | null }>();
 
-  const stored = await storeImage(boardId, preview.image);
+function readRootCache(origin: string) {
+  const hit = rootCache.get(origin);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > ROOT_TTL_MS) {
+    rootCache.delete(origin);
+    return undefined;
+  }
+  return hit.preview;
+}
+
+function writeRootCache(origin: string, preview: LinkPreview | null) {
+  // найстаріший запис виходить першим — Map тримає порядок вставки
+  if (rootCache.size >= ROOT_CACHE_MAX) {
+    const oldest = rootCache.keys().next().value;
+    if (oldest !== undefined) rootCache.delete(oldest);
+  }
+  rootCache.set(origin, { at: Date.now(), preview });
+}
+
+// лише для перевірок: між ними кеш не має протікати
+export function clearRootCache() {
+  rootCache.clear();
+}
+
+// сторінку глибше кореня часто віддає порожня оболонка застосунку: розмітку
+// там малює javascript, а og-тегів немає взагалі. Тоді беремо бракуючі поля з
+// кореня сайту — це не «логіка під сайт», а те саме правило для всіх
+export type HtmlLoader = (url: string) => Promise<{ html: string; finalUrl: string }>;
+
+const loadHtmlOverNetwork: HtmlLoader = async (url) => {
+  const res = await safeFetch(url, { maxBytes: MAX_HTML_BYTES, allowedTypes: ['text/html'] });
+  return { html: res.body.toString('utf8'), finalUrl: res.finalUrl };
+};
+
+function rootOf(url: string): string | null {
+  const u = new URL(url);
+  // вже корінь — другий запит був би за тією самою сторінкою
+  if (u.pathname === '/') return null;
+  return `${u.protocol}//${u.host}/`;
+}
+
+// що знайшлось на глибокій сторінці, те й лишається; з кореня беремо ТІЛЬКИ
+// порожні поля
+function fillGaps(page: LinkPreview, root: LinkPreview): LinkPreview {
+  return {
+    title: page.title ?? root.title,
+    description: page.description ?? root.description,
+    siteName: page.siteName ?? root.siteName,
+    image: page.image ?? root.image,
+  };
+}
+
+async function rootPreview(url: string, loadHtml: HtmlLoader): Promise<LinkPreview | null> {
+  const root = rootOf(url);
+  if (root === null) return null;
+  const cached = readRootCache(root);
+  if (cached !== undefined) return cached;
+
+  let preview: LinkPreview | null;
+  try {
+    // ТОЙ САМИЙ шлях, що й перший запит: ті самі перевірки адреси, обмеження
+    // обсягу й часу, ті самі правила перенаправлень
+    const page = await loadHtml(root);
+    preview = extractPreview(page.html, page.finalUrl);
+  } catch {
+    // корінь не віддався (заборонена адреса, таймаут, не html) — не біда,
+    // картка лишиться з тим, що знайшлось на самій сторінці
+    preview = null;
+  }
+  writeRootCache(root, preview);
+  return preview;
+}
+
+export interface PreviewDeps {
+  loadHtml?: HtmlLoader;
+  saveImage?: (boardId: string, url: string) => Promise<{ path: string; aspect?: number } | null>;
+}
+
+export async function buildPreview(
+  boardId: string,
+  url: string,
+  deps: PreviewDeps = {},
+): Promise<LinkPreview> {
+  const loadHtml = deps.loadHtml ?? loadHtmlOverNetwork;
+  const saveImage = deps.saveImage ?? storeImage;
+
+  const page = await loadHtml(url);
+  let preview = extractPreview(page.html, page.finalUrl);
+
+  if (!preview.image || !preview.description) {
+    const root = await rootPreview(url, loadHtml);
+    if (root) preview = fillGaps(preview, root);
+  }
+
+  if (!preview.image) return { ...preview, image: undefined };
+  const stored = await saveImage(boardId, preview.image);
   return { ...preview, image: stored?.path, imageAspect: stored?.aspect };
 }
 
