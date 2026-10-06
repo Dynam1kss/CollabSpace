@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { cellOfObject } from 'shared';
 import type { BoardObject } from 'shared';
+import { timed } from './aoi-perf';
 
 // стратегія 3 (журнал 27.09): вміст дошки — не один Y.Doc, а по документу на
 // клітинку сітки (shared/cells). У кожного документа своя історія й свій
@@ -143,7 +144,7 @@ export class CellDocs {
     const entry = this.cells.get(cell);
     if (!entry) return;
     const hadHistory = this.hasHistory(cell);
-    Y.applyUpdate(entry.doc, update, CELL_REMOTE);
+    timed('apply', () => Y.applyUpdate(entry.doc, update, CELL_REMOTE));
     // перша історія — правда тепер у документі; прочитане глядачем зі
     // снепшоту більше не показуємо (там міг лишитись уже видалений обʼєкт)
     const seed = this.seeds.get(cell);

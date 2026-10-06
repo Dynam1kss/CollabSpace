@@ -4,6 +4,7 @@ import { diag } from './diag';
 import { syncStrategy } from './sync-strategy';
 import { CellDocs } from './cell-docs';
 import { CellUndo } from './cell-undo';
+import { markPaint, timed } from './aoi-perf';
 import type {
   BoardObject,
   ConnectorObject,
@@ -76,14 +77,17 @@ export const cellDocs = new CellDocs({
   // торкаються. Сюди долітає хіба що closeAll зі скидання документа
   onMirror: (changes) => {
     if (!aoi()) return;
-    useBoardStore.setState((state) => {
-      const objects = { ...state.objects };
-      for (const [id, value] of changes) {
-        if (value) objects[id] = value;
-        else delete objects[id];
-      }
-      return { objects };
-    });
+    timed('mirror', () =>
+      useBoardStore.setState((state) => {
+        const objects = { ...state.objects };
+        for (const [id, value] of changes) {
+          if (value) objects[id] = value;
+          else delete objects[id];
+        }
+        return { objects };
+      }),
+    );
+    markPaint();
   },
   onLocalUpdate: (cell, update) => cellSyncHooks?.localUpdate(cell, update),
   onNeedCell: (cell) => cellSyncHooks?.needCell(cell),

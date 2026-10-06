@@ -1,6 +1,7 @@
 import { cellsOfInterest, decodeCellKey, encodeCellKey, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
 import type { BoardObject, CellRect, CellSubscribeMessage } from 'shared';
 import type { CellDocs } from './cell-docs';
+import { timed, timedAsync } from './aoi-perf';
 
 // передплата на клітинки для стратегії 3 (журнал 27.09). Кожна клітинка —
 // окрема кімната з тим самим рукостисканням, що й ціла дошка:
@@ -147,7 +148,7 @@ export class AoiSync {
     if (dirty.length > 0 && this.io.canWrite()) {
       void this.io.saveCells(dirty, this.docs.objectsOf(dirty)).catch(() => {});
     }
-    if (add.length > 0) this.snapshot = this.io.fetchSnapshot();
+    if (add.length > 0) this.snapshot = timedAsync('snapshot', () => this.io.fetchSnapshot());
 
     const body: CellSubscribeMessage = { add, remove };
     const json = new TextEncoder().encode(JSON.stringify(body));
@@ -260,7 +261,7 @@ export class AoiSync {
     try {
       const objects = await (this.snapshot ?? this.io.fetchSnapshot());
       if (!this.subscribed.has(cell)) return;
-      this.docs.seedFromSnapshot(cell, objects, this.io.canWrite());
+      timed('seed', () => this.docs.seedFromSnapshot(cell, objects, this.io.canWrite()));
       this.markReady(cell);
     } catch {
       if (!this.subscribed.has(cell)) return;
