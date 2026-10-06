@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type Konva from 'konva';
 import type { BoardObject } from 'shared';
 import { ConnectorShape } from './ConnectorShape';
@@ -20,7 +21,12 @@ interface Props {
   registerRef: (node: Konva.Node | null) => void;
 }
 
-export function ObjectRenderer({
+// пачка з нової клітинки міняє в сторі лише свої ключі, але сам objects —
+// новий обʼєкт, і без memo react перемальовував усі вузли підряд: на дошці з
+// 900 завантаженими обʼєктами один такий кадр виходив 107мс (журнал 06.10).
+// порівняння мілке, і цього досить: пропси тут — або примітиви, або стабільні
+// посилання (обʼєкт зі стору й registerRef, кешований за id у BoardCanvas)
+export const ObjectRenderer = memo(function ObjectRenderer({
   object,
   isSelected,
   isEditing,
@@ -88,4 +94,4 @@ export function ObjectRenderer({
         <ImageShape object={object} isSelected={isSelected} draggable={draggable} registerRef={registerRef} />
       );
   }
-}
+});
