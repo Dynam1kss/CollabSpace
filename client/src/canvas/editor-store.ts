@@ -3,7 +3,10 @@ import type { BoardObject } from 'shared';
 import { beginUndoGesture, endUndoGesture } from './board-store';
 import { lockOwner, usePresenceStore } from './presence-store';
 
-export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'line' | 'link';
+// 'connector' — єдиний інструмент ліній (06.10): прямих, кривих і ламаних.
+// Назву в інтерфейсі він має просто «лінія», а id лишився старий, щоб не
+// переписувати збережені налаштування й весь код навколо
+export type ToolId = 'select' | 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'link';
 
 // шар обʼєктів ловить події лише під інструментом вибору. Під будь-яким
 // інструментом створення обʼєкти «прозорі» — інакше клік по наявному стікеру

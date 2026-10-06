@@ -89,17 +89,24 @@ export interface BoardPoint {
 // малюється сплайном. x/y/width/height — bounding box по всіх точках (для
 // виділення й уніфікованого hit-теста поруч з іншими типами). Тримати їх
 // узгодженими — відповідальність коду, що змінює обʼєкт
+// штрих лінії: суцільний, штриховий, крапковий. Поле необовʼязкове — лінія
+// без нього суцільна
+export type LineDash = 'solid' | 'dashed' | 'dotted';
+
+// лінія: два кінці або ламана з проміжними точками, пряма або крива.
+// Один тип на всі лінії (06.10) — з нього робить і інструмент «лінія»
 export interface ConnectorObject extends BoardObjectBase {
   type: 'connector';
   points: BoardPoint[];
   strokeColor: string;
   strokeWidth: number;
   arrowEnd: boolean;
+  // усе нижче необовʼязкове: лінії, намальовані до обʼєднання інструментів,
+  // цих полів не мають, і читаються вони через connector* нижче
+  arrowStart?: boolean;
+  dash?: LineDash;
+  curved?: boolean;
 }
-
-// штрих лінії: суцільний, штриховий, крапковий. Поле необовʼязкове — лінія
-// без нього суцільна
-export type LineDash = 'solid' | 'dashed' | 'dotted';
 
 // пряма між двома точками. Окремий тип, а не конектор із двома точками: у
 // конектора points — це ламана, яку konva веде сплайном, з вставними
@@ -119,8 +126,16 @@ export interface LineObject extends BoardObjectBase {
   arrowEnd?: boolean;
 }
 
-export function lineDash(object: Pick<LineObject, 'dash'>): LineDash {
+export function lineDash(object: { dash?: LineDash }): LineDash {
   return object.dash ?? 'solid';
+}
+
+// крива чи пряма. Поля немає у всього, намальованого до обʼєднання
+// інструментів: там правда в кількості точок — через дві точки сплайн і пряма
+// малюються однаково, а ламану з трьох і більше точок вели саме кривою. Тож
+// старі обʼєкти лишаються такими, якими їх бачили
+export function connectorCurved(object: Pick<ConnectorObject, 'points' | 'curved'>): boolean {
+  return object.curved ?? object.points.length > 2;
 }
 
 // url — відносний шлях /uploads/..., сам файл лежить на диску сервера

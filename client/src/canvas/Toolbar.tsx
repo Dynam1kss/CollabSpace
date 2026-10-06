@@ -4,7 +4,6 @@ import type { Point } from './coordinates';
 import { useEditorStore } from './editor-store';
 import type { ToolId } from './editor-store';
 import {
-  ConnectorIcon,
   EllipseIcon,
   ImageIcon,
   LineIcon,
@@ -29,8 +28,7 @@ const TOOLS: { id: ToolId; hotkey: string; icon: ReactNode }[] = [
   { id: 'text', hotkey: 'T', icon: <TextIcon /> },
   { id: 'rect', hotkey: 'R', icon: <RectIcon /> },
   { id: 'ellipse', hotkey: 'E', icon: <EllipseIcon /> },
-  { id: 'connector', hotkey: 'C', icon: <ConnectorIcon /> },
-  { id: 'line', hotkey: 'L', icon: <LineIcon /> },
+  { id: 'connector', hotkey: 'L', icon: <LineIcon /> },
   // K, бо L уже в прямої
   { id: 'link', hotkey: 'K', icon: <LinkIcon /> },
 ];

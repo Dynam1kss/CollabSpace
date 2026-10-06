@@ -44,11 +44,11 @@ const SHAPE_SIZE = { width: 120, height: 90 };
 const CONNECTOR_LENGTH = 140;
 const MIN_DRAWN_SIZE = 8; // менше цього — вважаємо це кліком, не протягуванням
 
-export type CreatableTool = 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector' | 'line';
+export type CreatableTool = 'sticky' | 'text' | 'rect' | 'ellipse' | 'connector';
 
 // усі інструменти, що щось створюють — список в одному місці, щоб перевірки
 // не перелічували їх руками й не відставали від коду
-export const CREATABLE_TOOLS: CreatableTool[] = ['sticky', 'text', 'rect', 'ellipse', 'connector', 'line'];
+export const CREATABLE_TOOLS: CreatableTool[] = ['sticky', 'text', 'rect', 'ellipse', 'connector'];
 
 interface CreationMeta {
   createdBy: string;
@@ -77,8 +77,6 @@ export function createAtPoint(tool: CreatableTool, point: Point, meta: CreationM
       return createShape(tool, point.x, point.y, SHAPE_SIZE.width, SHAPE_SIZE.height, meta);
     case 'connector':
       return createConnector(point, { x: point.x + CONNECTOR_LENGTH, y: point.y }, meta);
-    case 'line':
-      return createLine(point, { x: point.x + CONNECTOR_LENGTH, y: point.y }, meta);
   }
 }
 

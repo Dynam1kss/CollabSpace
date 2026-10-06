@@ -374,6 +374,23 @@ export function ExternalIcon() {
   );
 }
 
+// пряма й крива — перемикач вигляду лінії
+export function StraightIcon() {
+  return (
+    <Svg>
+      <path d="M4 16L16 4" />
+    </Svg>
+  );
+}
+
+export function CurveIcon() {
+  return (
+    <Svg>
+      <path d="M4 16C4 9 11 4 16 4" />
+    </Svg>
+  );
+}
+
 export function RefreshIcon() {
   return (
     <Svg>

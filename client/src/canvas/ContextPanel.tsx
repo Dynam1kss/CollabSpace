@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { lineDash, linkDomain, linkKind, linkVideoId, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
+import { connectorCurved, lineDash, linkDomain, linkKind, linkVideoId, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
 import type { LinkObject } from 'shared';
 import type { LineDash, TextAlign } from 'shared';
 import type { BoardObject } from 'shared';
@@ -16,6 +16,8 @@ import {
   DashDashedIcon,
   DashDottedIcon,
   DashSolidIcon,
+  CurveIcon,
+  StraightIcon,
   BringFrontIcon,
   ChairIcon,
   DuplicateIcon,
@@ -36,6 +38,7 @@ import { fitTextBox } from './text-layout';
 import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
+import { withPoints } from './objects/point-box';
 import { linkPatchWithSize } from './link-layout';
 import { loadLinkPreview } from './link-preview';
 import { useTranslation } from 'react-i18next';
@@ -124,7 +127,11 @@ export function ContextPanel({ boardId, viewport, canvasSize, currentUserId }: P
     (o) => o.type === 'shape' || o.type === 'connector' || o.type === 'line',
   );
   // штрих і вістря — тільки в прямої
-  const lineObject = selected.find((o) => o.type === 'line');
+  // штрих і вістря спільні для лінії й конектора: після обʼєднання
+  // інструментів (06.10) це один і той самий обʼєкт для людини
+  const lineObject = selected.find((o) => o.type === 'line' || o.type === 'connector');
+  // пряма/крива — лише в конектора: у старої прямої кривою бути нема з чого
+  const curveObject = selected.find((o) => o.type === 'connector');
   // адресу й підпис правимо лише коли вибрана рівно одна картка: на групі
   // поле введення означало б «застосувати до всіх», а це безглуздо
   const linkObject =
@@ -200,14 +207,25 @@ export function ContextPanel({ boardId, viewport, canvasSize, currentUserId }: P
 
   function setDash(dash: LineDash) {
     const update = useBoardStore.getState().update;
-    for (const o of selected) if (o.type === 'line') update(o.id, { dash });
+    for (const o of selected) if (o.type === 'line' || o.type === 'connector') update(o.id, { dash });
+  }
+
+  // пряма — це ті самі два кінці без проміжних точок; перемикання туди їх і
+  // відкидає, кінці лишаються на місці
+  function setCurved(curved: boolean) {
+    const update = useBoardStore.getState().update;
+    for (const o of selected) {
+      if (o.type !== 'connector') continue;
+      if (curved) update(o.id, { curved: true });
+      else update(o.id, { curved: false, ...withPoints([o.points[0], o.points[o.points.length - 1]]) });
+    }
   }
 
   // вістря перемикаються незалежно: лінія буває і без них, і з обома
   function toggleArrow(which: 'arrowStart' | 'arrowEnd') {
     const update = useBoardStore.getState().update;
-    const on = !!lineObject && lineObject.type === 'line' && !!lineObject[which];
-    for (const o of selected) if (o.type === 'line') update(o.id, { [which]: !on });
+    const on = !!lineObject && !!lineObject[which];
+    for (const o of selected) if (o.type === 'line' || o.type === 'connector') update(o.id, { [which]: !on });
   }
 
   function setAlign(align: TextAlign) {
@@ -319,7 +337,7 @@ export function ContextPanel({ boardId, viewport, canvasSize, currentUserId }: P
         </>
       )}
 
-      {lineObject && lineObject.type === 'line' && (
+      {lineObject && (
         <>
           <span className="ctx-group" role="group" aria-label={t('ctx.dash')}>
             {(
@@ -362,6 +380,28 @@ export function ContextPanel({ boardId, viewport, canvasSize, currentUserId }: P
               </button>
             ))}
           </span>
+          {curveObject && curveObject.type === 'connector' && (
+            <span className="ctx-group" role="group" aria-label={t('ctx.curve')}>
+              {(
+                [
+                  [false, <StraightIcon key="s" />],
+                  [true, <CurveIcon key="c" />],
+                ] as const
+              ).map(([value, icon]) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  className={connectorCurved(curveObject) === value ? 'ctx-toggle active' : 'ctx-toggle'}
+                  title={value ? t('ctx.curved') : t('ctx.straight')}
+                  aria-label={value ? t('ctx.curved') : t('ctx.straight')}
+                  aria-pressed={connectorCurved(curveObject) === value}
+                  onClick={() => setCurved(value)}
+                >
+                  {icon}
+                </button>
+              ))}
+            </span>
+          )}
         </>
       )}
 

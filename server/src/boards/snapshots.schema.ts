@@ -62,6 +62,11 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     strokeColor: z.string(),
     strokeWidth: z.number(),
     arrowEnd: z.boolean(),
+    // зʼявились, коли лінія й конектор стали одним інструментом (06.10):
+    // у намальованого раніше цих полів немає
+    arrowStart: z.boolean().optional(),
+    dash: z.enum(['solid', 'dashed', 'dotted']).optional(),
+    curved: z.boolean().optional(),
   }),
   z.object({
     ...base,

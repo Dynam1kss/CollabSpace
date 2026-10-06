@@ -1,12 +1,12 @@
 import { lineDash } from 'shared';
-import type { LineObject } from 'shared';
+import type { LineDash, LineObject } from 'shared';
 
 // штрих у величинах konva: довжини сегментів у координатах дошки. Множимо на
 // товщину, щоб на товстій лінії пунктир не злипався в суцільну
 const DASH_RATIO = 3;
 const DOT_GAP_RATIO = 2;
 
-export function dashPattern(object: Pick<LineObject, 'dash' | 'strokeWidth'>): number[] | undefined {
+export function dashPattern(object: { dash?: LineDash; strokeWidth: number }): number[] | undefined {
   const width = Math.max(1, object.strokeWidth);
   switch (lineDash(object)) {
     case 'dashed':

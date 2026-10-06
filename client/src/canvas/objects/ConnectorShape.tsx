@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Arrow, Circle, Group, Line } from 'react-konva';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
+import { connectorCurved } from 'shared';
 import type { BoardPoint, ConnectorObject } from 'shared';
 import { useBoardStore } from '../board-store';
 import { useEditorStore } from '../editor-store';
 import { CONNECTOR_TENSION, flattenPoints, midpoints } from './connector-geometry';
+import { dashPattern } from './line-geometry';
 import { withPoints } from './point-box';
 import { useDragGesture } from './useDragGesture';
 import { useSelectOnPointerDown } from './useSelectOnPointerDown';
@@ -158,10 +160,13 @@ export function ConnectorShape({
   const strokeColor = isSelected ? accent : inkFor(object.strokeColor, theme, inkOverFill);
   const points = dragBase ?? object.points;
 
+  const curved = connectorCurved(object);
   const lineProps = {
     name: 'line',
     points: flattenPoints(points),
-    tension: CONNECTOR_TENSION,
+    // пряма — це та сама лінія з нульовою тензією; окремого вузла не треба
+    tension: curved ? CONNECTOR_TENSION : 0,
+    dash: dashPattern(object),
     stroke: strokeColor,
     strokeWidth: object.strokeWidth,
     lineCap: 'round' as const,
@@ -183,8 +188,15 @@ export function ConnectorShape({
       onDragMove={commitDrag}
       onDragEnd={handleDragEnd}
     >
-      {object.arrowEnd ? (
-        <Arrow {...lineProps} pointerLength={10} pointerWidth={10} fill={strokeColor} />
+      {object.arrowEnd || object.arrowStart ? (
+        <Arrow
+          {...lineProps}
+          pointerAtBeginning={!!object.arrowStart}
+          pointerAtEnding={!!object.arrowEnd}
+          pointerLength={10}
+          pointerWidth={10}
+          fill={strokeColor}
+        />
       ) : (
         <Line {...lineProps} />
       )}
