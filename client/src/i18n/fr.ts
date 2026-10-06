@@ -272,6 +272,7 @@ export const fr: Translation = {
     url: 'Adresse',
     open: 'Ouvrir',
     play: 'Lire ici',
+    refresh: 'Actualiser l’aperçu',
     save: 'Enregistrer',
     close: 'Fermer',
     invalid: 'Une adresse http ou https est requise',

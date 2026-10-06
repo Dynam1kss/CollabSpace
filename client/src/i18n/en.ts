@@ -267,6 +267,7 @@ export const en: Translation = {
     url: 'URL',
     open: 'Open',
     play: 'Play here',
+    refresh: 'Refresh preview',
     save: 'Save',
     close: 'Close',
     invalid: 'An http or https URL is required',

@@ -23,6 +23,7 @@ import {
   LinkIcon,
   LockIcon,
   PlayIcon,
+  RefreshIcon,
   SendBackIcon,
   StrokeWidthIcon,
   TextIcon,
@@ -36,6 +37,7 @@ import { useLockedByOthers, usePresenceStore } from './presence-store';
 import { useNarrow } from '../use-narrow';
 import { deleteSelected, duplicateSelected } from './selection-actions';
 import { linkPatchWithSize } from './link-layout';
+import { loadLinkPreview } from './link-preview';
 import { useTranslation } from 'react-i18next';
 
 // над рамкою ще стирчить ручка повороту (rotateAnchorOffset 28 + кружок)
@@ -48,6 +50,7 @@ const POPOVER_ROOM = 40;
 type PickerKind = 'fill' | 'text' | 'stroke';
 
 interface Props {
+  boardId: string;
   viewport: Viewport;
   canvasSize: { width: number; height: number };
   // автор копій; приходить із BoardPage, як і в BoardCanvas
@@ -58,7 +61,7 @@ interface Props {
 // під ним. Показує лише те, що застосовне хоч до одного з виділених, і
 // застосовує зміну до всіх, кому вона личить. Під час тягання ховається —
 // стор відстає від вузлів до dragend
-export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
+export function ContextPanel({ boardId, viewport, canvasSize, currentUserId }: Props) {
   const { t } = useTranslation();
   const selectedIds = useEditorStore((s) => s.selectedIds);
   const interacting = useEditorStore((s) => s.interacting);
@@ -293,6 +296,16 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           >
             <ExternalIcon />
           </button>
+          {linkKind(linkObject) === 'web' && (
+            <button
+              type="button"
+              title={t('link.refresh')}
+              aria-label={t('link.refresh')}
+              onClick={() => void loadLinkPreview(boardId, linkObject.id)}
+            >
+              <RefreshIcon />
+            </button>
+          )}
           {linkKind(linkObject) === 'youtube' && linkVideoId(linkObject) && (
             <button
               type="button"

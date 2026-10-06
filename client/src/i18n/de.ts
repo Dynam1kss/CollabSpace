@@ -267,6 +267,7 @@ export const de: Translation = {
     url: 'Adresse',
     open: 'Öffnen',
     play: 'Hier ansehen',
+    refresh: 'Vorschau aktualisieren',
     save: 'Speichern',
     close: 'Schließen',
     invalid: 'Es wird eine http- oder https-Adresse benötigt',

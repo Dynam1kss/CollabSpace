@@ -268,6 +268,7 @@ export const uk = {
     url: 'Адреса',
     open: 'Відкрити',
     play: 'Дивитись тут',
+    refresh: 'Оновити прев’ю',
     save: 'Зберегти',
     close: 'Закрити',
     invalid: 'Потрібна адреса http або https',

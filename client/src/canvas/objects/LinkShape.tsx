@@ -110,14 +110,7 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
         />
         <Group listening={false}>
           {layout.withIcon ? (
-            <Path
-              data={LINK_GLYPH}
-              fill={colors.label}
-              x={LINK_PAD}
-              y={LINK_PAD}
-              scaleX={LINK_ICON / 24}
-              scaleY={LINK_ICON / 24}
-            />
+            <DomainBadge domain={layout.domain} colors={colors} />
           ) : (
             <CardImage object={object} layout={layout} colors={colors} />
           )}
@@ -164,6 +157,38 @@ export function LinkShape({ object, isSelected, draggable, registerRef }: Props)
 }
 
 type Colors = ReturnType<typeof useCanvasColors>;
+
+// картка без картинки (прев'ю не вийшло або сайт його не дає): замість
+// безликого ланцюжка — перша літера домену. Так картки різних сайтів
+// розрізняються з одного погляду
+function DomainBadge({ domain, colors }: { domain: string; colors: Colors }) {
+  const letter = (domain[0] ?? '?').toUpperCase();
+  return (
+    <Group>
+      <Rect
+        x={LINK_PAD}
+        y={LINK_PAD}
+        width={LINK_ICON}
+        height={LINK_ICON}
+        cornerRadius={6}
+        fill={colors.accentFill}
+        stroke={colors.cardBorder}
+        strokeWidth={1}
+      />
+      <Text
+        text={letter}
+        x={LINK_PAD}
+        y={LINK_PAD + 4}
+        width={LINK_ICON}
+        fontSize={13}
+        fontStyle="bold"
+        fontFamily={LINK_FONT}
+        fill={colors.accent}
+        align="center"
+      />
+    </Group>
+  );
+}
 
 function CardImage({
   object,

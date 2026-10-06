@@ -6,6 +6,7 @@ import { boardToScreen } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
 import { linkPatchWithSize } from './link-layout';
+import { loadLinkPreview } from './link-preview';
 import { openLink } from './link-open';
 import { createLink } from './object-defaults';
 import { nextZIndex } from './selection-actions';
@@ -14,6 +15,7 @@ import { nextZIndex } from './selection-actions';
 // (подвійний клік) — ще й підпис. Звичайні DOM-поля поверх полотна, як і
 // textarea редагування тексту: у konva поля введення немає
 interface Props {
+  boardId: string;
   viewport: Viewport;
   canvasSize: { width: number; height: number };
   currentUserId: string;
@@ -22,7 +24,7 @@ interface Props {
 const WIDTH = 280;
 const GAP = 10;
 
-export function LinkPopover({ viewport, canvasSize, currentUserId }: Props) {
+export function LinkPopover({ boardId, viewport, canvasSize, currentUserId }: Props) {
   const draft = useEditorStore((s) => s.linkDraft);
   const editingId = useEditorStore((s) => s.editingLinkId);
   const editing = useBoardStore((s) => (editingId ? s.objects[editingId] : undefined));
@@ -46,6 +48,7 @@ export function LinkPopover({ viewport, canvasSize, currentUserId }: Props) {
           // як і решта інструментів створення: поставив — вернувся у «вибір»
           useEditorStore.getState().setActiveTool('select');
           useEditorStore.getState().select(object.id);
+          void loadLinkPreview(boardId, object.id);
         }}
       />
     );
@@ -68,6 +71,7 @@ export function LinkPopover({ viewport, canvasSize, currentUserId }: Props) {
             linkPatchWithSize(target, { url: parsed.url, kind: parsed.kind, videoId: parsed.videoId }),
           );
         useEditorStore.getState().stopEditingLink();
+        void loadLinkPreview(boardId, target.id);
       }}
     />
   );

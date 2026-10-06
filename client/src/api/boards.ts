@@ -10,6 +10,8 @@ import type {
   ChatHistoryResponse,
   CreateBoardRequest,
   IceConfigResponse,
+  LinkPreviewRequest,
+  LinkPreviewResponse,
   ForceVoiceRequest,
   RemoveBoardMemberRequest,
   SaveSeatRequest,
@@ -156,6 +158,16 @@ export function fetchIceConfig() {
 // обсяги, тягнути їх разом лише заради одного раунд-тріпу нема сенсу
 export function fetchChatHistory(id: string) {
   return fetch(`/api/boards/${id}/chat`).then((res) => parseResponse<ChatHistoryResponse>(res));
+}
+
+// прев'ю збирає сервер: клієнт у чужу мережу не ходить ніколи
+export function fetchLinkPreview(boardId: string, url: string) {
+  const payload: LinkPreviewRequest = { boardId, url };
+  return fetch('/api/link-preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((res) => parseResponse<LinkPreviewResponse>(res));
 }
 
 export function fetchBoardSnapshot(id: string) {

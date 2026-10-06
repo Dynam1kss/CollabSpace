@@ -89,3 +89,19 @@ export function linkDomain(url: string) {
     return url;
   }
 }
+
+// прев'ю сторінки збирає СЕРВЕР і віддає вже готове: клієнт у чужу мережу не
+// ходить. boardId — бо ручка доступна лише редактору цієї дошки
+export interface LinkPreviewRequest {
+  boardId: string;
+  url: string;
+}
+
+export interface LinkPreviewResponse {
+  title?: string;
+  description?: string;
+  siteName?: string;
+  // наш шлях /uploads/..., а не чужа адреса
+  image?: string;
+  imageAspect?: number;
+}

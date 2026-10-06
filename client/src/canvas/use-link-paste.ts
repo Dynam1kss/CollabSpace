@@ -4,12 +4,14 @@ import { useBoardStore } from './board-store';
 import { screenToBoard } from './coordinates';
 import type { Viewport } from './coordinates';
 import { useEditorStore } from './editor-store';
+import { loadLinkPreview } from './link-preview';
 import { createLink } from './object-defaults';
 import { nextZIndex } from './selection-actions';
 
 // вставлена з буфера адреса стає карткою посилання. Окремо від useImageDrop:
 // там у буфері файл, тут рядок, і спільного між ними лише слово «вставити»
 export function useLinkPaste(
+  boardId: string,
   currentUserId: string,
   containerRef: { current: HTMLDivElement | null },
   viewport: Viewport,
@@ -34,11 +36,12 @@ export function useLinkPaste(
       const object = createLink(point, parsed, { createdBy: currentUserId, zIndex: nextZIndex() });
       useBoardStore.getState().add(object);
       useEditorStore.getState().select(object.id);
+      void loadLinkPreview(boardId, object.id);
     }
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [currentUserId, containerRef, viewport]);
+  }, [boardId, currentUserId, containerRef, viewport]);
 }
 
 function isTypingTarget(target: EventTarget | null) {

@@ -374,6 +374,15 @@ export function ExternalIcon() {
   );
 }
 
+export function RefreshIcon() {
+  return (
+    <Svg>
+      <path d="M16 10a6 6 0 11-1.8-4.2" />
+      <path d="M16 3v3h-3" />
+    </Svg>
+  );
+}
+
 export function PlayIcon() {
   return (
     <Svg>

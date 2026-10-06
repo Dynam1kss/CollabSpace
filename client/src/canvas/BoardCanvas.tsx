@@ -190,7 +190,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
 
   const saveSeat = useMySeat(boardId, currentUserId);
   const imageDrop = useImageDrop(boardId, currentUserId, containerRef, viewport);
-  useLinkPaste(currentUserId, containerRef, viewport);
+  useLinkPaste(boardId, currentUserId, containerRef, viewport);
 
   // знімок усієї дошки, а не того, що видно. Камеру людини не чіпаємо взагалі:
   // шар малюється зі своїм поточним трансформом, тому рамку дошки переводимо
