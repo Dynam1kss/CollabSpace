@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { CELL_SIZE, decodeCellKey, SYNC_MSG, SYNC_REQUESTER_ID_BYTES } from 'shared';
 import type { BoardObject, CellRect } from 'shared';
-import { AoiSync } from './aoi-sync';
+import { AoiSync, attachAoi, setAoiView } from './aoi-sync';
 import { CellDocs } from './cell-docs';
+import { centerOnPoint, getVisibleBoardRect, pinchViewport, zoomViewportAtPoint } from './coordinates';
+import type { Viewport } from './coordinates';
+import { fitToObjects } from './fit-to-objects';
 
 // стенд протоколу стратегії 3: кілька клієнтів (CellDocs + AoiSync) і сервер,
 // що повторює правила board-rooms.ts для клітинок. Кадри доставляються по
@@ -304,5 +307,108 @@ describe('стратегія 3: передплата на клітинки', () 
     move(A, 'a', 500, 100);
     await w.settle();
     expect(V.objects.get('a')!.x).toBe(500);
+  });
+});
+
+// ---- камера так, як її рухає справжній інтерфейс (телефон, великий масштаб)
+//
+// вище стенд смикає setView напряму, а BoardPage ходить через setAoiView:
+// viewport → видимий прямокутник → дебаунс усередині AoiSync. На телефоні
+// вікно вузьке, і при масштабі 4 видима область — 97×195 одиниць дошки,
+// тобто 5% клітинки; саме там і скаржились, що чужий обʼєкт не зʼявляється
+
+const PHONE = { width: 390, height: 780 };
+
+function commit(v: Viewport) {
+  setAoiView(getVisibleBoardRect(v, PHONE.width, PHONE.height));
+}
+
+// кадр rAF: і щипок, і пан, і колесо кладуть viewport раз на кадр
+const frame = () => new Promise((r) => setTimeout(r, 0));
+// пауза, довша за VIEW_DEBOUNCE_MS — жест постояв, передплата має перерахуватись
+const pause = () => new Promise((r) => setTimeout(r, 200));
+
+const phoneCenter = { x: PHONE.width / 2, y: PHONE.height / 2 };
+
+describe('стратегія 3: чужий обʼєкт і камера телефона', () => {
+  // дошка, де телефон стоїть у 0:0 на масштабі 4, а другий пристрій створює
+  // обʼєкт у 1:0 — там, де телефон не передплачений
+  async function board() {
+    const w = world([]);
+    const phone = w.join();
+    const desk = w.join();
+    attachAoi(phone.sync);
+    const start = centerOnPoint({ x: 1800, y: 300 }, 4, PHONE.width, PHONE.height);
+    commit(start);
+    desk.sync.setView(viewAt(1, 0), true);
+    await pause();
+    await w.settle();
+    desk.docs.add(sticky('far', 2100, 300));
+    await w.settle();
+    expect(phone.objects.has('far')).toBe(false);
+    return { w, phone, start };
+  }
+
+  it('пан одним пальцем: доїжджає до клітинки й обʼєкт зʼявляється', async () => {
+    const { w, phone, start } = await board();
+    let v = start;
+    // три свайпи по 400px праворуч із природними паузами між ними
+    for (let swipe = 0; swipe < 3; swipe++) {
+      for (let i = 0; i < 10; i++) {
+        v = { ...v, x: v.x - 40 };
+        commit(v);
+        await frame();
+      }
+      await pause();
+      await w.settle();
+    }
+    expect(phone.objects.has('far')).toBe(true);
+  });
+
+  it('щипок: зведення пальців виводить клітинку в поле зору', async () => {
+    const { w, phone, start } = await board();
+    let v = start;
+    // пальці зводяться: кожен кадр — множник 0.9 навколо середньої точки
+    while (v.scale > 0.1) {
+      v = pinchViewport(v, v.scale * 0.9, phoneCenter, phoneCenter);
+      commit(v);
+      await frame();
+    }
+    await pause();
+    await w.settle();
+    expect(phone.objects.has('far')).toBe(true);
+  });
+
+  it('колесо: зум назовні виводить клітинку в поле зору', async () => {
+    const { w, phone, start } = await board();
+    let v = start;
+    while (v.scale > 0.1) {
+      v = zoomViewportAtPoint(v, v.scale * 0.85, phoneCenter);
+      commit(v);
+      await frame();
+    }
+    await pause();
+    await w.settle();
+    expect(phone.objects.has('far')).toBe(true);
+  });
+
+  it('«показати все»: одна стрибкова зміна камери', async () => {
+    const { w, phone } = await board();
+    commit(fitToObjects([sticky('near', 1800, 300), sticky('far', 2100, 300)], PHONE.width, PHONE.height));
+    await pause();
+    await w.settle();
+    expect(phone.objects.has('far')).toBe(true);
+  });
+  it('безперервний пан: клітинка передплачується ще під час жесту', async () => {
+    const { phone, start } = await board();
+    let v = start;
+    // палець не відривається: viewport лягає щокадру, і поки це триває,
+    // дебаунс вікна не спрацює ні разу — обʼєкт мусить прийти без нього
+    for (let i = 0; i < 80 && !phone.objects.has('far'); i++) {
+      v = { ...v, x: v.x - 40 };
+      commit(v);
+      await new Promise((r) => setTimeout(r, 16));
+    }
+    expect(phone.objects.has('far')).toBe(true);
   });
 });

@@ -13,8 +13,14 @@ import type { CellDocs } from './cell-docs';
 // та сама причина повторів, що й на цілій дошці: відповідач міг обірватись
 const SYNC_RETRY_MS = 3000;
 // пан — це десятки кадрів на секунду, а передплата — рукостискання на
-// клітинку. тож на вікно реагуємо, коли воно хоч трохи постояло
+// клітинку. тож відпускаємо клітинки, коли вікно хоч трохи постояло
 const VIEW_DEBOUNCE_MS = 150;
+// а передплачуємось, не чекаючи кінця жесту. кожен кадр пану перезапускав
+// дебаунс, і при безперервному русі пальця він не спрацьовував узагалі:
+// на телефоні при 4x вікно із запасом — 195 одиниць (десята частина
+// клітинки), камера виїжджала за межу на 480px, а клітинка підписувалась
+// лише через 120мс після відриву пальця (вимір 06.10)
+const SUBSCRIBE_THROTTLE_MS = 100;
 
 export interface AoiIo {
   send: (frame: Uint8Array) => void;
@@ -56,6 +62,7 @@ export class AoiSync {
   private retryTimer: ReturnType<typeof setInterval> | undefined;
   private snapshot: Promise<BoardObject[]> | null = null;
   private stopped = false;
+  private lastSubscribeAt = 0;
 
   constructor(
     private docs: CellDocs,
@@ -79,8 +86,17 @@ export class AoiSync {
   setView(rect: CellRect, immediate = false) {
     this.view = rect;
     clearTimeout(this.viewTimer);
-    if (immediate) this.reconcile();
-    else this.viewTimer = setTimeout(() => this.reconcile(), VIEW_DEBOUNCE_MS);
+    if (immediate) {
+      this.reconcile();
+      return;
+    }
+    const now = Date.now();
+    if (now - this.lastSubscribeAt >= SUBSCRIBE_THROTTLE_MS) {
+      this.lastSubscribeAt = now;
+      this.reconcile(true);
+    }
+    // те, що не влізло в такт, доберe цей же дебаунс — він і відпускає зайве
+    this.viewTimer = setTimeout(() => this.reconcile(), VIEW_DEBOUNCE_MS);
   }
 
   // жест скінчився — відкладене зняття передплати можна робити
@@ -107,16 +123,19 @@ export class AoiSync {
     this.io.send(cellFrame(SYNC_MSG.CELL_UPDATE, cell, update));
   }
 
-  reconcile() {
+  // addOnly — крок посеред руху камери: беремо нові клітинки, але нічого
+  // не відпускаємо, бо камера ще їде і може повернутись
+  reconcile(addOnly = false) {
     if (!this.connected || this.stopped || !this.view) return;
     const wanted = new Set(cellsOfInterest(this.view));
     const add = [...wanted].filter((c) => !this.subscribed.has(c));
     // посеред жесту нічого не відпускаємо: обʼєкт, який тягнуть, міг
     // формально опинитись за межею запасу, і документ його клітинки має
     // дожити до dragend — інакше останні кадри жесту не було б куди писати
-    const remove = this.io.interacting()
-      ? []
-      : [...this.subscribed].filter((c) => !wanted.has(c) && !this.awaiting.has(c));
+    const remove =
+      addOnly || this.io.interacting()
+        ? []
+        : [...this.subscribed].filter((c) => !wanted.has(c) && !this.awaiting.has(c));
     if (add.length === 0 && remove.length === 0) return;
     this.subscribe(add, remove);
   }
