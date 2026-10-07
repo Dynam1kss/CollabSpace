@@ -353,6 +353,15 @@ export function LineIcon() {
   );
 }
 
+export function FileIcon() {
+  return (
+    <Svg>
+      <path d="M11 2H6a1 1 0 00-1 1v14a1 1 0 001 1h8a1 1 0 001-1V6z" />
+      <path d="M11 2v4h4" />
+    </Svg>
+  );
+}
+
 export function LinkIcon() {
   return (
     <Svg>

@@ -7,6 +7,7 @@ import {
   EllipseIcon,
   ImageIcon,
   LineIcon,
+  FileIcon,
   LinkIcon,
   RectIcon,
   RedoIcon,
@@ -18,6 +19,7 @@ import {
 import { useUndoState } from './board-store';
 import { redoBoard, undoBoard } from './board-undo';
 import { placeImageFromFile } from './place-image';
+import { placeFiles } from './place-file';
 import { useTranslation } from 'react-i18next';
 import { errorText } from '../i18n/api-error';
 
@@ -35,6 +37,7 @@ const TOOLS: { id: ToolId; hotkey: string; icon: ReactNode }[] = [
 
 const HOTKEY_MAP: Record<string, ToolId> = Object.fromEntries(TOOLS.map((t) => [t.hotkey, t.id]));
 const IMAGE_HOTKEY = 'I';
+const FILE_HOTKEY = 'F';
 const ERROR_HIDE_MS = 5000;
 
 function isTypingTarget(target: EventTarget | null) {
@@ -58,6 +61,7 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
   const canUndo = useUndoState((s) => s.canUndo);
   const canRedo = useUndoState((s) => s.canRedo);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const filePickerRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +74,11 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
       if (key === IMAGE_HOTKEY && canEdit) {
         e.preventDefault();
         fileInputRef.current?.click();
+        return;
+      }
+      if (key === FILE_HOTKEY && canEdit) {
+        e.preventDefault();
+        filePickerRef.current?.click();
         return;
       }
       const tool = HOTKEY_MAP[key];
@@ -126,6 +135,17 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
           {canEdit && (
             <button
               type="button"
+              className="tool-button"
+              title={`${t('tools.file')} (${FILE_HOTKEY})`}
+              aria-label={t('tools.file')}
+              onClick={() => filePickerRef.current?.click()}
+            >
+              <FileIcon />
+            </button>
+          )}
+          {canEdit && (
+            <button
+              type="button"
               className={uploading ? 'tool-button uploading' : 'tool-button'}
               title={`${t('tools.image')} (${IMAGE_HOTKEY})`}
               aria-label={t('tools.image')}
@@ -171,6 +191,20 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
             accept="image/png,image/jpeg,image/webp,image/gif"
             hidden
             onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+        )}
+        {canEdit && (
+          <input
+            ref={filePickerRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              const picked = [...(e.target.files ?? [])];
+              // той самий input можна використати ще раз лише після скидання
+              e.target.value = '';
+              if (picked.length > 0) void placeFiles(boardId, picked, visibleCenter, currentUserId);
+            }}
           />
         )}
       </aside>

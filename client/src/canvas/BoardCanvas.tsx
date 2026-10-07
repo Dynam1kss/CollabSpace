@@ -13,6 +13,7 @@ import type { Point, Viewport } from './coordinates';
 import { objectsListen, useEditorStore } from './editor-store';
 import { contentBounds } from './fit-to-objects';
 import { ObjectRenderer } from './objects/ObjectRenderer';
+import { UploadPlaceholders } from './objects/UploadPlaceholders';
 import { RemoteCursors } from './objects/RemoteCursors';
 import { LockedBadges } from './objects/LockedBadges';
 import { RemoteLocks } from './objects/RemoteLocks';
@@ -25,6 +26,7 @@ import { useLockedByOthers } from './presence-store';
 import { useObjectInteractions } from './useObjectInteractions';
 import { useImageDrop } from './use-image-drop';
 import { useLinkPaste } from './use-link-paste';
+import { useFileDrop } from './use-file-drop';
 import { BoardSeats } from '../voice/BoardSeats';
 import { useMySeat } from '../voice/use-my-seat';
 import { useCanvasColors } from '../theme';
@@ -191,6 +193,7 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
   const saveSeat = useMySeat(boardId, currentUserId);
   const imageDrop = useImageDrop(boardId, currentUserId, containerRef, viewport);
   useLinkPaste(boardId, currentUserId, containerRef, viewport);
+  useFileDrop(boardId, currentUserId, containerRef, viewport);
 
   // знімок усієї дошки, а не того, що видно. Камеру людини не чіпаємо взагалі:
   // шар малюється зі своїм поточним трансформом, тому рамку дошки переводимо
@@ -293,10 +296,12 @@ export const BoardCanvas = forwardRef<BoardCanvasHandle, Props>(function BoardCa
                 viewportScale={viewport.scale}
                 inkOverFill={inkOverFillIds.has(object.id)}
                 exporting={exporting}
+                boardId={boardId}
                 registerRef={getRegisterRef(object.id)}
               />
             ))}
 
+            {!exporting && <UploadPlaceholders />}
             {!exporting && (
               <>
                 <RemoteSelections objects={objectsMap} viewportScale={viewport.scale} />

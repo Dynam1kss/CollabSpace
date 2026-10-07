@@ -6,6 +6,7 @@ import type { RefObject } from 'react';
 import type {
   BoardObject,
   BoardPoint,
+  FileObject,
   ImageObject,
   LinkObject,
   ShapeObject,
@@ -35,16 +36,23 @@ import {
   toModelRect,
 } from './transform-math';
 import type { Rect, ResizeGrip, ResizeResult } from './transform-math';
+import { FILE_BASE_WIDTH, fileCardSize } from '../file-layout';
 import { LINK_BASE_WIDTH, linkCardSize } from '../link-layout';
 import { useCanvasColors } from '../../theme';
 
 // обʼєкти, чия геометрія — звичайний прямокутник: саме їх тягне нова
 // математика. Текст (шрифт/перенос) і конектор (точки) лишаються на своєму
 // шляху — у них розмір не зводиться до x/y/width/height
-type RectObject = ShapeObject | StickyObject | ImageObject | LinkObject;
+type RectObject = ShapeObject | StickyObject | ImageObject | LinkObject | FileObject;
 
 function isRectObject(obj: BoardObject): obj is RectObject {
-  return obj.type === 'shape' || obj.type === 'sticky' || obj.type === 'image' || obj.type === 'link';
+  return (
+    obj.type === 'shape' ||
+    obj.type === 'sticky' ||
+    obj.type === 'image' ||
+    obj.type === 'link' ||
+    obj.type === 'file'
+  );
 }
 
 interface TextStart {
@@ -269,7 +277,9 @@ export function SelectionOverlay({
   const soleImage = selectedObjects.length === 1 && selectedObjects[0].type === 'image';
   // картка посилання — як картинка: ширину задає людина, висота похідна від
   // вмісту, тож тягнути за бік безглуздо
-  const soleLink = selectedObjects.length === 1 && selectedObjects[0].type === 'link';
+  const soleLink =
+    selectedObjects.length === 1 &&
+    (selectedObjects[0].type === 'link' || selectedObjects[0].type === 'file');
   // пропорція заблокована для тексту й картинки завжди, для решти — з shift
   const keepRatio = soleText || soleImage || soleLink ? true : shiftHeld;
   const isSoleText = !!soleText;
@@ -498,11 +508,11 @@ export function SelectionOverlay({
       node.setAttrs({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
       return;
     }
-    if (obj.type === 'link') {
+    if (obj.type === 'link' || obj.type === 'file') {
       // висоту картки диктує вміст, а не ручка: беремо ширину й масштабуємо
       // всю розкладку — так само, як це робить сам LinkShape
       const group = node as Konva.Group;
-      const scale = rect.width / LINK_BASE_WIDTH;
+      const scale = rect.width / (obj.type === 'file' ? FILE_BASE_WIDTH : LINK_BASE_WIDTH);
       group.setAttrs({ x: rect.x, y: rect.y });
       group.findOne<Konva.Group>('.card')?.setAttrs({ scaleX: scale, scaleY: scale });
       return;
@@ -524,6 +534,9 @@ export function SelectionOverlay({
     }
     if (obj.type === 'link') {
       return { x: rect.x, y: rect.y, ...linkCardSize(obj, rect.width) };
+    }
+    if (obj.type === 'file') {
+      return { x: rect.x, y: rect.y, ...fileCardSize(obj, rect.width) };
     }
     if (obj.type === 'image') {
       // дзеркалення цього жесту накладаємо на те, що було до нього: сам факт

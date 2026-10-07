@@ -135,10 +135,10 @@ export function linkCardSize(object: LinkObject, width = object.width) {
 // трансформера починає рахуватись по ньому, а не по вмісту — на дрібній
 // картці це давало видимий зазор і стрибок (журнал 06.10). Притиснута до
 // правого верхнього кута, тож завжди лежить усередині
-export function linkBadgeHit(layoutHeight: number, screenScale: number) {
+export function linkBadgeHit(cardWidth: number, layoutHeight: number, screenScale: number) {
   const wanted = LINK_BADGE_TOUCH / Math.max(screenScale, 0.0001);
-  const size = Math.min(Math.max(LINK_BADGE, wanted), LINK_BASE_WIDTH, layoutHeight);
-  return { size, x: LINK_BASE_WIDTH - size, y: 0 };
+  const size = Math.min(Math.max(LINK_BADGE, wanted), cardWidth, layoutHeight);
+  return { size, x: cardWidth - size, y: 0 };
 }
 
 // будь-яка правка картки міняє і її висоту: вона похідна від вмісту. Щоб про

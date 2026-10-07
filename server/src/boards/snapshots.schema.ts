@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isLinkUrl, isVideoId, LINK_TITLE_MAX, LINK_URL_MAX } from 'shared';
+import { FILE_NAME_MAX, isLinkUrl, isVideoId, LINK_TITLE_MAX, LINK_URL_MAX } from 'shared';
 
 // підписи прев'ю обрізає сам сервіс; тут лише верхня межа, щоб у знімок не
 // поїхав роман
@@ -110,6 +110,16 @@ export const boardObjectSchema = z.discriminatedUnion('type', [
     previewAspect: z.number().positive().optional(),
     previewFetchedAt: z.string().max(40).optional(),
     previewFailed: z.boolean().optional(),
+  }),
+  z.object({
+    ...base,
+    type: z.literal('file'),
+    // саме посилання на метадані; усе інше сервер і так знає зі своєї таблиці,
+    // але тримаємо копію, щоб картка малювалась без додаткового запиту
+    fileId: z.string().min(1).max(64),
+    name: z.string().max(FILE_NAME_MAX),
+    size: z.number().int().nonnegative(),
+    mime: z.string().max(128),
   }),
   z.object({
     ...base,

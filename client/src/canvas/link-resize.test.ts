@@ -32,7 +32,7 @@ describe('картка посилання: рамка й вміст в одно�
       const height = linkLayout(object).height;
       // від звичайного масштабу до дуже дрібного — саме там вона й роздувалась
       for (const screenScale of [4, 1, 0.5, 0.25, 0.1, 0.02]) {
-        const hit = linkBadgeHit(height, screenScale);
+        const hit = linkBadgeHit(LINK_BASE_WIDTH, height, screenScale);
         const where = `${object.url} @${screenScale}`;
         expect(hit.x, where).toBeGreaterThanOrEqual(0);
         expect(hit.y, where).toBeGreaterThanOrEqual(0);
@@ -48,7 +48,7 @@ describe('картка посилання: рамка й вміст в одно�
     const object = card({ url: 'https://youtu.be/dQw4w9WgXcQ' });
     const height = linkLayout(object).height;
     // масштаб 1: 44 одиниці картки — це 44px
-    expect(linkBadgeHit(height, 1).size).toBe(44);
+    expect(linkBadgeHit(LINK_BASE_WIDTH, height, 1).size).toBe(44);
   });
 
   it('стискання за кут до мінімуму: нерухомий кут на місці, розмір — рівно вміст', () => {

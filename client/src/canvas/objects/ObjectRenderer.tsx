@@ -5,6 +5,7 @@ import { ConnectorShape } from './ConnectorShape';
 import { ImageShape } from './ImageShape';
 import { LineShape } from './LineShape';
 import { LinkShape } from './LinkShape';
+import { FileShape } from './FileShape';
 import { ShapeNode } from './ShapeNode';
 import { StickyNoteShape } from './StickyNoteShape';
 import { TextShape } from './TextShape';
@@ -21,6 +22,8 @@ interface Props {
   inkOverFill: boolean;
   // йде знімок у png/pdf: службові позначки на ньому зайві
   exporting: boolean;
+  // адресу файла збирає картка — у обʼєкті лежить лише його id
+  boardId: string;
   registerRef: (node: Konva.Node | null) => void;
 }
 
@@ -37,6 +40,7 @@ export const ObjectRenderer = memo(function ObjectRenderer({
   viewportScale,
   inkOverFill,
   exporting,
+  boardId,
   registerRef,
 }: Props) {
   switch (object.type) {
@@ -96,6 +100,18 @@ export const ObjectRenderer = memo(function ObjectRenderer({
     case 'image':
       return (
         <ImageShape object={object} isSelected={isSelected} draggable={draggable} registerRef={registerRef} />
+      );
+    case 'file':
+      return (
+        <FileShape
+          object={object}
+          boardId={boardId}
+          isSelected={isSelected}
+          draggable={draggable}
+          viewportScale={viewportScale}
+          exporting={exporting}
+          registerRef={registerRef}
+        />
       );
     case 'link':
       return (

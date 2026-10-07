@@ -203,6 +203,18 @@ export function linkVertical(object: Pick<LinkObject, 'url'>): boolean {
   return parseLinkUrl(object.url)?.vertical === true;
 }
 
+// файл, прикріплений до дошки. Тут лише посилання на метадані: сам файл
+// лежить на сервері, а name/size/mime продубльовані, щоб картка малювалась
+// одразу, без зайвого запиту. Різновид і значок рахуються з mime (fileKind),
+// а не з назви — назву вигадує людина
+export interface FileObject extends BoardObjectBase {
+  type: 'file';
+  fileId: string;
+  name: string;
+  size: number;
+  mime: string;
+}
+
 export type BoardObject =
   | StickyObject
   | TextObject
@@ -210,5 +222,6 @@ export type BoardObject =
   | ConnectorObject
   | LineObject
   | ImageObject
-  | LinkObject;
+  | LinkObject
+  | FileObject;
 export type BoardObjectType = BoardObject['type'];

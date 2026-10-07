@@ -36,6 +36,8 @@ interface EditorState {
   linkDraft: { board: { x: number; y: number }; screen: { x: number; y: number } } | null;
   // відео, відкрите накладкою поверх полотна (DOM-iframe, не konva)
   playingVideoId: string | null;
+  // картка файла, відкрита в перегляді поверх полотна
+  previewFileId: string | null;
   // йде тягання чи трансформація — контекстна панель на цей час ховається,
   // бо позиції в сторі відстають від вузлів до dragend/transformend
   interacting: boolean;
@@ -58,6 +60,8 @@ interface EditorState {
   closeLinkDraft: () => void;
   playVideo: (videoId: string) => void;
   stopVideo: () => void;
+  openFilePreview: (objectId: string) => void;
+  closeFilePreview: () => void;
   setInteracting: (value: boolean) => void;
   setClipboard: (objects: BoardObject[]) => void;
   setTouchInput: () => void;
@@ -71,6 +75,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   editingLinkId: null,
   linkDraft: null,
   playingVideoId: null,
+  previewFileId: null,
   interacting: false,
   clipboard: [],
   touchInput: false,
@@ -112,6 +117,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   // глядачу дивитись можна: це не зміна вмісту
   playVideo: (videoId) => set({ playingVideoId: videoId }),
   stopVideo: () => set({ playingVideoId: null }),
+  // перегляд — читання, тож доступний і глядачу
+  openFilePreview: (objectId) => set({ previewFileId: objectId }),
+  closeFilePreview: () => set({ previewFileId: null }),
   // заразом межа кроку undo: цілий жест має відкочуватись одним ctrl+z,
   // а не покадрово — board-store пише в документ раз на кадр
   setInteracting: (value) => {
