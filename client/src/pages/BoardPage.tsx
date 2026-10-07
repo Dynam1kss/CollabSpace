@@ -18,6 +18,7 @@ import { ContextPanel } from '../canvas/ContextPanel';
 import { LinkPopover } from '../canvas/LinkPopover';
 import { useLinkPreviews } from '../canvas/use-link-previews';
 import { VideoOverlay } from '../canvas/VideoOverlay';
+import { FilePreview } from '../canvas/FilePreview';
 import { ChatPanel } from '../canvas/ChatPanel';
 import { VoicePanel } from '../voice/VoicePanel';
 import { setSelfUserId } from '../voice/voice-mesh';
@@ -327,6 +328,8 @@ export function BoardPage() {
             {/* дивитись відео може й глядач — це не правка вмісту, тож
             накладка поза перевіркою editable */}
             <VideoOverlay />
+            {/* перегляд файла — читання, тож доступний і глядачу */}
+            <FilePreview boardId={board.id} />
             {/* панель — самі дії над обʼєктами, глядачу показувати нічого */}
             {editable && (
               <>

@@ -2966,3 +2966,145 @@ button.profile-open {
   width: 32px;
   height: 32px;
 }
+
+/* перегляд файла поверх полотна: зображення, pdf, відео, звук або текст */
+.file-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.file-preview-box {
+  display: flex;
+  flex-direction: column;
+  width: min(1000px, 94%);
+  height: min(86%, 820px);
+  background: var(--panel-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.file-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.file-preview-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-preview-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.file-preview-download {
+  margin-left: auto;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.file-preview-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.file-preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  background: var(--page-bg);
+}
+
+.file-preview-frame,
+.file-preview-media {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  background: #000;
+}
+
+.file-preview-audio {
+  margin: auto;
+  width: min(520px, 90%);
+}
+
+/* масштаб і зсув зображення: вміст рухається трансформом, рамка не їде */
+.file-preview-zoom {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+}
+
+.file-preview-zoom img {
+  max-width: 100%;
+  max-height: 100%;
+  transform-origin: center;
+  user-select: none;
+}
+
+.file-preview-text {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 12px;
+}
+
+.file-preview-text pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+}
+
+.file-preview-plain {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-preview-plain-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .file-preview-box {
+    width: 96%;
+    height: 90%;
+  }
+}
