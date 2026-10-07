@@ -71,5 +71,10 @@ export interface ApiErrorBody {
   error: {
     code: string;
     message: string;
+    // числа для повідомлень, які без них нічого не кажуть: скільки місця
+    // зайнято й скільки всього. Клієнт складає свій текст, а не показує
+    // серверний рядок
+    usedBytes?: number;
+    totalBytes?: number;
   };
 }

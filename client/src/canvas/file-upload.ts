@@ -1,3 +1,4 @@
+import { FILE_ERROR } from 'shared';
 import type { BoardFileInfo } from 'shared';
 
 // XMLHttpRequest, а не fetch: лише він дає ХІД завантаження. fetch уміє
@@ -32,7 +33,7 @@ export function uploadBoardFile(
         }
         return;
       }
-      reject(new UploadError(codeFrom(xhr)));
+      reject(errorFrom(xhr));
     });
     xhr.addEventListener('error', () => reject(new UploadError('network')));
     xhr.addEventListener('abort', () => reject(new UploadError('cancelled')));
@@ -41,19 +42,30 @@ export function uploadBoardFile(
   return { done, cancel: () => xhr.abort() };
 }
 
-export type UploadErrorCode = 'too-large' | 'forbidden' | 'rate' | 'network' | 'cancelled' | 'unknown';
-
+// код приходить із сервера як є (shared/FILE_ERROR) — щоб «завеликий файл» і
+// «скінчилось місце» ніколи не злились в одне повідомлення
 export class UploadError extends Error {
-  constructor(public code: UploadErrorCode) {
+  constructor(
+    public code: string,
+    public usedBytes?: number,
+    public totalBytes?: number,
+  ) {
     super(code);
   }
 }
 
-function codeFrom(xhr: XMLHttpRequest): UploadErrorCode {
-  if (xhr.status === 413) return 'too-large';
-  if (xhr.status === 403) return 'forbidden';
-  if (xhr.status === 429) return 'rate';
-  return 'unknown';
+function errorFrom(xhr: XMLHttpRequest): UploadError {
+  try {
+    const body = JSON.parse(xhr.responseText) as {
+      error?: { code?: string; usedBytes?: number; totalBytes?: number };
+    };
+    if (body.error?.code) {
+      return new UploadError(body.error.code, body.error.usedBytes, body.error.totalBytes);
+    }
+  } catch {
+    // тіло не json — лишається загальний код нижче
+  }
+  return new UploadError(xhr.status === 403 ? FILE_ERROR.forbidden : 'unknown');
 }
 
 // межі сервер оголошує в /api/health; питаємо один раз на вкладку й

@@ -6,6 +6,8 @@ export class AppError extends Error {
     public status: number,
     public code: string,
     message: string,
+    // необовʼязкові числа для повідомлення (скільки місця зайнято)
+    public details?: { usedBytes?: number; totalBytes?: number },
   ) {
     super(message);
   }
@@ -14,7 +16,7 @@ export class AppError extends Error {
 // express впізнає error-мідлвар саме по 4 аргументах, тому лишаємо невикористані
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
-    const body: ApiErrorBody = { error: { code: err.code, message: err.message } };
+    const body: ApiErrorBody = { error: { code: err.code, message: err.message, ...err.details } };
     res.status(err.status).json(body);
     return;
   }

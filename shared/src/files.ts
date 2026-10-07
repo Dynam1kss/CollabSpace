@@ -71,3 +71,31 @@ export function fileKind(mime: string): FileKind {
   }
   return 'other';
 }
+
+// скільки щойно завантажений файл рахується в квоті, навіть якщо картки для
+// нього ще немає в знімку. Без цього вікна квоту можна було б обійти: заливати
+// файли й просто не ставити карток
+export const FILE_QUOTA_GRACE_MS = 10 * 60 * 1000;
+
+// жорстка стеля на ВСЕ, що лежить на диску в дошки, разом із покинутим.
+// Квота рахує лише використане, тож без цієї стелі цикл «завантажив — видалив»
+// міг би нескінченно їсти диск
+export const FILE_STORED_CAP_FACTOR = 2;
+
+// коди відмов. Машинні — щоб клієнт показав свій текст, а не серверний рядок,
+// і щоб «завеликий файл» ніколи не плутався з «скінчилось місце»
+export const FILE_ERROR = {
+  tooLarge: 'FILE_TOO_LARGE',
+  quota: 'BOARD_QUOTA_EXCEEDED',
+  // сервер поки не обмежує типи — код є, щоб клієнт був готовий
+  type: 'FILE_TYPE_NOT_ALLOWED',
+  rate: 'FILE_RATE_LIMITED',
+  forbidden: 'FILE_FORBIDDEN',
+} as const;
+
+export interface BoardFilesUsage {
+  usedBytes: number;
+  storedBytes: number;
+  quotaBytes: number;
+  fileMaxBytes: number;
+}

@@ -16,10 +16,12 @@ import {
   TextIcon,
   UndoIcon,
 } from './icons';
-import { useUndoState } from './board-store';
+import { useBoardStore, useUndoState } from './board-store';
 import { redoBoard, undoBoard } from './board-undo';
 import { placeImageFromFile } from './place-image';
 import { placeFiles } from './place-file';
+import { humanSize } from './file-layout';
+import type { BoardFilesUsage } from 'shared';
 import { useTranslation } from 'react-i18next';
 import { errorText } from '../i18n/api-error';
 
@@ -62,6 +64,26 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
   const canRedo = useUndoState((s) => s.canRedo);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const filePickerRef = useRef<HTMLInputElement>(null);
+  // скільки місця зайнято — у підказці кнопки. Перечитуємо, коли вміст дошки
+  // змінився: видалення картки звільняє місце одразу
+  const [usage, setUsage] = useState<BoardFilesUsage | null>(null);
+  const objects = useBoardStore((s) => s.objects);
+  useEffect(() => {
+    if (!canEdit) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/boards/${boardId}/files`)
+        .then((r) => (r.ok ? (r.json() as Promise<BoardFilesUsage>) : null))
+        .then((body) => {
+          if (!cancelled && body) setUsage(body);
+        })
+        .catch(() => {});
+    }, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [boardId, canEdit, objects]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,7 +158,14 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
             <button
               type="button"
               className="tool-button"
-              title={`${t('tools.file')} (${FILE_HOTKEY})`}
+              title={
+                usage
+                  ? `${t('tools.file')} (${FILE_HOTKEY}) · ${t('file.usage', {
+                      used: humanSize(usage.usedBytes),
+                      total: humanSize(usage.quotaBytes),
+                    })}`
+                  : `${t('tools.file')} (${FILE_HOTKEY})`
+              }
               aria-label={t('tools.file')}
               onClick={() => filePickerRef.current?.click()}
             >

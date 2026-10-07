@@ -4,6 +4,7 @@ import { useBoardStore } from './board-store';
 import { useEditorStore } from './editor-store';
 import { FILE_BASE_WIDTH, fileCardSize } from './file-layout';
 import { serverLimits, UploadError, uploadBoardFile } from './file-upload';
+import { FILE_ERROR } from 'shared';
 import { nextZIndex } from './selection-actions';
 import { useUploadStore } from './upload-store';
 import { humanSize } from './file-layout';
@@ -23,18 +24,20 @@ export function rowPoints(start: Point, count: number): Point[] {
 
 function messageFor(error: unknown, limit: number) {
   if (!(error instanceof UploadError)) return i18n.t('file.failed');
-  switch (error.code) {
-    case 'too-large':
-      return i18n.t('file.tooLarge', { limit: humanSize(limit) });
-    case 'forbidden':
-      return i18n.t('file.forbidden');
-    case 'rate':
-      return i18n.t('file.rate');
-    case 'cancelled':
-      return i18n.t('file.cancelled');
-    default:
-      return i18n.t('file.failed');
+  if (error.code === 'cancelled') return i18n.t('file.cancelled');
+  if (error.code === 'network' || error.code === 'unknown') return i18n.t('file.failed');
+  // серверний рядок не показуємо ніколи — лише свій текст за кодом. Для квоти
+  // в тексті мусять бути числа, тому вони приїжджають у тілі помилки
+  if (error.code === FILE_ERROR.quota) {
+    return i18n.t(`errors.${FILE_ERROR.quota}`, {
+      used: humanSize(error.usedBytes ?? 0),
+      total: humanSize(error.totalBytes ?? limit),
+    });
   }
+  if (error.code === FILE_ERROR.tooLarge) {
+    return i18n.t(`errors.${FILE_ERROR.tooLarge}`, { limit: humanSize(limit) });
+  }
+  return i18n.exists(`errors.${error.code}`) ? i18n.t(`errors.${error.code}`) : i18n.t('file.failed');
 }
 
 // один файл: заготовка з ходом, потім справжня картка. Повертає id картки або
@@ -44,7 +47,9 @@ async function placeOne(boardId: string, file: File, point: Point, createdBy: st
   // перевіряємо ДО завантаження: немає сенсу гнати 200 МБ, щоб отримати 413
   if (file.size > fileMaxBytes) {
     const id = useUploadStore.getState().add({ name: file.name, size: file.size, ...point, cancel: () => {} });
-    useUploadStore.getState().fail(id, i18n.t('file.tooLarge', { limit: humanSize(fileMaxBytes) }));
+    useUploadStore
+      .getState()
+      .fail(id, i18n.t(`errors.${FILE_ERROR.tooLarge}`, { limit: humanSize(fileMaxBytes) }));
     return null;
   }
 

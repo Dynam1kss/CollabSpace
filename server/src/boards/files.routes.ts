@@ -6,13 +6,14 @@ import { pipeline } from 'node:stream/promises';
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import { fileKind, isInlineMime, sanitizeFileName } from 'shared';
-import type { ApiErrorBody, BoardFileInfo } from 'shared';
+import { FILE_ERROR, fileKind, isInlineMime, sanitizeFileName } from 'shared';
+import type { ApiErrorBody, BoardFileInfo, BoardFilesUsage } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
 import { env } from '../env';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import { getBoardAccess, requireBoardAccess, requireBoardEditor } from './boards.service';
+import { boardQuotaUsage, lockBoardQuota } from './file-quota';
 import { sniffMime } from './file-sniff';
 import { UPLOADS_DIR } from './images.routes';
 
@@ -35,20 +36,39 @@ const uploadLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
   handler: (_req, res) => {
     const body: ApiErrorBody = {
-      error: { code: 'TOO_MANY_REQUESTS', message: 'Забагато завантажень, спробуйте пізніше' },
+      error: { code: FILE_ERROR.rate, message: 'Забагато завантажень, спробуйте пізніше' },
     };
     res.status(429).json(body);
   },
 });
 
-function tooLarge(message: string) {
-  return new AppError(413, 'FILE_TOO_LARGE', message);
+function tooLarge() {
+  return new AppError(413, FILE_ERROR.tooLarge, 'Файл перевищує дозволений розмір');
 }
 
-async function boardUsedBytes(boardId: string) {
-  const sum = await prisma.boardFile.aggregate({ where: { boardId }, _sum: { size: true } });
-  return sum._sum.size ?? 0;
+function quotaFull(usedBytes: number, totalBytes: number) {
+  return new AppError(413, FILE_ERROR.quota, 'На дошці закінчилося місце для файлів', {
+    usedBytes,
+    totalBytes,
+  });
 }
+
+// скільки місця зайнято — для підказки на кнопці файлів
+filesRouter.get('/', async (req: Request<{ id: string }>, res, next) => {
+  try {
+    const access = requireBoardAccess(await getBoardAccess(req.params.id, req.userId as string));
+    const usage = await boardQuotaUsage(access.board.id);
+    const body: BoardFilesUsage = {
+      usedBytes: usage.usedBytes,
+      storedBytes: usage.storedBytes,
+      quotaBytes: usage.quotaBytes,
+      fileMaxBytes: env.fileMaxBytes,
+    };
+    res.json(body);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // сире тіло запиту — без жодної нової залежності. Назва файла їде в заголовку
 // (відсоткове кодування, бо в заголовок можна класти лише ascii), а саме тіло
@@ -61,12 +81,12 @@ filesRouter.post('/', uploadLimiter, async (req: Request<{ id: string }>, res, n
     const boardId = access.board.id;
 
     const declared = Number(req.headers['content-length'] ?? 0);
-    if (declared > env.fileMaxBytes) {
-      throw tooLarge(`Файл більший за ${Math.round(env.fileMaxBytes / 1024 / 1024)} МБ`);
-    }
-    const used = await boardUsedBytes(boardId);
-    if (declared > 0 && used + declared > env.boardFilesMaxBytes) {
-      throw tooLarge('Місце на дошці вичерпано');
+    if (declared > env.fileMaxBytes) throw tooLarge();
+    // груба передперевірка, щоб не писати на диск завідомо зайве; остаточна —
+    // нижче, під блокуванням
+    const before = await boardQuotaUsage(boardId);
+    if (declared > 0 && before.usedBytes + declared > before.quotaBytes) {
+      throw quotaFull(before.usedBytes, before.quotaBytes);
     }
 
     const rawName = req.headers['x-file-name'];
@@ -86,10 +106,10 @@ filesRouter.post('/', uploadLimiter, async (req: Request<{ id: string }>, res, n
       size += chunk.length;
       if (head.length < 1024) head = Buffer.concat([head, chunk.subarray(0, 1024 - head.length)]);
       if (size > env.fileMaxBytes) {
-        overflow = tooLarge(`Файл більший за ${Math.round(env.fileMaxBytes / 1024 / 1024)} МБ`);
+        overflow = tooLarge();
         req.destroy();
-      } else if (used + size > env.boardFilesMaxBytes) {
-        overflow = tooLarge('Місце на дошці вичерпано');
+      } else if (before.usedBytes + size > before.quotaBytes) {
+        overflow = quotaFull(before.usedBytes, before.quotaBytes);
         req.destroy();
       }
     });
@@ -105,17 +125,31 @@ filesRouter.post('/', uploadLimiter, async (req: Request<{ id: string }>, res, n
     if (size === 0) throw new AppError(400, 'VALIDATION_ERROR', 'Порожній файл');
 
     const mime = sniffMime(head);
-    const created = await prisma.boardFile.create({
-      data: { boardId, uploaderId: req.userId as string, name, mime, size, storageName },
+    // остаточна перевірка — в одній транзакції з блокуванням саме цієї дошки:
+    // без нього двоє одночасних завантажень обидва проходять перевірку й
+    // разом перебирають межу
+    const created = await prisma.$transaction(async (tx) => {
+      await lockBoardQuota(tx, boardId);
+      const usage = await boardQuotaUsage(boardId, tx);
+      if (usage.usedBytes + size > usage.quotaBytes) throw quotaFull(usage.usedBytes, usage.quotaBytes);
+      // стеля на все збережене, разом із покинутим: інакше цикл
+      // «завантажив — видалив» ріс би на диску нескінченно
+      if (usage.storedBytes + size > usage.storedCapBytes) {
+        throw quotaFull(usage.usedBytes, usage.quotaBytes);
+      }
+      const row = await tx.boardFile.create({
+        data: { boardId, uploaderId: req.userId as string, name, mime, size, storageName },
+      });
+      return { row, usedBytes: usage.usedBytes + size };
     });
     target = null;
 
     const body: BoardFileInfo = {
-      id: created.id,
-      name: created.name,
-      mime: created.mime,
-      size: created.size,
-      boardUsedBytes: used + size,
+      id: created.row.id,
+      name: created.row.name,
+      mime: created.row.mime,
+      size: created.row.size,
+      boardUsedBytes: created.usedBytes,
     };
     res.status(201).json(body);
   } catch (err) {
