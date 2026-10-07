@@ -1,22 +1,24 @@
 import { create } from 'zustand';
-import { FILE_UPLOAD_HOLD_MS } from 'shared';
-import type { FileObject } from 'shared';
-import { useBoardStore } from './board-store';
+import type { BoardObject, FileObject } from 'shared';
+import { takeLocalRemovals, useBoardStore } from './board-store';
 
 // Що це зʼєднання тримає за собою. Два випадки:
 //  — щойно завантажений файл, якому ще не поставили картку;
-//  — файл видаленої картки: поки я на дошці, я ще можу натиснути ctrl+z.
+//  — файл картки, яку видалив Я: поки я на дошці, я ще можу натиснути ctrl+z.
 // Поки тримаю — місце зайняте, і це бачать усі в кімнаті. Пішов із дошки чи
-// обірвався — сервер відпускає все моє, і місце звільняється для всіх
-const RELEASE_AFTER_MS = FILE_UPLOAD_HOLD_MS;
+// обірвався — сервер відпускає все моє, і місце звільняється для всіх.
+//
+// Резерв бере САМЕ ТОЙ, ХТО ВИДАЛИВ. Доти його брав кожен, хто побачив, що
+// картка зникла, — а бачать усі, і в стратегії 3 «зникла» означало ще й
+// «клітинка згорнулась, бо я відвів вікно». Через це місце тримав будь-хто,
+// хто просто сидів на дошці, і звільнялось воно лише коли дошку покидали всі
+// (журнал 07.10)
 
 interface HoldState {
-  // fileId -> коли відпустити самому (для завантажених); у видалених таймера
-  // немає: тримаємо, доки не підемо з дошки
-  held: Map<string, number | null>;
+  held: Set<string>;
 }
 
-export const useFileHolds = create<HoldState>(() => ({ held: new Map() }));
+export const useFileHolds = create<HoldState>(() => ({ held: new Set() }));
 
 let send: ((fileIds: string[]) => void) | null = null;
 
@@ -26,53 +28,56 @@ export function setFileHoldSender(fn: ((fileIds: string[]) => void) | null) {
 }
 
 function flush() {
-  send?.([...useFileHolds.getState().held.keys()]);
+  send?.([...useFileHolds.getState().held]);
 }
 
-function change(apply: (held: Map<string, number | null>) => void) {
-  const held = new Map(useFileHolds.getState().held);
-  const before = held.size;
+function change(apply: (held: Set<string>) => void) {
+  const held = new Set(useFileHolds.getState().held);
   apply(held);
-  // не шлемо кадр, якщо нічого не змінилось
-  if (held.size === before && [...held.keys()].every((k) => useFileHolds.getState().held.has(k))) return;
+  const before = useFileHolds.getState().held;
+  if (held.size === before.size && [...held].every((id) => before.has(id))) return;
   useFileHolds.setState({ held });
   flush();
 }
 
+// картку ще не поставили, а файл уже на сервері. Відпустимо, щойно картка
+// зʼявиться на дошці; від аплоада до запису знімка місце тримає сам сервер
 export function holdUploadedFile(fileId: string) {
-  change((held) => held.set(fileId, Date.now() + RELEASE_AFTER_MS));
-  window.setTimeout(() => releaseFile(fileId), RELEASE_AFTER_MS);
-}
-
-export function releaseFile(fileId: string) {
-  change((held) => held.delete(fileId));
+  change((held) => held.add(fileId));
 }
 
 export function clearFileHolds() {
   if (useFileHolds.getState().held.size === 0) return;
-  useFileHolds.setState({ held: new Map() });
+  useFileHolds.setState({ held: new Set() });
   flush();
 }
 
-// стежимо за дошкою: зник обʼєкт файла — беремо його id на себе; зʼявився
-// назад (ctrl+z) — відпускаємо
+export function fileCardIds(objects: Record<string, BoardObject>) {
+  const byObject = new Map<string, string>();
+  for (const object of Object.values(objects)) {
+    if (object.type === 'file') byObject.set(object.id, (object as FileObject).fileId);
+  }
+  return byObject;
+}
+
+// стежимо за дошкою: МОЯ правка прибрала картку файла — беру його id на себе.
+// картка знову на дошці (ctrl+z, або хтось повернув) — відпускаю; цим же
+// відпускається й резерв завантаження, коли картка нарешті стала на місце
 export function watchFileHolds() {
-  let previous = fileIdsOf(useBoardStore.getState().objects);
+  let previous = fileCardIds(useBoardStore.getState().objects);
+  takeLocalRemovals(); // те, що накопичилось до підписки, до резервів не стосується
   return useBoardStore.subscribe((state, prev) => {
     if (state.objects === prev.objects) return;
-    const now = fileIdsOf(state.objects);
+    const now = fileCardIds(state.objects);
+    const removed = takeLocalRemovals();
+    const present = new Set(now.values());
     change((held) => {
-      for (const [id] of previous) if (!now.has(id)) held.set(id, null);
-      for (const [id] of now) if (held.get(id) === null) held.delete(id);
+      for (const objectId of removed) {
+        const fileId = previous.get(objectId);
+        if (fileId && !present.has(fileId)) held.add(fileId);
+      }
+      for (const fileId of present) held.delete(fileId);
     });
     previous = now;
   });
-}
-
-function fileIdsOf(objects: Record<string, { type: string }>) {
-  const ids = new Map<string, true>();
-  for (const object of Object.values(objects)) {
-    if (object.type === 'file') ids.set((object as FileObject).fileId, true);
-  }
-  return ids;
 }

@@ -39,6 +39,17 @@ export function holdUploaded(boardId: string, fileId: string, until: number) {
   board.set(fileId, until);
 }
 
+// картка стала в знімок — резерв завантаження більше не потрібен: файл тепер
+// рахується як звичайне посилання дошки. Без цього щойно завантажений файл
+// тримав місце ще дві хвилини навіть після того, як картку поставили й
+// видалили, і місце не звільняв ніхто (журнал 07.10)
+export function releaseUploaded(boardId: string, fileIds: Iterable<string>) {
+  const board = uploaded.get(boardId);
+  if (!board) return;
+  for (const id of fileIds) board.delete(id);
+  if (board.size === 0) uploaded.delete(boardId);
+}
+
 export function heldFileIds(boardId: string, now = Date.now()): Set<string> {
   const out = new Set<string>();
   for (const set of holds.get(boardId)?.values() ?? []) for (const id of set) out.add(id);

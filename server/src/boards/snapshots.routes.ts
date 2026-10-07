@@ -13,6 +13,8 @@ import {
   writeSnapshotState,
 } from './snapshots.service';
 import { maybeCreateAutoVersion } from './versions.service';
+import { releaseUploaded } from './file-holds';
+import { broadcastFileUsage } from './board-rooms';
 
 // вміст дошки лежить по клітинках сітки (BoardSnapshotCell) — див.
 // snapshots.service. mergeParams — :id живе в префіксі монтування в app.ts
@@ -85,6 +87,15 @@ snapshotsRouter.put('/', async (req: Request<{ id: string }>, res, next) => {
       }
       await writeSnapshotState(access.board.id, Buffer.from(JSON.stringify(objects), 'utf8'));
     }
+
+    // знімок — єдине, що міняє перелік файлів, на які дошка посилається, тож
+    // саме тут перераховуємо зайняте місце й шлемо нове число всій кімнаті.
+    // Без цього підказка висіла зі старим числом, доки хтось не вийде
+    releaseUploaded(
+      access.board.id,
+      objects.filter((o) => o.type === 'file').map((o) => (o as { fileId: string }).fileId),
+    );
+    void broadcastFileUsage(access.board.id);
 
     // автоверсія живе тут, а не таймером на сервері: знімок приходить лише
     // тоді, коли дошку справді правлять, — на покинутій дошці версії не множаться.

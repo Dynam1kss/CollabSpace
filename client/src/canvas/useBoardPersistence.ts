@@ -4,12 +4,28 @@ import { asAppEdit, cellDocs, docHasHistory, lastEmptiedBy, seedMirror, useBoard
 import { syncStrategy, syncStrategyAnnounced } from './sync-strategy';
 import { diag, diagAlarm } from './diag';
 import { useEditorStore } from './editor-store';
+import { fileCardIds } from './file-holds';
+import type { BoardObject } from 'shared';
+
+type Objects = Record<string, BoardObject>;
 
 // 2.5с від останньої зміни — під час тягання стор оновлюється на кожен рух,
 // слати кожен кадр на сервер нема сенсу
 const SAVE_DEBOUNCE_MS = 2500;
+// картки файлів — окремо й швидше: доки знімок не в базі, сервер вважає файл
+// зайвим і тримає місце резервом, а підказка показує старе число. 1с —
+// компроміс: і не чекати, і не писати на кожне натискання
+const FILE_SAVE_DEBOUNCE_MS = 1000;
 
 export type SaveStatus = 'loading' | 'saved' | 'saving' | 'error' | 'readonly';
+
+function fileCardsChanged(before: Objects, after: Objects) {
+  const was = new Set(fileCardIds(before).values());
+  const now = new Set(fileCardIds(after).values());
+  if (was.size !== now.size) return true;
+  for (const id of now) if (!was.has(id)) return true;
+  return false;
+}
 
 // завантажує снепшот у board-store і зберігає його назад із дебаунсом.
 // Стор про це не знає — працюємо з ним ззовні через add/getAll/removeMany,
@@ -142,17 +158,17 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
       }
     }
 
-    function schedule() {
+    function schedule(fast = false) {
       window.clearTimeout(timer);
-      timer = window.setTimeout(save, SAVE_DEBOUNCE_MS);
+      timer = window.setTimeout(save, fast ? FILE_SAVE_DEBOUNCE_MS : SAVE_DEBOUNCE_MS);
     }
 
-    function onChanged() {
+    function onChanged(fast = false) {
       if (!loaded) return;
       pending = true;
       // посеред жесту стор тримає проміжний стан — чекаємо transformend/dragend
       if (useEditorStore.getState().interacting) return;
-      schedule();
+      schedule(fast);
     }
 
     // без дебаунсу — на закриття вкладки й розмонтування
@@ -200,7 +216,7 @@ export function useBoardPersistence(boardId: string | null, canWrite: boolean, s
       });
 
     const unsubObjects = useBoardStore.subscribe((state, prev) => {
-      if (state.objects !== prev.objects) onChanged();
+      if (state.objects !== prev.objects) onChanged(fileCardsChanged(prev.objects, state.objects));
     });
     const unsubInteracting = useEditorStore.subscribe((state, prev) => {
       if (prev.interacting && !state.interacting && pending) schedule();

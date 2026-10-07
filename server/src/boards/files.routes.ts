@@ -14,6 +14,7 @@ import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import { getBoardAccess, requireBoardAccess, requireBoardEditor } from './boards.service';
 import { holdUploaded } from './file-holds';
+import { broadcastFileUsage } from './board-rooms';
 import { boardQuotaUsage, lockBoardQuota } from './file-quota';
 import { sniffMime } from './file-sniff';
 import { UPLOADS_DIR } from './images.routes';
@@ -151,6 +152,8 @@ filesRouter.post('/', uploadLimiter, async (req: Request<{ id: string }>, res, n
       boardUsedBytes: created.usedBytes,
     };
     res.status(201).json(body);
+    // решта кімнати має побачити зайняте місце одразу, а не коли сама щось зробить
+    void broadcastFileUsage(boardId);
   } catch (err) {
     // недописаний файл на диску не лишаємо ніколи
     if (target) await unlink(target).catch(() => {});

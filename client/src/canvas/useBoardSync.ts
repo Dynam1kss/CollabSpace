@@ -49,6 +49,7 @@ import {
   resetBoardDoc,
   seedMirror,
   cellDocs,
+  REMOTE_ORIGIN,
   setCellSyncHooks,
   useBoardStore,
 } from './board-store';
@@ -63,10 +64,6 @@ import { usePresenceStore } from './presence-store';
 // 'kicked' — не різновид обриву, а окрема причина: власник забрав доступ.
 // Сокет після цього теж закриється, але сторінці треба сказати інше
 export type SyncStatus = 'connecting' | 'live' | 'offline' | 'kicked';
-
-// позначка на вхідних оновленнях: doc.on('update') бачить origin і не шле
-// їх назад у мережу — інакше чуже оновлення поверталось би по колу
-const REMOTE_ORIGIN = { source: 'network' };
 
 // sync-запит повторюємо, поки не відповіли: сервер адресує його одному
 // «найстаршому» редактору, і якщо той обірвався без FIN, запит просто зникає.

@@ -77,8 +77,9 @@ export const cellDocs = new CellDocs({
   onCloseCell: (cell) => cellUndo.forget(cell),
   // зворотний бік тієї самої межі: поза стратегією 3 клітинки дзеркала не
   // торкаються. Сюди долітає хіба що closeAll зі скидання документа
-  onMirror: (changes) => {
+  onMirror: (changes, local) => {
     if (!aoi()) return;
+    noteRemovals(changes, local);
     timed('mirror', () =>
       useBoardStore.setState((state) => {
         const objects = { ...state.objects };
@@ -115,8 +116,31 @@ const nextFrame: (fn: () => void) => void =
 // перший же ctrl+z після відкриття дошки зніс би її цілком
 const APP_ORIGIN = { source: 'app' };
 
+// чуже з мережі. Живе тут, а не в useBoardSync: локальність правки тепер
+// питають і дзеркало, і резерви місця під файли
+export const REMOTE_ORIGIN = { source: 'network' };
+
 export function asAppEdit(fn: () => void) {
   boardDoc.transact(fn, APP_ORIGIN);
+}
+
+// id обʼєктів, які зникли через МОЮ правку. Резерв місця під файли має
+// належати тому, хто видалив, а не кожному, хто побачив видалення: інакше
+// місце тримає будь-хто, хто просто сидить на дошці (журнал 07.10).
+// Накопичуємо до того, як підписник це забере, — за кадр правок може бути
+// кілька, а підписка стріляє раз
+let localRemovals = new Set<string>();
+
+export function takeLocalRemovals() {
+  if (localRemovals.size === 0) return localRemovals;
+  const taken = localRemovals;
+  localRemovals = new Set();
+  return taken;
+}
+
+function noteRemovals(changes: Map<string, BoardObject | undefined>, local: boolean) {
+  if (!local) return;
+  for (const [id, value] of changes) if (value === undefined) localRemovals.add(id);
 }
 
 // хто спорожнив мапу востаннє. Потрібне запобіжнику в персистентності:
@@ -272,8 +296,12 @@ function mirror(event: Y.YMapEvent<BoardObject>) {
   // перемикались самі собою — звідси «дозволити стільці» через раз (05.10).
   // Сервер такого клієнта вже не пускає, це другий рубіж
   if (aoi()) return;
+  const origin: unknown = event.transaction.origin;
+  noteRemovals(
+    new Map([...event.keysChanged].map((key) => [key, yObjects.get(key)])),
+    origin !== REMOTE_ORIGIN && origin !== APP_ORIGIN,
+  );
   if (yObjects.size === 0) {
-    const origin: unknown = event.transaction.origin;
     emptiedBy = origin === APP_ORIGIN ? 'app' : origin == null ? 'user' : 'remote';
     diag('мапа обʼєктів спорожніла', { emptiedBy, keysChanged: event.keysChanged.size });
   } else {

@@ -1,9 +1,10 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
+import type { Agent } from 'supertest';
 import { WebSocket } from 'ws';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { SYNC_MSG } from 'shared';
+import { CELL_SIZE, cellKey, SYNC_MSG } from 'shared';
 import type { FileUsageMessage } from 'shared';
 import { app } from '../src/app';
 import { tryUpgradeBoardRoom } from '../src/boards/board-rooms';
@@ -87,6 +88,30 @@ const closed = (ws: WebSocket) =>
     ws.close();
   });
 
+const card = (fileId: string, size: number, x = 0, y = 0) => ({
+  id: `c-${fileId}`,
+  type: 'file',
+  x,
+  y,
+  width: 240,
+  height: 76,
+  rotation: 0,
+  zIndex: 0,
+  createdBy: 'u1',
+  createdAt: '2026-10-07T00:00:00.000Z',
+  fileId,
+  name: 'a.bin',
+  size,
+  mime: 'application/octet-stream',
+});
+
+// так картка потрапляє в базу у справжньому клієнті: PUT /snapshot з дебаунсом
+const place = (agent: Agent, boardId: string, objects: unknown[], cells?: string[]) =>
+  agent
+    .put(`/api/boards/${boardId}/snapshot`)
+    .send(cells ? { objects, cells } : { objects })
+    .expect(204);
+
 async function boardWithFile(size: number) {
   const owner = await user();
   const other = await user();
@@ -167,5 +192,100 @@ describe('резерви місця під файли', () => {
     expect(refused.status).toBe(413);
     expect(refused.body.error.usedBytes).toBe(shown.body.usedBytes);
     expect(refused.body.error.totalBytes).toBe(shown.body.quotaBytes);
+  });
+});
+
+// Те саме, але повним шляхом: завантаження через api, картка — через
+// PUT /snapshot (так її ставить клієнт), видалення — тим самим знімком,
+// резерв — кадром у сокеті. Нічого не кладемо в базу руками: саме через це
+// попередні перевірки проходили на зламаному коді
+describe('повний шлях: завантажив, поставив, видалив, пішов', () => {
+  it('поки видаляч на дошці — число те саме; пішов — у другого впало за секунду', async () => {
+    const owner = await user();
+    const other = await user();
+    const board = await owner.agent.post('/api/boards').send({ title: 'Дошка' });
+    const boardId = board.body.id as string;
+    await owner.agent.post(`/api/boards/${boardId}/members`).send({ email: other.email, role: 'EDITOR' });
+    await other.agent.post(`/api/invites/${boardId}/accept`);
+
+    // заливаємо до межі квоти
+    const piece = Math.floor(env.boardFilesMaxBytes / 3);
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await owner.agent
+        .post(`/api/boards/${boardId}/files`)
+        .set('Content-Type', 'application/octet-stream')
+        .set('X-File-Name', `f${i}.bin`)
+        .send(Buffer.alloc(piece, 7));
+      expect(res.status, `файл ${i}`).toBe(201);
+      ids.push(res.body.id as string);
+    }
+    const cards = ids.map((id) => card(id, piece));
+    await place(owner.agent, boardId, cards);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(piece * 3);
+
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, other.cookie);
+    await Promise.all([opened(a), opened(b)]);
+
+    // A видаляє картку: його клієнт бере файл на себе й пише знімок
+    const sawHold = nextUsage(b);
+    a.send(holdFrame([ids[0]]));
+    await place(owner.agent, boardId, cards.slice(1));
+    expect((await sawHold)?.usedBytes).toBe(piece * 3);
+    // число не змінилось, хоча картки в знімку вже немає
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(piece * 3);
+
+    // і ctrl+z справді має що повернути
+    expect((await owner.agent.get(`/api/boards/${boardId}/files/${ids[0]}`)).status).toBe(200);
+
+    // A пішов — у B число падає само, без його дій
+    const released = nextUsage(b);
+    const startedAt = Date.now();
+    await closed(a);
+    const after = await released;
+    expect(after?.usedBytes).toBe(piece * 2);
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+  });
+
+  it('перезавантаження дошки дає те саме число, що й наживо', async () => {
+    const size = env.fileMaxBytes;
+    const { owner, other, boardId, fileId } = await boardWithFile(size);
+    await place(owner.agent, boardId, [card(fileId, size)]);
+
+    const a = connect(boardId, owner.cookie);
+    const b = connect(boardId, other.cookie);
+    await Promise.all([opened(a), opened(b)]);
+
+    const sawHold = nextUsage(b);
+    a.send(holdFrame([fileId]));
+    await place(owner.agent, boardId, []);
+    const live = await sawHold;
+
+    // те, що побачить свіжо відкрита вкладка (GET при вході)
+    const reloaded = await other.agent.get(`/api/boards/${boardId}/files`);
+    expect(reloaded.body.usedBytes).toBe(live?.usedBytes);
+    expect(reloaded.body.quotaBytes).toBe(live?.quotaBytes);
+  });
+
+  it('стратегія 3: клітинка, якої в мене не завантажено, однаково тримає картку', async () => {
+    const size = env.fileMaxBytes;
+    const { owner, boardId, fileId } = await boardWithFile(size);
+
+    // картка далеко — у клітинці 2:0, а не там, де вікно
+    const far = card(fileId, size, 2 * CELL_SIZE + 10, 10);
+    await place(owner.agent, boardId, [far], [cellKey(2, 0)]);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(size);
+
+    // клієнт біля початку координат зберігає СВОЇ клітинки й нічого не знає
+    // про 2:0 — чужу клітинку його порожній запис не чіпає, і файл досі
+    // займає місце
+    await place(owner.agent, boardId, [], [cellKey(0, 0), cellKey(1, 0)]);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(size);
+
+    // а коли свою клітинку порожнім знімком перепише той, хто її бачить, —
+    // місце звільниться
+    await place(owner.agent, boardId, [], [cellKey(2, 0)]);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(0);
   });
 });

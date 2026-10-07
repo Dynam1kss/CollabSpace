@@ -61,7 +61,7 @@ async function upload(
 }
 
 describe('квота файлів дошки', () => {
-  it('видалення картки: місце тримається, поки автор на дошці, і звільняється, коли він пішов', async () => {
+  it('картку видалено й ніхто її не тримає — місце вільне одразу', async () => {
     const { agent, boardId } = await setup();
     const size = env.fileMaxBytes;
 
@@ -75,17 +75,17 @@ describe('квота файлів дошки', () => {
     // поки картка на дошці — місце зайняте
     expect((await boardQuotaUsage(boardId)).usedBytes).toBe(size);
 
-    // прибираємо картку: автор ще на дошці й може натиснути ctrl+z, тож
-    // місце лишається зарезервованим — і це бачать усі
+    // картку прибрали. На дошці нікого (жодного сокета), тримати нема кому —
+    // і резерв завантаження тут уже не до чого: картка побувала в знімку.
+    // Хто саме тримає місце, поки сидить на дошці, перевіряє
+    // file-reservations.test.ts — там є справжні зʼєднання
     await agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] }).expect(204);
-    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(size);
-
-    // вийшов з дошки — резерв відпущено, місце вільне для всіх
-    leaveBoard();
     const after = await boardQuotaUsage(boardId);
     expect(after.usedBytes).toBe(0);
     expect(after.storedBytes).toBe(size);
 
+    // файл лишився на диску — ctrl+z ще має повернути робочу картку
+    expect((await agent.get(`/api/boards/${boardId}/files/${first.body.id}`)).status).toBe(200);
     expect((await upload(agent, boardId, 'b.bin', size)).status).toBe(201);
   });
 
@@ -176,10 +176,10 @@ describe('сценарії з життя', () => {
     // місця більше немає — і це правда
     expect((await upload(agent, boardId, 'more.bin', piece)).status).toBe(413);
 
-    // видаляємо ВСІ картки, але ще не виходимо: місце тримається, бо ctrl+z
-    // усе ще можливий
+    // видаляємо ВСІ картки. Сокетів тут немає, тримати нема кому — місце
+    // звільняється в ту ж мить
     await agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] }).expect(204);
-    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(piece * 3);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(0);
 
     // відкат справді повертає робочу картку
     await agent

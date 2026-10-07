@@ -27,7 +27,7 @@ import { env } from '../env';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getUserCard } from './boards.service';
-import { clearHolds, setHolds } from './file-holds';
+import { clearHolds, heldFileIds, setHolds } from './file-holds';
 import { boardQuotaUsage } from './file-quota';
 import { saveChatMessage } from './chat.service';
 import type { BoardAccess } from './boards.service';
@@ -243,6 +243,19 @@ export async function broadcastFileUsage(boardId: string) {
     const body: FileUsageMessage = { usedBytes: usage.usedBytes, quotaBytes: usage.quotaBytes };
     const frame = jsonFrame(SYNC_MSG.FILE_USAGE, body);
     for (const [, socket] of room) send(socket, frame);
+    if (!env.isProduction) {
+      console.info(
+        `[files-diag] ${new Date().toISOString()} зайнято`,
+        JSON.stringify({
+          boardId,
+          used: usage.usedBytes,
+          stored: usage.storedBytes,
+          quota: usage.quotaBytes,
+          резервів: heldFileIds(boardId).size,
+          укімнаті: room.size,
+        }),
+      );
+    }
   } catch {
     // не порахували — не біда: підказка оновиться наступного разу
   }

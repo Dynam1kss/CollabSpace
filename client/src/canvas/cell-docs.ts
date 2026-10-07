@@ -14,6 +14,10 @@ import { timed } from './aoi-perf';
 export const CELL_REMOTE = { source: 'cell-network' };
 export const CELL_SEED = { source: 'cell-seed' };
 
+// моє — усе, що не прийшло з мережі й не засіялось зі снепшоту. undo сюди теж
+// потрапляє, і це правильно: скасування створення — така сама моя дія
+const isLocal = (origin: unknown) => origin !== CELL_REMOTE && origin !== CELL_SEED;
+
 interface Cell {
   doc: Y.Doc;
   map: Y.Map<BoardObject>;
@@ -24,8 +28,11 @@ interface Cell {
 }
 
 interface Hooks {
-  // змінились ці ключі дзеркала; undefined — обʼєкта більше нема
-  onMirror: (changes: Map<string, BoardObject | undefined>) => void;
+  // змінились ці ключі дзеркала; undefined — обʼєкта більше нема.
+  // local — чи це МОЯ правка. Згортання клітинки (close/reset) і засів зі
+  // снепшоту теж прибирають обʼєкти з дзеркала, але видаленням не є: на
+  // цьому прапорці тримається резерв місця під файли (file-holds)
+  onMirror: (changes: Map<string, BoardObject | undefined>, local: boolean) => void;
   // власна правка в документі клітинки — її треба розіслати кімнаті клітинки
   onLocalUpdate: (cell: string, update: Uint8Array) => void;
   // запис у клітинку, якої ще нема серед відкритих (обʼєкт переїхав чи
@@ -78,7 +85,7 @@ export class CellDocs {
     this.cells.set(cell, entry);
     // undo чіпляємо до першого запису: write() одразу за open() вже пише
     this.hooks.onOpenCell?.(cell, map);
-    map.observe((event) => this.remirror(event.keysChanged));
+    map.observe((event) => this.remirror(event.keysChanged, isLocal(event.transaction.origin)));
     doc.on('update', (update: Uint8Array, origin: unknown) => {
       if (origin === CELL_REMOTE) return;
       entry.dirty = true;
@@ -277,9 +284,9 @@ export class CellDocs {
     return undefined;
   }
 
-  private remirror(keys: Iterable<string>) {
+  private remirror(keys: Iterable<string>, local = false) {
     const changes = new Map<string, BoardObject | undefined>();
     for (const key of keys) changes.set(key, this.resolve(key));
-    if (changes.size > 0) this.hooks.onMirror(changes);
+    if (changes.size > 0) this.hooks.onMirror(changes, local);
   }
 }
