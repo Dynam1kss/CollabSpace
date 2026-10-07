@@ -131,7 +131,8 @@ describe('профіль: аватар', () => {
     expect(res.body.user.avatarUrl).toMatch(new RegExp(`^/uploads/avatars/${user.id}/[0-9a-f-]{36}\\.png$`));
     expect(existsSync(fileOf(res.body.user.avatarUrl))).toBe(true);
 
-    const file = await request(app).get(res.body.user.avatarUrl).buffer();
+    // /uploads більше не публічна (07.10) — читаємо залогіненим
+    const file = await agent.get(res.body.user.avatarUrl).buffer();
     expect(file.status).toBe(200);
     expect((await agent.get('/api/auth/me')).body.user.avatarUrl).toBe(res.body.user.avatarUrl);
   });

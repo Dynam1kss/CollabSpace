@@ -242,10 +242,12 @@ function CardImage({
   useEffect(() => {
     if (!src) return;
     const img = new window.Image();
-    // мініатюра youtube віддається з Access-Control-Allow-Origin: *, тож
-    // анонімний режим не ламає завантаження, зате полотно лишається «чистим»
-    // і експорт у png/pdf не падає на tainted canvas
-    img.crossOrigin = 'anonymous';
+    // ТІЛЬКИ для чужого хоста: мініатюра youtube віддається з
+    // Access-Control-Allow-Origin: *, і анонімний режим лишає полотно
+    // «чистим», щоб експорт у png/pdf не падав на tainted canvas. Для НАШИХ
+    // шляхів цей атрибут ставити не можна: з ним браузер не шле куки, а
+    // /uploads тепер під авторизацією — картинка просто не завантажилась би
+    if (src.startsWith('http')) img.crossOrigin = 'anonymous';
     img.onload = () => setLoaded({ src, image: img });
     img.onerror = () => setLoaded({ src, image: null });
     img.src = src;

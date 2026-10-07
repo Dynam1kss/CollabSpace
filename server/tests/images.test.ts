@@ -1,8 +1,6 @@
 import { rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import request from 'supertest';
-import { app } from '../src/app';
 import { UPLOADS_DIR } from '../src/boards/images.routes';
 import { prisma } from '../src/prisma';
 import { addMember, registerUser } from './helpers';
@@ -38,8 +36,9 @@ describe('завантаження зображень', () => {
     expect(res.status).toBe(201);
     expect(res.body.url).toMatch(new RegExp(`^/uploads/${boardId}/[0-9a-f-]{36}\\.png$`));
 
-    // image/* superagent сам буферизує в Buffer
-    const file = await request(app).get(res.body.url).buffer();
+    // image/* superagent сам буферизує в Buffer. Запит іде ВІД УЧАСНИКА:
+    // /uploads більше не публічна (07.10)
+    const file = await agent.get(res.body.url).buffer();
     expect(file.status).toBe(200);
     expect(Buffer.compare(file.body, PNG)).toBe(0);
   });

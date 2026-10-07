@@ -11,6 +11,7 @@ import { roomStats, setSyncStrategyOfRooms } from './boards/board-rooms';
 import { boardsRouter } from './boards/boards.routes';
 import { chatRouter } from './boards/chat.routes';
 import { filesRouter } from './boards/files.routes';
+import { uploadsAccess } from './boards/uploads-access';
 import { imagesRouter, UPLOADS_DIR } from './boards/images.routes';
 import { invitesRouter } from './boards/invites.routes';
 import { linkPreviewRouter } from './boards/link-preview.routes';
@@ -98,7 +99,7 @@ app.use('/api/boards/:id/versions', versionsRouter);
 app.use('/api/boards/:id/images', imagesRouter);
 app.use('/api/boards/:id/files', filesRouter);
 // завантажені картинки — статикою, без перевірки прав: імена — uuid, не вгадати
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/uploads', uploadsAccess, express.static(UPLOADS_DIR));
 
 // спайки — тільки для розробки, в проді їх не буде на диску
 if (!env.isProduction) {
