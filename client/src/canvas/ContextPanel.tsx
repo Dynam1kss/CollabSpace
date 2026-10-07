@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { connectorCurved, lineDash, linkDomain, linkKind, linkVideoId, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
+import { connectorCurved, lineDash, linkDomain, LINK_TITLE_MAX, stickyFontSize, textAlign } from 'shared';
 import type { LinkObject } from 'shared';
 import type { LineDash, TextAlign } from 'shared';
 import type { BoardObject } from 'shared';
@@ -25,7 +25,6 @@ import {
   ExternalIcon,
   LinkIcon,
   LockIcon,
-  PlayIcon,
   SendBackIcon,
   StrokeWidthIcon,
   TextIcon,
@@ -331,16 +330,6 @@ export function ContextPanel({ viewport, canvasSize, currentUserId }: Props) {
           >
             <ExternalIcon />
           </button>
-          {linkKind(linkObject) === 'youtube' && linkVideoId(linkObject) && (
-            <button
-              type="button"
-              title={t('link.play')}
-              aria-label={t('link.play')}
-              onClick={() => useEditorStore.getState().playVideo(linkVideoId(linkObject)!)}
-            >
-              <PlayIcon />
-            </button>
-          )}
         </>
       )}
 
