@@ -6,6 +6,7 @@ import { env } from '../src/env';
 import { prisma } from '../src/prisma';
 import { FILES_DIR } from '../src/boards/files.routes';
 import { boardQuotaUsage } from '../src/boards/file-quota';
+import { resetHolds } from '../src/boards/file-holds';
 import { sweepOrphanFiles } from '../src/boards/files.sweep';
 import { registerUser } from './helpers';
 
@@ -14,7 +15,12 @@ import { registerUser } from './helpers';
 
 afterEach(async () => {
   await prisma.user.deleteMany();
+  resetHolds();
 });
+
+// «вийшов з дошки»: зʼєднання закрилось, резерви відпущені, а короткий резерв
+// самого завантаження вже вичерпався
+const leaveBoard = () => resetHolds();
 
 const chunk = (size: number) => Buffer.alloc(size, 7);
 
@@ -55,35 +61,32 @@ async function upload(
 }
 
 describe('квота файлів дошки', () => {
-  it('видалення картки звільняє місце одразу, без чекання прибирача', async () => {
+  it('видалення картки: місце тримається, поки автор на дошці, і звільняється, коли він пішов', async () => {
     const { agent, boardId } = await setup();
     const size = env.fileMaxBytes;
 
     const first = await upload(agent, boardId, 'a.bin', size);
     expect(first.status).toBe(201);
-    // ставимо картку й «старимо» файл, щоб вийшов із пільгового вікна
     await agent
       .put(`/api/boards/${boardId}/snapshot`)
       .send({ objects: [card(first.body.id, 'a.bin', size)] })
       .expect(204);
-    await prisma.boardFile.update({
-      where: { id: first.body.id },
-      data: { createdAt: new Date(Date.now() - 60 * 60 * 1000) },
-    });
 
-    // поки картка на дошці — місця на другий такий файл немає
-    const blocked = await upload(agent, boardId, 'b.bin', size);
-    expect(blocked.status).toBe(413);
-    expect(blocked.body.error.code).toBe(FILE_ERROR.quota);
+    // поки картка на дошці — місце зайняте
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(size);
 
-    // прибираємо картку зі знімка — файл лишається на диску, але місце вільне
+    // прибираємо картку: автор ще на дошці й може натиснути ctrl+z, тож
+    // місце лишається зарезервованим — і це бачать усі
     await agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] }).expect(204);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(size);
+
+    // вийшов з дошки — резерв відпущено, місце вільне для всіх
+    leaveBoard();
     const after = await boardQuotaUsage(boardId);
     expect(after.usedBytes).toBe(0);
     expect(after.storedBytes).toBe(size);
 
-    const again = await upload(agent, boardId, 'b.bin', size);
-    expect(again.status).toBe(201);
+    expect((await upload(agent, boardId, 'b.bin', size)).status).toBe(201);
   });
 
   it('відкат видалення повертає робочу картку: файл нікуди не дівся', async () => {
@@ -121,22 +124,22 @@ describe('квота файлів дошки', () => {
     expect(big.body.error.code).toBe(FILE_ERROR.tooLarge);
   });
 
-  it('жорстка стеля: цикл «завантажив — видалив» не росте на диску безмежно', async () => {
+  it('покинуті файли місця не займають, скільки б їх не лежало на диску', async () => {
     const { agent, boardId } = await setup();
     const size = env.fileMaxBytes;
-    let lastStatus = 201;
-    // щоразу чистимо знімок, тож квота вільна, але збережене росте
-    for (let i = 0; i < 20 && lastStatus === 201; i++) {
+    // ллємо більше, ніж уміщує квота, але карток не ставимо й резервів немає
+    for (let i = 0; i < 4; i++) {
       const res = await upload(agent, boardId, `f${i}.bin`, size);
-      lastStatus = res.status;
-      await prisma.boardFile.updateMany({
-        where: { boardId },
-        data: { createdAt: new Date(Date.now() - 60 * 60 * 1000) },
-      });
+      expect(res.status, `файл ${i}`).toBe(201);
+      // автор пішов — його резерв на щойно завантажене відпущено
+      leaveBoard();
     }
-    expect(lastStatus).toBe(413);
     const usage = await boardQuotaUsage(boardId);
-    expect(usage.storedBytes).toBeLessThanOrEqual(usage.storedCapBytes);
+    // на диску лежить більше за квоту, але зайнятого — нуль
+    expect(usage.storedBytes).toBeGreaterThan(usage.quotaBytes);
+    expect(usage.usedBytes).toBe(0);
+    // і наступне завантаження проходить: прихованої другої межі більше немає
+    expect((await upload(agent, boardId, 'more.bin', size)).status).toBe(201);
   });
 
   it('два одночасні завантаження разом не перебирають квоту', async () => {
@@ -151,6 +154,97 @@ describe('квота файлів дошки', () => {
     expect(codes).toEqual([201, 413]);
     const usage = await boardQuotaUsage(boardId);
     expect(usage.usedBytes).toBeLessThanOrEqual(usage.quotaBytes);
+  });
+});
+
+// саме те, що бачив власник: залив до межі, видалив усі картки, вийшов і
+// зайшов — місце має бути вільне
+describe('сценарії з життя', () => {
+  it('A: залив до межі, видалив усі картки, вийшов — 0 зайнято', async () => {
+    const { agent, boardId } = await setup();
+    const piece = Math.floor(env.boardFilesMaxBytes / 3);
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await upload(agent, boardId, `f${i}.bin`, piece);
+      expect(res.status, `файл ${i}`).toBe(201);
+      ids.push(res.body.id);
+    }
+    await agent
+      .put(`/api/boards/${boardId}/snapshot`)
+      .send({ objects: ids.map((id) => card(id, 'f.bin', piece)) })
+      .expect(204);
+    // місця більше немає — і це правда
+    expect((await upload(agent, boardId, 'more.bin', piece)).status).toBe(413);
+
+    // видаляємо ВСІ картки, але ще не виходимо: місце тримається, бо ctrl+z
+    // усе ще можливий
+    await agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] }).expect(204);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(piece * 3);
+
+    // відкат справді повертає робочу картку
+    await agent
+      .put(`/api/boards/${boardId}/snapshot`)
+      .send({ objects: ids.map((id) => card(id, 'f.bin', piece)) })
+      .expect(204);
+    expect((await agent.get(`/api/boards/${boardId}/files/${ids[0]}`)).status).toBe(200);
+
+    // тепер прибираємо все й виходимо з дошки
+    await agent.put(`/api/boards/${boardId}/snapshot`).send({ objects: [] }).expect(204);
+    leaveBoard();
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(0);
+    expect((await upload(agent, boardId, 'after.bin', piece)).status).toBe(201);
+  });
+
+  it('B: стара дошка з сиротами й файлом лише у версії — завантаження в межах квоти проходить', async () => {
+    const { agent, boardId } = await setup();
+    // колись залили багато й повидаляли: карток немає, файли лежать
+    for (let i = 0; i < 4; i++) {
+      expect((await upload(agent, boardId, `old${i}.bin`, env.fileMaxBytes)).status).toBe(201);
+      leaveBoard();
+    }
+    // один із них лишився лише у збереженій версії
+    const inVersion = await upload(agent, boardId, 'v.bin', env.fileMaxBytes);
+    leaveBoard();
+    await prisma.boardVersion.create({
+      data: {
+        boardId,
+        label: 'стара',
+        createdBy: 'u1',
+        isManual: true,
+        state: Buffer.from(
+          JSON.stringify([card(inVersion.body.id, 'v.bin', env.fileMaxBytes)]),
+          'utf8',
+        ),
+      },
+    });
+
+    const usage = await boardQuotaUsage(boardId);
+    // на диску лежить більше за квоту, але зайнятого — нуль
+    expect(usage.storedBytes).toBeGreaterThan(usage.quotaBytes);
+    expect(usage.usedBytes).toBe(0);
+
+    // і дрібний файл приймається, як і має бути на дошці без карток
+    const small = await upload(agent, boardId, 's.bin', 311);
+    expect(small.status).toBe(201);
+  });
+
+  it('порожня клітинка не лишає по собі посилань на файл', async () => {
+    const { agent, boardId } = await setup();
+    const up = await upload(agent, boardId, 'a.bin', 512);
+    await agent
+      .put(`/api/boards/${boardId}/snapshot`)
+      .send({ objects: [card(up.body.id, 'a.bin', 512)], cells: ['0:0'] })
+      .expect(204);
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(512);
+
+    // останній обʼєкт клітинки прибрано — рядок клітинки має зникнути
+    await agent
+      .put(`/api/boards/${boardId}/snapshot`)
+      .send({ objects: [], cells: ['0:0'] })
+      .expect(204);
+    expect(await prisma.boardSnapshotCell.count({ where: { boardId } })).toBe(0);
+    leaveBoard();
+    expect((await boardQuotaUsage(boardId)).usedBytes).toBe(0);
   });
 });
 
@@ -176,6 +270,8 @@ describe('прибирач файлів-сиріт', () => {
         state: Buffer.from(JSON.stringify([card(inVersion.body.id, 'version.bin', 256)]), 'utf8'),
       },
     });
+    // ніхто їх уже не тримає
+    leaveBoard();
     // усі три — давні, інакше прибирач їх не чіпає
     await prisma.boardFile.updateMany({
       where: { boardId },

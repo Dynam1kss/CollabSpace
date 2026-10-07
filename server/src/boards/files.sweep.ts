@@ -1,12 +1,15 @@
 import { unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { prisma } from '../prisma';
+import { heldFileIds } from './file-holds';
 import { FILES_DIR } from './files.routes';
 
-// Видаляти файл разом із карткою не можна: ctrl+z має повернути картку живою,
-// а не з битим посиланням. Тому прибираємо окремо й із запасом часу — файл,
-// на який ніхто не посилається ДОВШЕ ЗА ДОБУ, вже точно нікому не потрібен
-export const ORPHAN_AGE_MS = 24 * 60 * 60 * 1000;
+// Видаляти файл разом із карткою не можна: ctrl+z має повернути картку живою.
+// Але чекати добу теж не треба — поки хтось може натиснути ctrl+z, файл
+// ТРИМАЄ його зʼєднання (file-holds), і прибирач його не чіпає. Тому поріг
+// короткий: кілька хвилин, і то лише щоб не зачепити файл, який щойно
+// завантажили, а кадр із резервом ще не долетів
+export const ORPHAN_AGE_MS = 5 * 60 * 1000;
 
 // Як шукаємо посилання: вміст дошки лежить у знімку (BoardSnapshotCell або
 // BoardSnapshot) і в збережених версіях — усе це json з масивом обʼєктів.
@@ -52,7 +55,10 @@ export async function sweepOrphanFiles(now = Date.now()): Promise<number> {
   let removed = 0;
   for (const [boardId, files] of byBoard) {
     const referenced = await referencedFileIds(boardId);
-    const orphans = files.filter((f) => !referenced.has(f.id));
+    // те, що зараз хтось тримає (щойно завантажене або щойно видалене, яке ще
+    // можна повернути), не чіпаємо навіть якщо на нього ніхто не посилається
+    const held = heldFileIds(boardId);
+    const orphans = files.filter((f) => !referenced.has(f.id) && !held.has(f.id));
     for (const file of orphans) {
       await unlink(resolve(FILES_DIR, file.storageName)).catch(() => {});
     }
@@ -64,7 +70,8 @@ export async function sweepOrphanFiles(now = Date.now()): Promise<number> {
   return removed;
 }
 
-const SWEEP_EVERY_MS = 6 * 60 * 60 * 1000;
+// часто, бо поріг тепер хвилини: покинутий файл не має лежати довше
+const SWEEP_EVERY_MS = 2 * 60 * 1000;
 
 export function startOrphanSweep() {
   const timer = setInterval(() => {

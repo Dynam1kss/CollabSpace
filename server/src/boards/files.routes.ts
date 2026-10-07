@@ -6,13 +6,14 @@ import { pipeline } from 'node:stream/promises';
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import { FILE_ERROR, fileKind, isInlineMime, sanitizeFileName } from 'shared';
+import { FILE_ERROR, FILE_UPLOAD_HOLD_MS, fileKind, isInlineMime, sanitizeFileName } from 'shared';
 import type { ApiErrorBody, BoardFileInfo, BoardFilesUsage } from 'shared';
 import { requireAuth } from '../auth/auth.middleware';
 import { env } from '../env';
 import { AppError } from '../errors';
 import { prisma } from '../prisma';
 import { getBoardAccess, requireBoardAccess, requireBoardEditor } from './boards.service';
+import { holdUploaded } from './file-holds';
 import { boardQuotaUsage, lockBoardQuota } from './file-quota';
 import { sniffMime } from './file-sniff';
 import { UPLOADS_DIR } from './images.routes';
@@ -132,14 +133,12 @@ filesRouter.post('/', uploadLimiter, async (req: Request<{ id: string }>, res, n
       await lockBoardQuota(tx, boardId);
       const usage = await boardQuotaUsage(boardId, tx);
       if (usage.usedBytes + size > usage.quotaBytes) throw quotaFull(usage.usedBytes, usage.quotaBytes);
-      // стеля на все збережене, разом із покинутим: інакше цикл
-      // «завантажив — видалив» ріс би на диску нескінченно
-      if (usage.storedBytes + size > usage.storedCapBytes) {
-        throw quotaFull(usage.usedBytes, usage.quotaBytes);
-      }
       const row = await tx.boardFile.create({
         data: { boardId, uploaderId: req.userId as string, name, mime, size, storageName },
       });
+      // резерв ставимо ПІД тим самим блокуванням: інакше наступне
+      // завантаження встигне порахувати місце, не побачивши цього файла
+      holdUploaded(boardId, row.id, Date.now() + FILE_UPLOAD_HOLD_MS);
       return { row, usedBytes: usage.usedBytes + size };
     });
     target = null;

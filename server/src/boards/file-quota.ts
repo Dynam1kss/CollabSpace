@@ -1,6 +1,6 @@
-import { FILE_QUOTA_GRACE_MS, FILE_STORED_CAP_FACTOR } from 'shared';
 import { prisma } from '../prisma';
 import { env } from '../env';
+import { heldFileIds } from './file-holds';
 
 type Tx = Pick<typeof prisma, 'boardFile' | 'boardSnapshotCell' | 'boardSnapshot'>;
 
@@ -35,34 +35,28 @@ export async function currentFileIds(boardId: string, tx: Tx = prisma): Promise<
 }
 
 export interface QuotaUsage {
-  // що займає місце: файли поточного стану плюс щойно завантажені
+  // ЄДИНЕ число: і підказка на кнопці, і поріг відмови рахуються з нього.
+  // Файли, на які ніхто не посилається й ніхто їх не тримає, місця не
+  // займають — навіть якщо ще лежать на диску до найближчого прибирача
   usedBytes: number;
-  // усе, що лежить на диску цієї дошки, разом із покинутим
+  // скільки лежить на диску — лише для журналу й перевірок, на відмову НЕ впливає
   storedBytes: number;
   quotaBytes: number;
-  storedCapBytes: number;
 }
 
-export async function boardQuotaUsage(boardId: string, tx: Tx = prisma, now = Date.now()): Promise<QuotaUsage> {
+export async function boardQuotaUsage(boardId: string, tx: Tx = prisma): Promise<QuotaUsage> {
   const [files, current] = await Promise.all([
-    tx.boardFile.findMany({ where: { boardId }, select: { id: true, size: true, createdAt: true } }),
+    tx.boardFile.findMany({ where: { boardId }, select: { id: true, size: true } }),
     currentFileIds(boardId, tx),
   ]);
-  const fresh = now - FILE_QUOTA_GRACE_MS;
+  const held = heldFileIds(boardId);
   let usedBytes = 0;
   let storedBytes = 0;
   for (const file of files) {
     storedBytes += file.size;
-    // щойно завантажений ще не встиг потрапити в знімок — його теж рахуємо,
-    // інакше квоту можна було б обійти, заливаючи файли й не ставлячи карток
-    if (current.has(file.id) || file.createdAt.getTime() > fresh) usedBytes += file.size;
+    if (current.has(file.id) || held.has(file.id)) usedBytes += file.size;
   }
-  return {
-    usedBytes,
-    storedBytes,
-    quotaBytes: env.boardFilesMaxBytes,
-    storedCapBytes: env.boardFilesMaxBytes * FILE_STORED_CAP_FACTOR,
-  };
+  return { usedBytes, storedBytes, quotaBytes: env.boardFilesMaxBytes };
 }
 
 // серіалізація саме по дошці: два одночасні завантаження інакше обидва

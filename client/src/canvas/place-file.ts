@@ -6,6 +6,7 @@ import { FILE_BASE_WIDTH, fileCardSize } from './file-layout';
 import { serverLimits, UploadError, uploadBoardFile } from './file-upload';
 import { FILE_ERROR } from 'shared';
 import { nextZIndex } from './selection-actions';
+import { holdUploadedFile } from './file-holds';
 import { useUploadStore } from './upload-store';
 import { humanSize } from './file-layout';
 import { i18n } from '../i18n';
@@ -67,6 +68,9 @@ async function placeOne(boardId: string, file: File, point: Point, createdBy: st
     );
     handle = upload;
     const info = await upload.done;
+    // тримаємо до моменту, коли картка опиниться в знімку; сервер і сам
+    // тримає його коротко, це лише узгоджує обидва боки
+    holdUploadedFile(info.id);
 
     const object: FileObject = {
       id: createId(),

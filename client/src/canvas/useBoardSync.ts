@@ -26,6 +26,7 @@ import type {
   VoiceSdpMessage,
   VoiceStateMessage,
   ViewportMessage,
+  FileUsageMessage,
 } from 'shared';
 import { useChatStore } from './chat-store';
 import { useSeatStore } from '../voice/seat-store';
@@ -54,6 +55,8 @@ import {
 import { AoiSync, attachAoi } from './aoi-sync';
 import { adoptSyncStrategy, syncStrategy, syncStrategyUnavailable } from './sync-strategy';
 import type { SyncStrategy } from './sync-strategy';
+import { clearFileHolds, setFileHoldSender, watchFileHolds } from './file-holds';
+import { setFileUsage } from './file-usage-store';
 import { diag, diagAlarm } from './diag';
 import { usePresenceStore } from './presence-store';
 
@@ -141,6 +144,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
     }
     // курсор і виділення підуть тим самим сокетом
     setPresenceSender(send);
+    // резерви місця під файли — теж ним: сервер тримає їх за цим зʼєднанням
+    setFileHoldSender((fileIds) => send(jsonFrame(SYNC_MSG.FILE_HOLD, { fileIds })));
+    const unwatchHolds = watchFileHolds();
     // своє виділення — на кожну зміну; кадри рідкі, тримати їх нема сенсу.
     // так само й замок: зайшов у текст — зайняв обʼєкт, вийшов — відпустив
     const unsubSelection = useEditorStore.subscribe((state, prev) => {
@@ -254,6 +260,9 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       if (data.length === 0) return;
       const payload = data.subarray(1);
       switch (data[0]) {
+        case SYNC_MSG.FILE_USAGE:
+          setFileUsage(JSON.parse(text(payload)) as FileUsageMessage);
+          return;
         case SYNC_MSG.STRATEGY:
           beginContentSync((JSON.parse(text(payload)) as SyncStrategyMessage).strategy);
           return;
@@ -522,6 +531,11 @@ export function useBoardSync(boardId: string | null, canWrite: boolean) {
       window.clearInterval(syncRetry);
       unsubSelection();
       unsubGesture();
+      // пішли з дошки — свої резерви місця скидаємо й більше нікуди не шлемо
+      unwatchHolds();
+      setFileHoldSender(null);
+      clearFileHolds();
+      setFileUsage(null);
       if (aoi) {
         aoi.stop();
         attachAoi(null);

@@ -15,6 +15,8 @@ import {
 import type {
   BoardRole,
   CellSubscribeMessage,
+  FileHoldMessage,
+  FileUsageMessage,
   PresenceMember,
   RestoredMessage,
   RosterMessage,
@@ -25,6 +27,8 @@ import { env } from '../env';
 import { verifyAuthToken } from '../auth/auth.service';
 import { AUTH_COOKIE, parseCookies } from '../cookies';
 import { getBoardAccess, getUserCard } from './boards.service';
+import { clearHolds, setHolds } from './file-holds';
+import { boardQuotaUsage } from './file-quota';
 import { saveChatMessage } from './chat.service';
 import type { BoardAccess } from './boards.service';
 
@@ -226,6 +230,21 @@ function handleCellFrame(client: Client, socket: WebSocket, buf: Buffer) {
       send(requester, stripped);
       return;
     }
+  }
+}
+
+// скільки зайнято — одним числом усій кімнаті. Шлемо після будь-якої зміни
+// резервів: інакше той, хто не видаляв, не побачив би, що місце зайняли
+export async function broadcastFileUsage(boardId: string) {
+  const room = rooms.get(boardId);
+  if (!room || room.size === 0) return;
+  try {
+    const usage = await boardQuotaUsage(boardId);
+    const body: FileUsageMessage = { usedBytes: usage.usedBytes, quotaBytes: usage.quotaBytes };
+    const frame = jsonFrame(SYNC_MSG.FILE_USAGE, body);
+    for (const [, socket] of room) send(socket, frame);
+  } catch {
+    // не порахували — не біда: підказка оновиться наступного разу
   }
 }
 
@@ -708,6 +727,20 @@ boardRoomWss.on('connection', (socket) => {
         handleCellFrame(client, socket, buf);
         return;
 
+      case SYNC_MSG.FILE_HOLD: {
+        if (client.role === 'VIEWER') return;
+        let body: Partial<FileHoldMessage>;
+        try {
+          body = JSON.parse(buf.subarray(1).toString('utf8')) as Partial<FileHoldMessage>;
+        } catch {
+          return;
+        }
+        const ids = (body.fileIds ?? []).filter((id) => typeof id === 'string').slice(0, 500);
+        setHolds(client.boardId, client.id, ids);
+        void broadcastFileUsage(client.boardId);
+        return;
+      }
+
       case SYNC_MSG.SYNC_REPLY: {
         if (client.role === 'VIEWER' || buf.length < 1 + SYNC_REQUESTER_ID_BYTES) return;
         const requester = room.get(buf.readUInt32BE(1));
@@ -728,6 +761,10 @@ boardRoomWss.on('connection', (socket) => {
   });
 
   const leave = () => {
+    // резерви місця під файли тримаються саме зʼєднанням: пішов — відпустив,
+    // і решта кімнати одразу бачить вільне місце
+    clearHolds(client.boardId, client.id);
+    void broadcastFileUsage(client.boardId);
     // з кімнат клітинок — теж, інакше мертвий сокет лишався б найстаршим і
     // ковтав sync-запити новачків клітинки
     for (const cell of subscriptions.get(socket) ?? []) leaveCell(client, cell);

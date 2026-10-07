@@ -160,6 +160,11 @@ export const SYNC_MSG = {
   CELL_SYNC_REPLY: 24,
   CELL_RESET: 25,
   STRATEGY: 26,
+  // резерв місця під файли: клієнт шле ПОВНИЙ набір id, які він тримає
+  // (щойно завантажене без картки, щойно видалене — його ще можна повернути
+  // ctrl+z). Сервер відповідає кімнаті новим числом зайнятого
+  FILE_HOLD: 27,
+  FILE_USAGE: 28,
 } as const;
 
 // яким механізмом синхронізується вміст (журнал 27.09 — там три стратегії для
@@ -299,4 +304,17 @@ export interface RestoredMessage {
 // і він, окремого таймауту не треба
 export interface LockMessage {
   objectId: string | null;
+}
+
+// скільки місця під файли зайнято на дошці ЗАРАЗ. Одне число на всіх: і
+// підказка, і відмова рахуються з нього
+export interface FileUsageMessage {
+  usedBytes: number;
+  quotaBytes: number;
+}
+
+// повний набір, а не дельта: так стан кімнати не розʼїжджається, якщо кадр
+// загубився, і перепідключення просто перезаписує свій набір
+export interface FileHoldMessage {
+  fileIds: string[];
 }

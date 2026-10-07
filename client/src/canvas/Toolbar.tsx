@@ -16,11 +16,12 @@ import {
   TextIcon,
   UndoIcon,
 } from './icons';
-import { useBoardStore, useUndoState } from './board-store';
+import { useUndoState } from './board-store';
 import { redoBoard, undoBoard } from './board-undo';
 import { placeImageFromFile } from './place-image';
 import { placeFiles } from './place-file';
 import { humanSize } from './file-layout';
+import { setFileUsage, useFileUsage } from './file-usage-store';
 import type { BoardFilesUsage } from 'shared';
 import { useTranslation } from 'react-i18next';
 import { errorText } from '../i18n/api-error';
@@ -66,24 +67,23 @@ export function Toolbar({ boardId, currentUserId, visibleCenter }: Props) {
   const filePickerRef = useRef<HTMLInputElement>(null);
   // скільки місця зайнято — у підказці кнопки. Перечитуємо, коли вміст дошки
   // змінився: видалення картки звільняє місце одразу
-  const [usage, setUsage] = useState<BoardFilesUsage | null>(null);
-  const objects = useBoardStore((s) => s.objects);
+  // те саме число, яким сервер вирішує відмову: спершу питаємо його разом із
+  // дошкою, далі воно саме приходить кадром, щойно хтось у кімнаті зайняв чи
+  // відпустив місце
+  const usage = useFileUsage((s) => s.usage);
   useEffect(() => {
     if (!canEdit) return;
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      void fetch(`/api/boards/${boardId}/files`)
-        .then((r) => (r.ok ? (r.json() as Promise<BoardFilesUsage>) : null))
-        .then((body) => {
-          if (!cancelled && body) setUsage(body);
-        })
-        .catch(() => {});
-    }, 600);
+    void fetch(`/api/boards/${boardId}/files`)
+      .then((r) => (r.ok ? (r.json() as Promise<BoardFilesUsage>) : null))
+      .then((body) => {
+        if (!cancelled && body) setFileUsage({ usedBytes: body.usedBytes, quotaBytes: body.quotaBytes });
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [boardId, canEdit, objects]);
+  }, [boardId, canEdit]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
