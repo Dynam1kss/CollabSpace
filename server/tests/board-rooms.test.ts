@@ -148,6 +148,21 @@ async function boardWithMembers() {
   return { boardId, owner, editor, viewer };
 }
 
+// між двома тактами жнеця живий сокет мусить встигнути відповісти pong, інакше
+// сервер порахує мертвим і його. Пауза навмання тут і смикалась під
+// навантаженням, тому замість неї барʼєр: спершу ждемо ping (ws відповідає
+// pong сам, ще до події), далі свій ping-pong. Кадри одного сокета
+// впорядковані, тож наш pong повернувся — значить попередній сервер уже
+// прийняв і лічильник скинув
+function pongLanded(ws: WebSocket) {
+  return new Promise<void>((resolve) => {
+    ws.once('ping', () => {
+      ws.once('pong', () => resolve());
+      ws.ping();
+    });
+  });
+}
+
 describe('кімнати дошок поверх ws', () => {
   it('без куки — 401, чужому — 404, учаснику — open', async () => {
     const { boardId, editor } = await boardWithMembers();
@@ -675,8 +690,9 @@ describe('кімнати дошок поверх ws', () => {
     expect(roomSize(boardId)).toBe(2);
 
     const leaveToWatcher = nextMessage(watcher, 2000);
+    const watcherPonged = pongLanded(watcher);
     sweepDeadSockets();
-    await new Promise((r) => setTimeout(r, 100));
+    await watcherPonged;
     sweepDeadSockets();
 
     const leave = (await leaveToWatcher)!;
@@ -702,12 +718,17 @@ describe('кімнати дошок поверх ws', () => {
     newcomer.send(Buffer.from([1, 5]));
     expect(await nextSyncMessage(alive)).toBeNull();
 
-    // два такти без pong — сервер рве зʼєднання сам. пауза між тактами
-    // обовʼязкова: живі встигають відповісти pong і скинути лічильник
+    // два такти без pong — сервер рве зʼєднання сам. барʼєр між тактами
+    // обовʼязковий: живі встигають відповісти pong і скинути лічильник
+    const aliveLeave = nextOfType(alive, SYNC_MSG.LEAVE, 2000);
+    const alivePonged = pongLanded(alive);
+    const newcomerPonged = pongLanded(newcomer);
     sweepDeadSockets();
-    await new Promise((r) => setTimeout(r, 100));
+    await Promise.all([alivePonged, newcomerPonged]);
     sweepDeadSockets();
-    await new Promise((r) => setTimeout(r, 150));
+    // мертвого прибрано — це видно з LEAVE, який кімната шле вже після
+    // видалення з неї, тож далі roomSize можна читати без очікування
+    expect(await aliveLeave).not.toBeNull();
     expect(roomSize(boardId)).toBe(2);
 
     // тепер той самий запит доходить до живого редактора
