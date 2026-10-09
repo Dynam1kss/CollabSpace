@@ -11,8 +11,8 @@ import { useVoiceStore } from './voice-store';
 
 // mesh: кожен зʼєднується з кожним напряму, сервер лише зводить їх. Через це
 // кількість зʼєднань росте квадратично — звідси й стеля в шість учасників
-// (docs/ТЗ.md). Це не захист, а межа якості: клієнт, який її обійде, зіпсує
-// розмову насамперед собі, тому сервер її не стереже
+// (так у локальному файлі правил). Це не захист, а межа якості: клієнт, який
+// її обійде, зіпсує розмову насамперед собі, тому сервер її не стереже
 
 interface Peer {
   pc: RTCPeerConnection;
@@ -444,7 +444,7 @@ export async function startVoice() {
   if (store.inVoice || store.starting) return;
   store.setStarting(true);
   try {
-    // відео нема й не планується — docs/ТЗ.md обмежує голосом
+    // відео нема й не планується — локальний файл правил обмежує голосом
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     iceConfig = await fetchIceConfig();
   } catch {

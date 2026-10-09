@@ -16,7 +16,6 @@ server/prisma/dev.db
 server/uploads/
 
 # робочі файли, які не входять до складу роботи
-docs/ТЗ.md
 docs/briefs/
 docs/defense.md
 *.tsbuildinfo
