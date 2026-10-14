@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-14T10:36:30.556Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "aoi",
+      "n": 5,
+      "regions": 1,
+      "objects": 100,
+      "activityMs": 12632,
+      "gestures": 78,
+      "gestureFrames": 780,
+      "traffic": {
+        "out": {
+          "n": 858,
+          "bytes": 191420
+        },
+        "in": {
+          "n": 3432,
+          "bytes": 765680
+        },
+        "outPerClient": {
+          "n": 171.6,
+          "bytes": 38284
+        },
+        "inPerClient": {
+          "n": 686.4,
+          "bytes": 153136
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9816.4
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2454.1
+        }
+      },
+      "perClientGestures": 15.6,
+      "ownChanges": {
+        "min": 150,
+        "median": 160,
+        "max": 161,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 424,
+        "min": 0.3,
+        "p50": 4.8,
+        "p95": 25.2,
+        "p99": 40.2,
+        "max": 60.1
+      },
+      "latencyFullMs": {
+        "count": 424,
+        "min": 18.2,
+        "p50": 33.4,
+        "p95": 58.1,
+        "p99": 78.3,
+        "max": 91.5
+      },
+      "unmatchedProbes": 0,
+      "pairOffsetMs": {
+        "count": 150,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.3,
+        "max": 0.6
+      },
+      "convergenceMs": 4,
+      "converged": true,
+      "drainMs": 4,
+      "agreement": {
+        "objects": 5,
+        "holders": 25,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 100
+      },
+      "server": {
+        "wallSeconds": 12.6,
+        "cpuMs": 453,
+        "cpuPercentOfCore": 3.6,
+        "rssPeakMb": 103,
+        "heapPeakMb": 31,
+        "rooms": {
+          "sockets": 5,
+          "boardRooms": 1,
+          "cellRooms": 9,
+          "cellSubscriptions": 17
+        }
+      }
+    }
+  ]
+}

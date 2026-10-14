@@ -1,0 +1,258 @@
+{
+  "startedAt": "2026-10-14T10:17:13.716Z",
+  "runs": {
+    "s1-aoi-25": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 131067,
+      "endedAt": "2026-10-14T10:19:29.499Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s1-aoi-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 466432,
+      "endedAt": "2026-10-14T10:27:36.305Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s1-batched-25": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 149098,
+      "endedAt": "2026-10-14T10:30:25.781Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s1-aoi-50-split": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 193567,
+      "endedAt": "2026-10-14T10:33:59.722Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-per-event-5": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 29168,
+      "endedAt": "2026-10-14T10:34:51.925Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-batched-5": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 28911,
+      "endedAt": "2026-10-14T10:35:41.170Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-aoi-5": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 29063,
+      "endedAt": "2026-10-14T10:36:30.569Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-per-event-10": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 43863,
+      "endedAt": "2026-10-14T10:37:34.771Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-batched-10": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 42965,
+      "endedAt": "2026-10-14T10:38:38.075Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-aoi-10": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 43046,
+      "endedAt": "2026-10-14T10:39:41.449Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-per-event-25": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 172637,
+      "endedAt": "2026-10-14T10:42:54.413Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-batched-25": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 155010,
+      "endedAt": "2026-10-14T10:45:49.754Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-aoi-25": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 145796,
+      "endedAt": "2026-10-14T10:48:35.889Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-per-event-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 830140,
+      "endedAt": "2026-10-14T11:02:46.399Z",
+      "failures": [],
+      "converged": false,
+      "idleClients": 0
+    },
+    "s2-batched-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 897239,
+      "endedAt": "2026-10-14T11:18:04.089Z",
+      "failures": [],
+      "converged": false,
+      "idleClients": 0
+    },
+    "s2-aoi-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 516082,
+      "endedAt": "2026-10-14T11:27:00.652Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-5-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 29633,
+      "endedAt": "2026-10-14T11:27:53.163Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-10-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 42500,
+      "endedAt": "2026-10-14T11:28:55.994Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-25-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 143678,
+      "endedAt": "2026-10-14T11:31:40.014Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-50-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 814008,
+      "endedAt": "2026-10-14T11:45:34.416Z",
+      "failures": [],
+      "converged": false,
+      "idleClients": 0
+    },
+    "s3-aoi-5-r3": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 29169,
+      "endedAt": "2026-10-14T11:46:24.026Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-10-r3": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 43762,
+      "endedAt": "2026-10-14T11:47:28.127Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-25-r3": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 142757,
+      "endedAt": "2026-10-14T11:50:11.228Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-50-r3": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 520968,
+      "endedAt": "2026-10-14T11:59:12.549Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-batched-5-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 28499,
+      "endedAt": "2026-10-14T12:00:01.445Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-batched-10-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 42257,
+      "endedAt": "2026-10-14T12:01:04.046Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-batched-5-r3": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 28830,
+      "endedAt": "2026-10-14T12:01:53.211Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-batched-10-r3": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 42246,
+      "endedAt": "2026-10-14T12:02:55.799Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    }
+  },
+  "resumedAt": "2026-10-14T10:17:13.716Z"
+}

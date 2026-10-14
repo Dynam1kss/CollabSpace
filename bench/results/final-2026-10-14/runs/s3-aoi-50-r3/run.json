@@ -1,0 +1,160 @@
+{
+  "id": "s3-aoi-50-r3",
+  "stage": 3,
+  "strategy": "aoi",
+  "n": 50,
+  "repeat": 3,
+  "variant": "repeat",
+  "attempt": 1,
+  "startedAt": "2026-10-14T11:50:31.581Z",
+  "endedAt": "2026-10-14T11:59:12.549Z",
+  "durationMs": 520968,
+  "exitCodes": [
+    0
+  ],
+  "timedOut": false,
+  "clientsPerProcess": 50,
+  "processes": 1,
+  "activityWindow": {
+    "from": "2026-10-14T11:58:37.193Z",
+    "to": "2026-10-14T11:59:11.079Z"
+  },
+  "warnings": [],
+  "stats": {
+    "whole": {
+      "count": 463,
+      "machineCoresMean": 8.042,
+      "machineCoresP95": 16,
+      "machineCoresMax": 16,
+      "serverCoresMean": 0.059,
+      "serverCoresMax": 1.851,
+      "generatorCoresMean": 7.983,
+      "generatorCoresMax": 16,
+      "loopP50Mean": 29.556,
+      "loopP95Max": 3776.97,
+      "loopP99Max": 3776.97,
+      "loopMaxMax": 3776.97,
+      "rssMaxMb": 318,
+      "heapMaxMb": 64,
+      "freeMinMb": 8384,
+      "socketsMax": 50,
+      "boardRoomsMax": 1,
+      "cellRoomsMax": 55,
+      "cellSubsMax": 200
+    },
+    "activity": {
+      "count": 17,
+      "machineCoresMean": 9.813,
+      "machineCoresP95": 16,
+      "machineCoresMax": 16,
+      "serverCoresMean": 0.252,
+      "serverCoresMax": 1.632,
+      "generatorCoresMean": 9.588,
+      "generatorCoresMax": 16,
+      "loopP50Mean": 35.131,
+      "loopP95Max": 749.21,
+      "loopP99Max": 1267.73,
+      "loopMaxMax": 1267.73,
+      "rssMaxMb": 218,
+      "heapMaxMb": 64,
+      "freeMinMb": 8384,
+      "socketsMax": 50,
+      "boardRoomsMax": 1,
+      "cellRoomsMax": 55,
+      "cellSubsMax": 170
+    }
+  },
+  "rows": [
+    {
+      "strategy": "aoi",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 25335,
+      "gestures": 93,
+      "gestureFrames": 930,
+      "traffic": {
+        "out": {
+          "n": 1023,
+          "bytes": 225672
+        },
+        "in": {
+          "n": 4092,
+          "bytes": 902688
+        },
+        "outPerClient": {
+          "n": 20.46,
+          "bytes": 4513
+        },
+        "inPerClient": {
+          "n": 81.84,
+          "bytes": 18054
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9706.3
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2426.6
+        }
+      },
+      "perClientGestures": 1.9,
+      "ownChanges": {
+        "min": 11,
+        "median": 20,
+        "max": 21,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 576,
+        "min": 208.3,
+        "p50": 3993.5,
+        "p95": 8815.3,
+        "p99": 9616.3,
+        "max": 9869.3
+      },
+      "latencyFullMs": {
+        "count": 576,
+        "min": 562.6,
+        "p50": 4301.6,
+        "p95": 9064.4,
+        "p99": 10020.6,
+        "max": 10219.2
+      },
+      "unmatchedProbes": 2,
+      "pairOffsetMs": {
+        "count": 190,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 0.6,
+        "p99": 1.2,
+        "max": 3.6
+      },
+      "convergenceMs": 3886,
+      "converged": true,
+      "drainMs": 208,
+      "agreement": {
+        "objects": 50,
+        "holders": 250,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 25.3,
+        "cpuMs": 2594,
+        "cpuPercentOfCore": 10.2,
+        "rssPeakMb": 193,
+        "heapPeakMb": 57,
+        "rooms": {
+          "sockets": 50,
+          "boardRooms": 1,
+          "cellRooms": 55,
+          "cellSubscriptions": 170
+        }
+      },
+      "proc": 1
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-14T11:46:24.013Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "aoi",
+      "n": 5,
+      "regions": 1,
+      "objects": 100,
+      "activityMs": 12762,
+      "gestures": 80,
+      "gestureFrames": 800,
+      "traffic": {
+        "out": {
+          "n": 880,
+          "bytes": 196370
+        },
+        "in": {
+          "n": 3520,
+          "bytes": 785480
+        },
+        "outPerClient": {
+          "n": 176,
+          "bytes": 39274
+        },
+        "inPerClient": {
+          "n": 704,
+          "bytes": 157096
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9818.5
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2454.6
+        }
+      },
+      "perClientGestures": 16,
+      "ownChanges": {
+        "min": 160,
+        "median": 161,
+        "max": 161,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 444,
+        "min": -16.4,
+        "p50": 2.3,
+        "p95": 20.5,
+        "p99": 35.1,
+        "max": 41.8
+      },
+      "latencyFullMs": {
+        "count": 444,
+        "min": 1.2,
+        "p50": 31.8,
+        "p95": 55.1,
+        "p99": 73.3,
+        "max": 82.4
+      },
+      "unmatchedProbes": 0,
+      "pairOffsetMs": {
+        "count": 161,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.3,
+        "max": 13.1
+      },
+      "convergenceMs": 8,
+      "converged": true,
+      "drainMs": 4,
+      "agreement": {
+        "objects": 5,
+        "holders": 25,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 100
+      },
+      "server": {
+        "wallSeconds": 12.8,
+        "cpuMs": 577,
+        "cpuPercentOfCore": 4.5,
+        "rssPeakMb": 100,
+        "heapPeakMb": 23,
+        "rooms": {
+          "sockets": 5,
+          "boardRooms": 1,
+          "cellRooms": 9,
+          "cellSubscriptions": 17
+        }
+      }
+    }
+  ]
+}

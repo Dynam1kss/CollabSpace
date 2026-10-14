@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-14T10:34:51.910Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "per-event",
+      "n": 5,
+      "regions": 1,
+      "objects": 100,
+      "activityMs": 12664,
+      "gestures": 68,
+      "gestureFrames": 680,
+      "traffic": {
+        "out": {
+          "n": 2108,
+          "bytes": 460022
+        },
+        "in": {
+          "n": 8432,
+          "bytes": 1840088
+        },
+        "outPerClient": {
+          "n": 421.6,
+          "bytes": 92004
+        },
+        "inPerClient": {
+          "n": 1686.4,
+          "bytes": 368018
+        },
+        "inPerClientPerGesture": {
+          "n": 124,
+          "bytes": 27060.1
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6765
+        }
+      },
+      "perClientGestures": 13.6,
+      "ownChanges": {
+        "min": 390,
+        "median": 421,
+        "max": 421,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 584,
+        "min": 0.4,
+        "p50": 28.7,
+        "p95": 77.5,
+        "p99": 91.9,
+        "max": 107.8
+      },
+      "latencyFullMs": {
+        "count": 584,
+        "min": 0.9,
+        "p50": 29,
+        "p95": 78,
+        "p99": 92.2,
+        "max": 108.1
+      },
+      "unmatchedProbes": 0,
+      "pairOffsetMs": {
+        "count": 390,
+        "min": 0,
+        "p50": 0.1,
+        "p95": 0.2,
+        "p99": 0.2,
+        "max": 0.4
+      },
+      "convergenceMs": 40,
+      "converged": true,
+      "drainMs": 4,
+      "agreement": {
+        "objects": 5,
+        "holders": 25,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 100
+      },
+      "server": {
+        "wallSeconds": 12.7,
+        "cpuMs": 579,
+        "cpuPercentOfCore": 4.6,
+        "rssPeakMb": 89,
+        "heapPeakMb": 23,
+        "rooms": {
+          "sockets": 5,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    }
+  ]
+}

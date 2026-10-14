@@ -5,7 +5,6 @@
 // лише свою ділянку. 12 прогонів, результати — в results/load.json
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   addObjects,
   boardWith,
@@ -27,6 +26,7 @@ import {
   readProbe,
   resetCounters,
   resetProbe,
+  resultsDir,
   saveResults,
   setServerStrategy,
   serverMetrics,
@@ -34,7 +34,6 @@ import {
   sticky,
 } from './lib.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
 const STRATEGIES = (process.env.BENCH_STRATEGIES ?? 'per-event,batched,aoi').split(',');
 const COUNTS = (process.env.BENCH_N ?? '5,10,25,50').split(',').map(Number);
 // скільки вкладок заводимо й відкриваємо одночасно. більше — швидше, але
@@ -513,7 +512,7 @@ const inBatches = async (users, fn, what = '', size = PARALLEL) => {
 // наміряно, щоб падіння на останньому N не зносило решту
 function previousRows() {
   try {
-    return JSON.parse(fs.readFileSync(path.join(here, 'results', 'load.json'), 'utf8')).rows ?? [];
+    return JSON.parse(fs.readFileSync(path.join(resultsDir(), 'load.json'), 'utf8')).rows ?? [];
   } catch {
     return [];
   }

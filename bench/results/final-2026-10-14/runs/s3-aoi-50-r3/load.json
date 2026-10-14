@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-14T11:59:12.520Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "aoi",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 25335,
+      "gestures": 93,
+      "gestureFrames": 930,
+      "traffic": {
+        "out": {
+          "n": 1023,
+          "bytes": 225672
+        },
+        "in": {
+          "n": 4092,
+          "bytes": 902688
+        },
+        "outPerClient": {
+          "n": 20.46,
+          "bytes": 4513
+        },
+        "inPerClient": {
+          "n": 81.84,
+          "bytes": 18054
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9706.3
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2426.6
+        }
+      },
+      "perClientGestures": 1.9,
+      "ownChanges": {
+        "min": 11,
+        "median": 20,
+        "max": 21,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 576,
+        "min": 208.3,
+        "p50": 3993.5,
+        "p95": 8815.3,
+        "p99": 9616.3,
+        "max": 9869.3
+      },
+      "latencyFullMs": {
+        "count": 576,
+        "min": 562.6,
+        "p50": 4301.6,
+        "p95": 9064.4,
+        "p99": 10020.6,
+        "max": 10219.2
+      },
+      "unmatchedProbes": 2,
+      "pairOffsetMs": {
+        "count": 190,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 0.6,
+        "p99": 1.2,
+        "max": 3.6
+      },
+      "convergenceMs": 3886,
+      "converged": true,
+      "drainMs": 208,
+      "agreement": {
+        "objects": 50,
+        "holders": 250,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 25.3,
+        "cpuMs": 2594,
+        "cpuPercentOfCore": 10.2,
+        "rssPeakMb": 193,
+        "heapPeakMb": 57,
+        "rooms": {
+          "sockets": 50,
+          "boardRooms": 1,
+          "cellRooms": 55,
+          "cellSubscriptions": 170
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+{
+  "collectedAt": "2026-10-14T10:17:15.692Z",
+  "machine": {
+    "cpuModel": "AMD Ryzen 7 7700X 8-Core Processor",
+    "coresPhysical": 8,
+    "coresLogical": 16,
+    "ramTotalMb": 31832,
+    "ramFreeAtStartMb": 17897,
+    "os": "Microsoft Windows 11 Pro 10.0.26200"
+  },
+  "versions": {
+    "node": "v24.21.0",
+    "postgres": "postgres (PostgreSQL) 16.15 (Debian 16.15-1.pgdg13+2)",
+    "redis": "Redis server v=7.4.11 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=962f077e6bfb9384",
+    "playwright": "1.63.0",
+    "chromium": "153.0.8010.12",
+    "vite": "5.4.21"
+  },
+  "layout": {
+    "loadGeneratorAndServerShareMachine": true,
+    "serverProcess": "tsx src/index.ts (без watch), NODE_ENV=test, BENCH_METRICS=1",
+    "clientProcess": "vite dev, порт 5173, проксі /api і /ws на 3000",
+    "clientsPerGeneratorProcess": "усі N клієнтів в одному процесі генератора; діагностичний прогін s1-aoi-50-split — 25 на процес, два процеси",
+    "database": {
+      "host": "127.0.0.1:5432",
+      "name": "collabspace"
+    },
+    "redisUsedByServer": false
+  },
+  "workload": {
+    "activityMs": 12000,
+    "gestureEvents": 30,
+    "eventsPerAnimationFrame": 3,
+    "gestureSwing": {
+      "x": 160,
+      "y": 110
+    },
+    "viewport": {
+      "width": 800,
+      "height": 540
+    },
+    "cellSize": 2000,
+    "perRegion": 5,
+    "regionStep": 4000,
+    "regionsPerRow": 4,
+    "objectsPerRegion": 100,
+    "targetSlots": [
+      [
+        400,
+        400
+      ],
+      [
+        1400,
+        400
+      ],
+      [
+        400,
+        1400
+      ],
+      [
+        1400,
+        1400
+      ],
+      [
+        900,
+        900
+      ]
+    ],
+    "parallelTabs": 6,
+    "drainMaxMs": 300000,
+    "settleMs": 8000,
+    "strategySetBy": "POST /api/bench/strategy (ручка відкрита лише при BENCH_METRICS=1)"
+  },
+  "plan": [
+    {
+      "id": "s1-aoi-25",
+      "stage": 1,
+      "strategy": "aoi",
+      "n": 25,
+      "repeat": 1,
+      "variant": "diag",
+      "optional": false
+    },
+    {
+      "id": "s1-aoi-50",
+      "stage": 1,
+      "strategy": "aoi",
+      "n": 50,
+      "repeat": 1,
+      "variant": "diag",
+      "optional": false
+    },
+    {
+      "id": "s1-batched-25",
+      "stage": 1,
+      "strategy": "batched",
+      "n": 25,
+      "repeat": 1,
+      "variant": "diag",
+      "optional": false
+    },
+    {
+      "id": "s1-aoi-50-split",
+      "stage": 1,
+      "strategy": "aoi",
+      "n": 50,
+      "repeat": 1,
+      "variant": "split2x25",
+      "optional": false
+    },
+    {
+      "id": "s2-per-event-5",
+      "stage": 2,
+      "strategy": "per-event",
+      "n": 5,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-batched-5",
+      "stage": 2,
+      "strategy": "batched",
+      "n": 5,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-aoi-5",
+      "stage": 2,
+      "strategy": "aoi",
+      "n": 5,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-per-event-10",
+      "stage": 2,
+      "strategy": "per-event",
+      "n": 10,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-batched-10",
+      "stage": 2,
+      "strategy": "batched",
+      "n": 10,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-aoi-10",
+      "stage": 2,
+      "strategy": "aoi",
+      "n": 10,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-per-event-25",
+      "stage": 2,
+      "strategy": "per-event",
+      "n": 25,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-batched-25",
+      "stage": 2,
+      "strategy": "batched",
+      "n": 25,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-aoi-25",
+      "stage": 2,
+      "strategy": "aoi",
+      "n": 25,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-per-event-50",
+      "stage": 2,
+      "strategy": "per-event",
+      "n": 50,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-batched-50",
+      "stage": 2,
+      "strategy": "batched",
+      "n": 50,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s2-aoi-50",
+      "stage": 2,
+      "strategy": "aoi",
+      "n": 50,
+      "repeat": 1,
+      "variant": "full",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-5-r2",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 5,
+      "repeat": 2,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-10-r2",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 10,
+      "repeat": 2,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-25-r2",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 25,
+      "repeat": 2,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-50-r2",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 50,
+      "repeat": 2,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-5-r3",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 5,
+      "repeat": 3,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-10-r3",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 10,
+      "repeat": 3,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-25-r3",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 25,
+      "repeat": 3,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-aoi-50-r3",
+      "stage": 3,
+      "strategy": "aoi",
+      "n": 50,
+      "repeat": 3,
+      "variant": "repeat",
+      "optional": false
+    },
+    {
+      "id": "s3-batched-5-r2",
+      "stage": 3,
+      "strategy": "batched",
+      "n": 5,
+      "repeat": 2,
+      "variant": "repeat",
+      "optional": true
+    },
+    {
+      "id": "s3-batched-10-r2",
+      "stage": 3,
+      "strategy": "batched",
+      "n": 10,
+      "repeat": 2,
+      "variant": "repeat",
+      "optional": true
+    },
+    {
+      "id": "s3-batched-5-r3",
+      "stage": 3,
+      "strategy": "batched",
+      "n": 5,
+      "repeat": 3,
+      "variant": "repeat",
+      "optional": true
+    },
+    {
+      "id": "s3-batched-10-r3",
+      "stage": 3,
+      "strategy": "batched",
+      "n": 10,
+      "repeat": 3,
+      "variant": "repeat",
+      "optional": true
+    }
+  ]
+}

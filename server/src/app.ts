@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { isSyncStrategy } from 'shared';
@@ -63,12 +64,36 @@ app.get('/api/ice-config', requireAuth, (_req, res) => {
 // старту, тому стенд бере різницю між початком і кінцем прогону; памʼять
 // опитує періодично й бере пік
 if (env.benchMetrics) {
-  app.get('/api/metrics', (_req, res) => {
+  // затримка event loop: під навантаженням саме вона показує, що процес не
+  // встигає, а не cpu — той на 50 клієнтах лишається низьким. гістограма
+  // накопичується від enable(), тому стенд читає її вікнами: ?reset=1 скидає
+  // після відповіді. роздільність 10мс — вона ж і підлога значень
+  const loopDelay = monitorEventLoopDelay({ resolution: 10 });
+  loopDelay.enable();
+  const loopDelayMs = () => {
+    // у порожній гістограмі min — максимальний uint64, такі числа не віддаємо
+    if (!loopDelay.count) return null;
+    const ms = (ns: number) => Math.round(ns / 1e4) / 100;
+    return {
+      count: loopDelay.count,
+      resolutionMs: 10,
+      min: ms(loopDelay.min),
+      p50: ms(loopDelay.percentile(50)),
+      p95: ms(loopDelay.percentile(95)),
+      p99: ms(loopDelay.percentile(99)),
+      max: ms(loopDelay.max),
+    };
+  };
+
+  app.get('/api/metrics', (req, res) => {
+    const eventLoopDelayMs = loopDelayMs();
+    if (req.query.reset === '1') loopDelay.reset();
     res.json({
       at: Date.now(),
       uptimeSeconds: process.uptime(),
       cpu: process.cpuUsage(),
       memory: process.memoryUsage(),
+      eventLoopDelayMs,
       rooms: roomStats(),
     });
   });

@@ -5,6 +5,10 @@ build/
 .env.local
 *.log
 npm-debug.log*
+# журнали кампанії вимірювань — доказова база розділу 4, а не сміття
+!bench/results/final-*/campaign.log
+!bench/results/final-*/server.log
+!bench/results/final-*/runs/**/*.log
 .DS_Store
 Thumbs.db
 .vscode/*

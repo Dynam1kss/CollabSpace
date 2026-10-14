@@ -301,8 +301,12 @@ export async function panTo(user, bx, by) {
   await page.waitForTimeout(1200);
 }
 
+// куда складати результат. кампанія фінального прогону дає кожному прогону
+// власну теку через BENCH_RESULTS_DIR, щоб не перетирати історичні results/*.json
+export const resultsDir = () => process.env.BENCH_RESULTS_DIR ?? path.join(here, 'results');
+
 export function saveResults(name, data) {
-  const dir = path.join(here, 'results');
+  const dir = resultsDir();
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${name}.json`);
   fs.writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), base: BASE, ...data }, null, 2));
