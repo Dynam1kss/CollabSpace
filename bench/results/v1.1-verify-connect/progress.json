@@ -1,0 +1,24 @@
+{
+  "startedAt": "2026-10-15T11:27:11.091Z",
+  "runs": {
+    "s2-per-event-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 1011070,
+      "endedAt": "2026-10-15T11:44:08.809Z",
+      "failures": [],
+      "converged": false,
+      "idleClients": 0
+    },
+    "s2-batched-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 662406,
+      "endedAt": "2026-10-15T11:55:32.183Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    }
+  },
+  "resumedAt": "2026-10-15T11:27:11.091Z"
+}

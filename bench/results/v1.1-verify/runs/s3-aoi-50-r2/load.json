@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-15T11:25:13.943Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "aoi",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 17402,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 550,
+          "bytes": 121293
+        },
+        "in": {
+          "n": 2200,
+          "bytes": 485172
+        },
+        "outPerClient": {
+          "n": 11,
+          "bytes": 2426
+        },
+        "inPerClient": {
+          "n": 44,
+          "bytes": 9703
+        },
+        "inPerClientPerGesture": {
+          "n": 44,
+          "bytes": 9703.4
+        },
+        "outPerClientPerGesture": {
+          "n": 11,
+          "bytes": 2425.9
+        }
+      },
+      "perClientGestures": 1,
+      "ownChanges": {
+        "min": 10,
+        "median": 11,
+        "max": 11,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 396,
+        "min": 33.6,
+        "p50": 5345.1,
+        "p95": 10272.5,
+        "p99": 10913.1,
+        "max": 11052.2
+      },
+      "latencyFullMs": {
+        "count": 396,
+        "min": 345.9,
+        "p50": 5619.8,
+        "p95": 10490.8,
+        "p99": 11169.1,
+        "max": 11415.2
+      },
+      "unmatchedProbes": 6,
+      "pairOffsetMs": {
+        "count": 99,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 21.5,
+        "p99": 25,
+        "max": 25
+      },
+      "convergenceMs": 7844,
+      "converged": true,
+      "drainMs": 110,
+      "agreement": {
+        "objects": 50,
+        "holders": 250,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 17.4,
+        "cpuMs": 1827,
+        "cpuPercentOfCore": 10.5,
+        "rssPeakMb": 233,
+        "heapPeakMb": 99,
+        "rooms": {
+          "sockets": 50,
+          "boardRooms": 1,
+          "cellRooms": 55,
+          "cellSubscriptions": 170
+        }
+      }
+    }
+  ]
+}

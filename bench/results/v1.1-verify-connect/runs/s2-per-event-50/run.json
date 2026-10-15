@@ -1,0 +1,162 @@
+{
+  "id": "s2-per-event-50",
+  "stage": 2,
+  "strategy": "per-event",
+  "n": 50,
+  "repeat": 1,
+  "variant": "full",
+  "attempt": 1,
+  "startedAt": "2026-10-15T11:27:17.739Z",
+  "endedAt": "2026-10-15T11:44:08.809Z",
+  "durationMs": 1011070,
+  "exitCodes": [
+    0
+  ],
+  "timedOut": false,
+  "clientsPerProcess": 50,
+  "processes": 1,
+  "activityWindow": {
+    "from": "2026-10-15T11:36:20.830Z",
+    "to": "2026-10-15T11:44:07.473Z"
+  },
+  "warnings": [
+    "УВАГА: не зійшлись за 301с — розбіжність у 18 записах"
+  ],
+  "stats": {
+    "whole": {
+      "count": 800,
+      "machineCoresMean": 6.398,
+      "machineCoresP95": 16,
+      "machineCoresMax": 16,
+      "serverCoresMean": 0.04,
+      "serverCoresMax": 2.395,
+      "generatorCoresMean": 6.358,
+      "generatorCoresMax": 16,
+      "loopP50Mean": 16.447,
+      "loopP95Max": 2835.35,
+      "loopP99Max": 2835.35,
+      "loopMaxMax": 2835.35,
+      "rssMaxMb": 521,
+      "heapMaxMb": 215,
+      "freeMinMb": 358,
+      "socketsMax": 50,
+      "boardRoomsMax": 1,
+      "cellRoomsMax": 0,
+      "cellSubsMax": 0
+    },
+    "activity": {
+      "count": 334,
+      "machineCoresMean": 2.876,
+      "machineCoresP95": 16,
+      "machineCoresMax": 16,
+      "serverCoresMean": 0.021,
+      "serverCoresMax": 2.04,
+      "generatorCoresMean": 2.855,
+      "generatorCoresMax": 16,
+      "loopP50Mean": 15.636,
+      "loopP95Max": 255.59,
+      "loopP99Max": 1320.16,
+      "loopMaxMax": 1320.16,
+      "rssMaxMb": 521,
+      "heapMaxMb": 215,
+      "freeMinMb": 358,
+      "socketsMax": 50,
+      "boardRoomsMax": 1,
+      "cellRoomsMax": 0,
+      "cellSubsMax": 0
+    }
+  },
+  "rows": [
+    {
+      "strategy": "per-event",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 157261,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 1550,
+          "bytes": 334678
+        },
+        "in": {
+          "n": 48608,
+          "bytes": 10492517
+        },
+        "outPerClient": {
+          "n": 31,
+          "bytes": 6694
+        },
+        "inPerClient": {
+          "n": 972.16,
+          "bytes": 209850
+        },
+        "inPerClientPerGesture": {
+          "n": 972.2,
+          "bytes": 209850.3
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6693.6
+        }
+      },
+      "perClientGestures": 1,
+      "ownChanges": {
+        "min": 30,
+        "median": 31,
+        "max": 31,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 840,
+        "min": 3952.9,
+        "p50": 85195.7,
+        "p95": 124979.2,
+        "p99": 125505,
+        "max": 125796.8
+      },
+      "latencyFullMs": {
+        "count": 836,
+        "min": 3955.8,
+        "p50": 85212.7,
+        "p95": 125023.3,
+        "p99": 125507.7,
+        "max": 125815.9
+      },
+      "unmatchedProbes": 9,
+      "pairOffsetMs": {
+        "count": 300,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 0.7,
+        "p99": 8.7,
+        "max": 17.7
+      },
+      "convergenceMs": 45580,
+      "converged": false,
+      "drainMs": 300726,
+      "agreement": {
+        "objects": 50,
+        "holders": 2500,
+        "disagree": 18,
+        "dbMismatch": 0,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 157.4,
+        "cpuMs": 3391,
+        "cpuPercentOfCore": 2.2,
+        "rssPeakMb": 403,
+        "heapPeakMb": 149,
+        "rooms": {
+          "sockets": 29,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      },
+      "proc": 1
+    }
+  ]
+}

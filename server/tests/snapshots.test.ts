@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { prisma } from '../src/prisma';
+import { writeSnapshotCells, writeSnapshotState } from '../src/boards/snapshots.service';
 import { addMember, registerUser } from './helpers';
 
 afterEach(async () => {
@@ -318,7 +319,10 @@ describe('снепшот дошки', () => {
       previewFailed: false,
     };
 
-    await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [card] }).expect(204);
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [card] })
+      .expect(204);
     const got = (await agent.get(`/api/boards/${board.body.id}/snapshot`)).body.objects[0];
     expect(got).toMatchObject({
       previewTitle: 'Example Domain',
@@ -347,7 +351,10 @@ describe('снепшот дошки', () => {
       url: 'https://example.com/',
       previewImage: 'https://evil.test/track.png',
     };
-    await agent.put(`/api/boards/${board.body.id}/snapshot`).send({ objects: [card] }).expect(400);
+    await agent
+      .put(`/api/boards/${board.body.id}/snapshot`)
+      .send({ objects: [card] })
+      .expect(400);
   });
 
   it('посилання не з http(s), надто довге чи з підробленим videoId — 400', async () => {
@@ -481,7 +488,10 @@ describe('снепшот частинами (стратегія 3)', () => {
       videoId: 'dQw4w9WgXcQ',
     });
 
-    await agent.put(`/api/boards/${id}/snapshot`).send({ objects: [card(10, 10)], cells: ['0:0'] }).expect(204);
+    await agent
+      .put(`/api/boards/${id}/snapshot`)
+      .send({ objects: [card(10, 10)], cells: ['0:0'] })
+      .expect(204);
 
     // той самий жест, що й на клієнті: запис у нову клітинку й спорожнення старої
     await agent
@@ -491,7 +501,12 @@ describe('снепшот частинами (стратегія 3)', () => {
 
     const got = (await agent.get(`/api/boards/${id}/snapshot`)).body.objects as { id: string; x: number }[];
     expect(got).toHaveLength(1);
-    expect(got[0]).toMatchObject({ id: 'k1', x: 2010, url: 'https://youtu.be/dQw4w9WgXcQ', videoId: 'dQw4w9WgXcQ' });
+    expect(got[0]).toMatchObject({
+      id: 'k1',
+      x: 2010,
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
+    });
   });
 
   it('видалення в своїй клітинці лягає, чужі клітинки цілі', async () => {
@@ -598,5 +613,97 @@ describe('снепшот частинами (стратегія 3)', () => {
       .put(`/api/boards/${board.body.id}/snapshot`)
       .send({ objects: [], cells: ['0;0'] });
     expect(res.status).toBe(400);
+  });
+});
+
+// у прогоні final-2026-10-14 саме одночасні збереження однієї дошки давали
+// 285 P2002 (унікальність boardId+cell) — delete+insert у writeSnapshotState
+// і upsert по клітинці. Тут перегони відтворюються напряму через сервіс,
+// бо через http вони ловляться не щоразу
+describe('одночасні збереження однієї дошки', () => {
+  const at = (id: string, x: number, y: number) => ({ ...sticky, id, x, y }) as never;
+
+  async function board() {
+    const { agent } = await registerUser();
+    const res = await agent.post('/api/boards').send({ title: 'Перегони' });
+    return res.body.id as string;
+  }
+
+  it('десять writeSnapshotCells в ту саму клітинку — без P2002', async () => {
+    const id = await board();
+    const writes = Array.from({ length: 10 }, (_, i) =>
+      writeSnapshotCells(id, ['0:0'], [at(`o${i}`, 10 + i, 10)]),
+    );
+    await expect(Promise.all(writes)).resolves.toBeDefined();
+    expect(await prisma.boardSnapshotCell.count({ where: { boardId: id } })).toBe(1);
+  });
+
+  it('writeSnapshotCells по клітинках, що перетинаються — без P2002, усі рядки на місці', async () => {
+    const id = await board();
+    // 0:0 спільна в усіх трьох, решта своя
+    const writes = [
+      writeSnapshotCells(id, ['0:0', '1:0'], [at('a', 10, 10), at('b', 2200, 10)]),
+      writeSnapshotCells(id, ['0:0', '2:0'], [at('c', 20, 20), at('d', 4200, 10)]),
+      writeSnapshotCells(id, ['0:0', '3:0'], [at('e', 30, 30), at('f', 6200, 10)]),
+    ];
+    await expect(Promise.all(writes)).resolves.toBeDefined();
+    const cells = await prisma.boardSnapshotCell.findMany({
+      where: { boardId: id },
+      select: { cell: true },
+    });
+    expect(cells.map((c) => c.cell).sort()).toEqual(['0:0', '1:0', '2:0', '3:0']);
+  });
+
+  it('десять writeSnapshotState на ту саму дошку — без P2002', async () => {
+    const id = await board();
+    const writes = Array.from({ length: 10 }, (_, i) =>
+      writeSnapshotState(
+        id,
+        Buffer.from(JSON.stringify([at(`o${i}`, 10, 10), at(`p${i}`, 2200, 10)]), 'utf8'),
+      ),
+    );
+    await expect(Promise.all(writes)).resolves.toBeDefined();
+    expect(await prisma.boardSnapshotCell.count({ where: { boardId: id } })).toBe(2);
+  });
+
+  it('одночасний put знімка від пʼятьох — усі 204', async () => {
+    const owner = await registerUser();
+    const id = (await owner.agent.post('/api/boards').send({ title: 'Перегони' })).body.id as string;
+    const editors = [];
+    for (let i = 0; i < 5; i += 1) {
+      const editor = await registerUser();
+      await addMember(owner, id, editor, 'EDITOR');
+      editors.push(editor);
+    }
+    const results = await Promise.all(
+      editors.map((e, i) =>
+        e.agent.put(`/api/boards/${id}/snapshot`).send({ objects: [at(`o${i}`, 10, 10)] }),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual([204, 204, 204, 204, 204]);
+  });
+
+  it('стару дошку розкладають по клітинках одночасно — без P2002, старий рядок зникає', async () => {
+    const id = await board();
+    await prisma.boardSnapshotCell.deleteMany({ where: { boardId: id } });
+    await prisma.boardSnapshot.create({
+      data: {
+        boardId: id,
+        state: Buffer.from(JSON.stringify([at('a', 10, 10), at('b', 10000, 10)]), 'utf8'),
+      },
+    });
+
+    const writes = [
+      writeSnapshotCells(id, ['0:0'], [at('a', 700, 700)]),
+      writeSnapshotCells(id, ['5:0'], [at('b', 10500, 10)]),
+      writeSnapshotCells(id, ['0:0'], [at('a', 800, 800)]),
+    ];
+    await expect(Promise.all(writes)).resolves.toBeDefined();
+    expect(await prisma.boardSnapshot.count({ where: { boardId: id } })).toBe(0);
+    const cells = await prisma.boardSnapshotCell.findMany({
+      where: { boardId: id },
+      select: { cell: true },
+    });
+    expect(cells.map((c) => c.cell).sort()).toEqual(['0:0', '5:0']);
   });
 });

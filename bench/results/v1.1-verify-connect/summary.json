@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-15",
+  "startedAt": "2026-10-15T11:27:11.091Z",
+  "finishedAt": "2026-10-15T11:55:54.980Z",
+  "totalMinutes": 28.67,
+  "planned": 2,
+  "done": 2,
+  "failed": [],
+  "skipped": [],
+  "leftRunning": {
+    "port3000": false,
+    "port5173": false,
+    "chromium": 0
+  },
+  "stoppedBeforeStart": []
+}

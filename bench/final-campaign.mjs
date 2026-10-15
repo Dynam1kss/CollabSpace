@@ -13,7 +13,9 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
 const DATE = process.env.CAMPAIGN_DATE ?? new Date().toISOString().slice(0, 10);
-const OUT = path.join(here, 'results', `final-${DATE}`);
+// звіряльний прогін пишемо в окрему теку: дані final-* цитує записка, і
+// перезаписати їх не можна
+const OUT = path.join(here, 'results', process.env.CAMPAIGN_OUT || `final-${DATE}`);
 const RUNS = path.join(OUT, 'runs');
 const LOG = path.join(OUT, 'campaign.log');
 const PROGRESS = path.join(OUT, 'progress.json');

@@ -1,0 +1,44 @@
+{
+  "startedAt": "2026-10-15T10:32:50.432Z",
+  "runs": {
+    "s2-aoi-25": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 160136,
+      "endedAt": "2026-10-15T10:35:38.217Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-per-event-50": {
+      "status": "done",
+      "attempts": 2,
+      "durationMs": 796700,
+      "endedAt": "2026-10-15T11:04:11.307Z",
+      "failures": [
+        "спроба 1: load.mjs вийшов з кодом 1"
+      ],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s2-batched-50": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 649715,
+      "endedAt": "2026-10-15T11:15:22.142Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    },
+    "s3-aoi-50-r2": {
+      "status": "done",
+      "attempts": 1,
+      "durationMs": 566762,
+      "endedAt": "2026-10-15T11:25:13.975Z",
+      "failures": [],
+      "converged": true,
+      "idleClients": 0
+    }
+  },
+  "resumedAt": "2026-10-15T10:32:50.432Z"
+}

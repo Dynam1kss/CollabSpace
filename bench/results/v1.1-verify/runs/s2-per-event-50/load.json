@@ -1,0 +1,98 @@
+{
+  "at": "2026-10-15T11:04:11.248Z",
+  "base": "http://localhost:5173",
+  "activityMs": 12000,
+  "perFrame": 3,
+  "rows": [
+    {
+      "strategy": "per-event",
+      "n": 50,
+      "regions": 10,
+      "objects": 1000,
+      "activityMs": 237884,
+      "gestures": 50,
+      "gestureFrames": 500,
+      "traffic": {
+        "out": {
+          "n": 1550,
+          "bytes": 334476
+        },
+        "in": {
+          "n": 75950,
+          "bytes": 16389324
+        },
+        "outPerClient": {
+          "n": 31,
+          "bytes": 6690
+        },
+        "inPerClient": {
+          "n": 1519,
+          "bytes": 327786
+        },
+        "inPerClientPerGesture": {
+          "n": 1519,
+          "bytes": 327786.5
+        },
+        "outPerClientPerGesture": {
+          "n": 31,
+          "bytes": 6689.5
+        }
+      },
+      "perClientGestures": 1,
+      "ownChanges": {
+        "min": 30,
+        "median": 30,
+        "max": 31,
+        "idleClients": 0
+      },
+      "latencyMs": {
+        "count": 1188,
+        "min": 922.7,
+        "p50": 89897.6,
+        "p95": 152252.2,
+        "p99": 153969.2,
+        "max": 154330.7
+      },
+      "latencyFullMs": {
+        "count": 1176,
+        "min": 926.4,
+        "p50": 89888.9,
+        "p95": 152330,
+        "p99": 153971.1,
+        "max": 154333.2
+      },
+      "unmatchedProbes": 6,
+      "pairOffsetMs": {
+        "count": 297,
+        "min": 0,
+        "p50": 0.2,
+        "p95": 0.8,
+        "p99": 17.7,
+        "max": 22.7
+      },
+      "convergenceMs": 3128,
+      "converged": true,
+      "drainMs": 164,
+      "agreement": {
+        "objects": 50,
+        "holders": 2500,
+        "disagree": 0,
+        "dbMismatch": 0,
+        "inDb": 1000
+      },
+      "server": {
+        "wallSeconds": 237.9,
+        "cpuMs": 3954,
+        "cpuPercentOfCore": 1.7,
+        "rssPeakMb": 452,
+        "heapPeakMb": 218,
+        "rooms": {
+          "sockets": 50,
+          "boardRooms": 1,
+          "cellRooms": 0,
+          "cellSubscriptions": 0
+        }
+      }
+    }
+  ]
+}
