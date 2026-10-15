@@ -212,6 +212,16 @@ function startMeters() {
 function stopMeters() {
   if (meterFrame !== null) cancelAnimationFrame(meterFrame);
   meterFrame = null;
+  // прапорці в сторі гасив лише meterTick, а цикл уже скасований: вийшовши
+  // з розмови посеред слова, свій стілець лишався з зеленим обідком до
+  // перезавантаження. Чужі зазвичай прибирає removePeer із dropPeer, але він
+  // ходить по СВОЇЙ мапі peers — тут гасимо по тих, кого справді міряли
+  const store = useVoiceStore.getState();
+  for (const key of speakingState.keys()) {
+    if (key === 'self') store.setSelfSpeaking(false);
+    else store.setSpeaking(key, false);
+  }
+  store.setSelfSpeaking(false);
   speakingState.clear();
   dropSelfMeter();
 }
