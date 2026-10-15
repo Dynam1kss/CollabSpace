@@ -25,7 +25,7 @@ const SERVER_PORT = 3000;
 const CLIENT_PORT = 5173;
 const BASE = `http://localhost:${CLIENT_PORT}`;
 const DIRECT = `http://localhost:${SERVER_PORT}`;
-const CONTAINERS = ['master-project-postgres-1', 'master-project-redis-1', 'master-project-maildev-1'];
+const CONTAINERS = ['master-project-postgres-1', 'master-project-maildev-1'];
 const PLAYWRIGHT_MARK = 'ms-playwright';
 
 // скільки чекати на один прогін, хвилини. межа щедра: на 50 вкладках лише
@@ -209,7 +209,13 @@ function ensureContainers() {
   const missing = CONTAINERS.filter((c) => !up.includes(c));
   if (!missing.length) return true;
   log(`контейнери не підняті (${missing.join(', ')}) — docker compose up -d`);
-  const r = spawnSync('docker', ['compose', 'up', '-d'], { cwd: repo, encoding: 'utf8', windowsHide: true });
+  // саме ці два сервіси, а не весь compose: там ще й контейнер app, і він
+  // забрав би порт 3000 у сервера, якого кампанія підіймає сама
+  const r = spawnSync('docker', ['compose', 'up', '-d', 'postgres', 'maildev'], {
+    cwd: repo,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
   fs.appendFileSync(path.join(OUT, 'docker.log'), `${ts()}\n${r.stdout ?? ''}${r.stderr ?? ''}\n`);
   for (let i = 0; i < 30; i++) {
     const ready = spawnSync('docker', ['exec', CONTAINERS[0], 'pg_isready', '-q'], { windowsHide: true });

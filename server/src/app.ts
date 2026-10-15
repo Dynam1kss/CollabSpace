@@ -143,4 +143,22 @@ if (!env.isProduction) {
   app.use('/spike/webrtc', express.static(resolve(__dirname, '../../spike/webrtc')));
 }
 
+// у проді зібраного клієнта віддає цей самий процес: окремого nginx у
+// docker compose нема, і сервер один на REST, /ws, /uploads і статику.
+// Реєструємо ПІСЛЯ усіх /api — інакше spa-фолбек віддавав би index.html
+// замість 404 на неіснуючу ручку api, і клієнт ловив би html замість json
+if (env.isProduction) {
+  const clientDist = resolve(__dirname, '../../client/dist');
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path === '/ws') {
+      next();
+      return;
+    }
+    // маршрути дошки живуть у роутері браузера, тому будь-який інший
+    // шлях — це index.html
+    res.sendFile(resolve(clientDist, 'index.html'));
+  });
+}
+
 app.use(errorHandler);

@@ -10,25 +10,81 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-collabspace} -d ${POSTGRES_DB:-collabspace}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  redis:
-    image: redis:7
-    restart: unless-stopped
-    ports:
-      - '6379:6379'
-    volumes:
-      - redis_data:/data
-
-  # перехоплювач пошти для розробки: лист нікуди не йде, а лягає у веб-скриньку
-  # на 1080. Потрібен, бо лист відновлення пароля інакше нічим не перевірити,
-  # а слати справжні листи з дев-машини не варто. У проді цього сервісу нема —
-  # там SMTP_HOST дивиться на справжній smtp
+  # перехоплювач пошти: лист нікуди не йде, а лягає у веб-скриньку на 1080.
+  # Потрібен, бо лист підтвердження адреси й відновлення пароля інакше нічим
+  # не перевірити, а слати справжні листи з дев-машини не варто. На справжньому
+  # сервері цього сервісу не буде — там SMTP_HOST дивиться на справжній smtp
   maildev:
     image: maildev/maildev:2.1.0
     restart: unless-stopped
     ports:
       - '1025:1025'
       - '1080:1080'
+
+  # сервер застосунків: REST, /ws, /uploads і зібраний клієнт — один процес,
+  # один контейнер. Окремого nginx нема свідомо: статики тут на кілька
+  # мегабайтів, а зайвий компонент треба було б і захищати, і пояснювати
+  app:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      maildev:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-collabspace}:${POSTGRES_PASSWORD:-collabspace}@postgres:5432/${POSTGRES_DB:-collabspace}?connection_limit=20&pool_timeout=20&connect_timeout=10
+      # без :? compose підставив би порожній рядок, сервер упав би вже всередині
+      # контейнера, і причину довелось би шукати в логах
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET не задано. Скопіюй .env.example у .env і впиши свій секрет}
+      SMTP_HOST: maildev
+      SMTP_PORT: 1025
+      SMTP_FROM: ${SMTP_FROM:-CollabSpace <no-reply@collabspace.local>}
+      # перед сервером тут нічого не стоїть, тому X-Forwarded-For не довіряємо:
+      # інакше ліміт спроб логіну обходився б підробленим заголовком
+      TRUST_PROXY: 0
+      SYNC_STRATEGY: ${SYNC_STRATEGY:-aoi}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      FILE_MAX_BYTES: ${FILE_MAX_BYTES:-52428800}
+      BOARD_FILES_MAX_BYTES: ${BOARD_FILES_MAX_BYTES:-524288000}
+    ports:
+      - '3000:3000'
+    volumes:
+      # картинки й прев'ю посилань окремо від прикріплених файлів — так їх
+      # ділить і сам сервер (images.routes / files.routes)
+      - uploads_data:/app/server/uploads
+      - files_data:/app/server/files
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  # redis лишається невикористаним: присутність живе в памʼяті процесу сервера
+  # (board-rooms, file-holds), і для одного процесу цього досить. Піднімати
+  # сервіс, у який ніхто не стукає, — зайвий компонент у захисті
+  # redis:
+  #   image: redis:7
+  #   restart: unless-stopped
+  #   ports:
+  #     - '6379:6379'
 
   # coturn:
   #   image: coturn/coturn:latest
@@ -39,4 +95,5 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  uploads_data:
+  files_data:

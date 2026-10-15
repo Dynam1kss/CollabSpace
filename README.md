@@ -26,16 +26,50 @@ docs/      технічне завдання, план, журнал рішен�
 
 ## Запуск
 
-Потрібні Docker Desktop і Node.js 20+.
+Потрібен Docker Desktop. Одна команда підіймає всю систему: PostgreSQL,
+перехоплювач пошти й сам застосунок.
+
+```bash
+cp .env.example .env     # і впиши свій JWT_SECRET — без нього compose не стартує
+docker compose up --build
+```
+
+- застосунок — `http://localhost:3000` (той самий процес віддає і зібраного
+  клієнта, і REST, і вебсокет, і завантажені файли);
+- скринька, куди падають листи підтвердження адреси, — `http://localhost:1080`.
+
+Перший акаунт заводиться просто в застосунку: відкрити `http://localhost:3000`,
+«Зареєструватися», далі взяти лист у скриньці на 1080 і перейти за
+посиланням — без підтвердженої адреси частина дій закрита. Те саме через API:
+
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"me@example.com","password":"password123","displayName":"Я"}'
+```
+
+Дані переживають перезапуск: база, картинки й прикріплені файли лежать у
+томах `postgres_data`, `uploads_data`, `files_data`.
+
+### Режим розробки
+
+Тут контейнерами підіймаємо лише базу й пошту, а сервер із клієнтом
+запускаються локально — з гарячим перезавантаженням:
 
 ```bash
 cp .env.example .env
-docker compose up -d      # PostgreSQL, Redis, coturn
+docker compose up -d postgres maildev
 npm install
 npm run dev
 ```
 
-Клієнт відкривається на `http://localhost:5173`, сервер слухає `http://localhost:3000`.
+Клієнт відкривається на `http://localhost:5173`, сервер слухає
+`http://localhost:3000`; vite проксіює на нього `/api`, `/ws` і `/uploads`.
+Міграції — `npm run prisma:migrate -w server`.
+
+coturn у `docker-compose.yml` лишився заготовкою: TURN перевіряли зовнішнім
+сервером через `.env`. Redis у складі системи не використовується — стан
+присутності живе в памʼяті процесу сервера, тож сервіс закоментований.
 
 ## Документація
 
