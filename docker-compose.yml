@@ -26,6 +26,15 @@ services:
     ports:
       - '1025:1025'
       - '1080:1080'
+    # власний healthcheck замість образового: той стукає на localhost, а він тут
+    # резолвиться в ::1, тоді як maildev слухає лише 0.0.0.0 — звідси connection
+    # refused і вічний (unhealthy) при цілком живому сервісі
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:1080/healthz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # сервер застосунків: REST, /ws, /uploads і зібраний клієнт — один процес,
   # один контейнер. Окремого nginx нема свідомо: статики тут на кілька
