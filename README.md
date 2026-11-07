@@ -86,3 +86,4 @@ npm test -w client
 
 - [Технічне завдання](docs/ТЗ.md)
 - [План виконання](docs/plan.md)
+- [Результати вимірювань](docs/measurements.md)
