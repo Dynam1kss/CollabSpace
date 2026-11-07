@@ -22,6 +22,12 @@ server/uploads/
 # робочі файли, які не входять до складу роботи
 docs/briefs/
 docs/defense.md
+docs/evidence.md
+docs/journal.md
+docs/screens/
+CLAUDE.md
+.claude/
+Claude outputs/
 *.tsbuildinfo
 
 # кеш прев’ю посилань і прикріплені файли — як і uploads, це дані, а не код
