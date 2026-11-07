@@ -19,15 +19,6 @@ bench/results/*.raw
 server/prisma/dev.db
 server/uploads/
 
-# робочі файли, які не входять до складу роботи
-docs/briefs/
-docs/defense.md
-docs/evidence.md
-docs/journal.md
-docs/_screens_raw/
-CLAUDE.md
-.claude/
-Claude outputs/
 *.tsbuildinfo
 
 # кеш прев’ю посилань і прикріплені файли — як і uploads, це дані, а не код
